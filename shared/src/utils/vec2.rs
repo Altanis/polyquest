@@ -2,6 +2,7 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 use crate::fuzzy_compare;
 
+#[derive(Default, Clone, Copy)]
 pub struct Vector2D {
     pub x: f32,
     pub y: f32
@@ -68,5 +69,10 @@ impl Vector2D {
     /// Whether or not the vector is zero.
     pub fn is_zero(&self, tolerance: f32) -> bool {
         fuzzy_compare!(self.x, 0.0, tolerance) && fuzzy_compare!(self.y, 0.0, tolerance)
+    }
+
+    /// Gets the angle from the x-axis.
+    pub fn angle(&self) -> f32 {
+        f32::atan2(self.y, self.x)
     }
 }
