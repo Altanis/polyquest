@@ -1,3 +1,5 @@
+#![feature(duration_millis_float)]
+
 use server::Server;
 
 mod server;

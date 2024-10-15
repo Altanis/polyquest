@@ -8,13 +8,12 @@ use futures::{stream::SplitSink, SinkExt, StreamExt};
 use shared::{connection::packets::ServerboundPackets, utils::codec::BinaryCodec};
 use tokio::sync::MutexGuard;
 
-use crate::{game::state::{GameServer, GameState}, server::{Server, WrappedServer}};
+use crate::server::{Server, WrappedServer};
 
 use super::packets;
 
 pub struct WebSocketClient {
-    pub sender: SplitSink<WebSocket, Message>,
-    pub id: u32
+    pub sender: SplitSink<WebSocket, Message>
 }
 
 pub struct WebSocketServer {
@@ -46,7 +45,7 @@ impl WebSocketServer {
             let id = full_server.game_server.get_server().get_next_id();
     
             let (sender, receiver) = socket.split();
-            full_server.ws_server.clients.insert(id, WebSocketClient { sender, id });
+            full_server.ws_server.clients.insert(id, WebSocketClient { sender });
 
             (receiver, id)
         };
@@ -76,17 +75,21 @@ impl WebSocketServer {
     }
 
     /// Closes the client.
-    pub fn close_client(&mut self, id: u32, ban: bool) {
-
-    }
+    pub fn close_client(&mut self, id: u32, ban: bool) {}
 
     pub async fn tick(full_server: &mut Server) {
+        full_server.ws_server.ticks += 1;
+
         for (id, ws_client) in full_server.ws_server.clients.iter_mut() {
-            let Some(entity) = full_server.game_server.get_server().get_mut_entity(*id) else {
-                continue;
+            let mut outgoing_packets = {
+                let Some(mut entity) = full_server.game_server.get_server().get_entity(*id) else { continue; };
+                let packets = entity.connection.outgoing_packets.clone();
+                entity.connection.outgoing_packets.clear();
+
+                packets
             };
 
-            while let Some(packet) = entity.connection.outgoing_packets.pop() {
+            while let Some(packet) = outgoing_packets.pop() {
                 let _ = ws_client.sender.send(Message::Binary(packet.out())).await;
             }
         }

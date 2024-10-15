@@ -1,8 +1,12 @@
+use std::{collections::HashMap, time::Instant};
+
 use derive_new::new as New;
 use shared::{connection::packets::{CensusProperties, ClientboundPackets, Inputs}, utils::{codec::BinaryCodec, vec2::Vector2D}};
 use strum::IntoEnumIterator;
 
-use crate::server::FRICTION;
+use crate::{connection::packets, server::FRICTION};
+
+use super::state::EntityDataStructure;
 
 #[derive(Default, Clone, New)]
 pub struct InputFlags(u32);
@@ -43,9 +47,16 @@ pub struct StatsComponent {
     pub alive: bool
 }
 
-#[derive(Default, Clone, New)]
+#[derive(Clone, New)]
 pub struct TimeComponent {
-    pub ticks: u64
+    pub ticks: u64,
+    pub last_tick: Instant
+}
+
+impl Default for TimeComponent {
+    fn default() -> Self {
+        TimeComponent { ticks: 0, last_tick: Instant::now() }
+    }
 }
 
 #[derive(Default, Clone, New)]
@@ -65,13 +76,13 @@ pub struct Entity {
 }
 
 impl Entity {
-    pub fn take_census(&self, codec: &mut BinaryCodec) {
-        if !self.stats.alive {
+    pub fn take_census(&self, codec: &mut BinaryCodec, is_self: bool) {
+        if !is_self && !self.stats.alive {
             codec.encode_varuint(0);
             return;
         }
 
-        codec.encode_varuint(18);
+        codec.encode_varuint(5);
         for property in CensusProperties::iter() {
             codec.encode_varuint(property.clone() as u64);
 
@@ -92,22 +103,24 @@ impl Entity {
         }
     }
 
-    pub fn tick(&mut self, dt: f32) {
-        self.time.ticks += 1;
+    pub fn tick(dt: f32, entities: &EntityDataStructure, id: u32) {
+        let mut self_entity = entities.get(&id).unwrap().borrow_mut();
 
-        if self.stats.health <= 0.0 {
-            self.stats.alive = false;
-        } else if self.stats.health <= self.stats.max_health {
+        self_entity.time.ticks += 1;
+
+        if self_entity.stats.health <= 0.0 {
+            self_entity.stats.alive = false;
+        } else if self_entity.stats.health <= self_entity.stats.max_health {
             // regeneration maybe
         }
 
-        if !self.physics.velocity.is_zero(1e-1) {
-            self.physics.position += self.physics.velocity * dt;
-            self.physics.velocity *= FRICTION;
+        if !self_entity.physics.velocity.is_zero(1e-1) {
+            let velocity = self_entity.physics.velocity;
+            self_entity.physics.position += velocity * dt;
+            self_entity.physics.velocity *= FRICTION;
         }
 
-        let mut codec = BinaryCodec::new();
-        self.take_census(&mut codec);
-        self.connection.outgoing_packets.push(codec)
+        let update_packet = packets::form_update_packet(&self_entity, entities);
+        self_entity.connection.outgoing_packets.push(update_packet);
     }
 }
