@@ -26,10 +26,10 @@ impl InputFlags {
 
 #[derive(Default, Clone, New)]
 pub struct PhysicsComponent {
-    pub position: Vector2D,
-    pub velocity: Vector2D,
+    pub position: Vector2D<f32>,
+    pub velocity: Vector2D<f32>,
     pub inputs: InputFlags,
-    pub mouse: Vector2D
+    pub mouse: Vector2D<f32>
 }
 
 #[derive(Default, Clone, New)]
@@ -54,7 +54,7 @@ pub struct TimeComponent {
 }
 
 impl Default for TimeComponent {
-    fn default() -> Self {
+    fn default() -> TimeComponent {
         TimeComponent { ticks: 0, last_tick: Instant::now() }
     }
 }

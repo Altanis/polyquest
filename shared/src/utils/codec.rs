@@ -10,7 +10,7 @@ impl BinaryCodec {
         BinaryCodec::default()
     }
 
-    pub fn from_bytes(data: Vec<u8>) -> Self {
+    pub fn from_bytes(data: Vec<u8>) -> BinaryCodec {
         BinaryCodec { data, index: 0 }
     }
 
