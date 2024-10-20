@@ -1,7 +1,10 @@
 use gloo::console::console;
-use gloo_utils::window;
-use web_sys::{BeforeUnloadEvent, KeyboardEvent, MouseEvent};
+use gloo_utils::{body, document, window};
+use shared::utils::vec2::Vector2D;
+use web_sys::{wasm_bindgen::JsCast, BeforeUnloadEvent, KeyboardEvent, MouseEvent};
 use crate::world::World;
+
+use super::phases::GamePhase;
 #[derive(Debug)]
 
 pub enum EventType {
@@ -75,9 +78,37 @@ pub fn on_resize(world: &'static mut World) {
 }
 
 pub fn on_mousedown(world: &'static mut World, event: MouseEvent) {}
-
 pub fn on_mouseup(world: &'static mut World, event: MouseEvent) {}
-pub fn on_mousemove(world: &'static mut World, event: MouseEvent) {}
+
+pub fn on_mousemove(world: &'static mut World, event: MouseEvent) {
+    let mut is_hovering = false;
+    
+    let elements = match world.renderer.phase {
+        GamePhase::Home(ref mut elements) => elements,
+        _ => panic!("no support for other phases yet")
+    };
+
+    for ui_element in elements.iter_mut() {
+        let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
+        point *= window().device_pixel_ratio() as f32;
+
+        let hovering = ui_element.get_mut_events().hoverable &&
+            ui_element.get_bounding_rect().intersects(point);
+        ui_element.set_hovering(hovering);
+
+        if !is_hovering && hovering {
+            is_hovering = hovering;
+        }
+    }
+
+    let context = &mut world.renderer.canvas2d;
+
+    if is_hovering {
+        context.set_cursor("pointer");
+    } else {
+        context.set_cursor("default");
+    }
+}
 
 pub fn on_keydown(world: &'static mut World, event: KeyboardEvent) {}
 pub fn on_keyup(world: &'static mut World, event: KeyboardEvent) {}

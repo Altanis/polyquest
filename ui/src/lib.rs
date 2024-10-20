@@ -1,30 +1,21 @@
-use canvas2d::Canvas2d;
-pub trait UiElement {
-    fn setup(&mut self);
-    
-    fn on_hover(&self);
-    fn on_click(&self);
+#![allow(clippy::inherent_to_string)]
 
-    fn render(&self, context: &mut Canvas2d);
+use gloo::utils::window;
+use wasm_bindgen::JsValue;
+use web_sys::js_sys::Reflect;
+
+pub const DEBUG: bool = false;
+
+pub fn get_debug_window_props() -> Result<(JsValue, JsValue), JsValue> {
+    let window = window();
+    let starlight = Reflect::get(&window, &JsValue::from_str("starlight"))?;
+    let moonshine = Reflect::get(&window, &JsValue::from_str("moonshine"))?;
+
+    Ok((starlight, moonshine))
 }
 
-macro_rules! impl_builder {
-    ($Struct:ident { $($field:ident : $type:ty),* $(,)? }) => {
-        impl $Struct {
-            pub fn new() -> $Struct {
-                $Struct::default()
-            }
-
-            $(
-                pub fn $field(mut self, value: $type) -> Self {
-                    self.$field = value;
-                    self
-                }
-            )*
-        }
-    };
-}
-
+pub mod core;
 pub mod color;
 pub mod canvas2d;
 pub mod label;
+pub mod button;

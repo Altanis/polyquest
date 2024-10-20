@@ -1,79 +1,217 @@
-use shared::utils::vec2::Vector2D;
-use crate::{canvas2d::Canvas2d, color::Color, UiElement};
+use shared::{fuzzy_compare, lerp, lerp_angle, utils::vec2::Vector2D};
+use crate::{canvas2d::{Canvas2d, Transform}, color::Color, core::{BoundingRect, Events, HoverEffects, Interpolatable, UiElement}, DEBUG};
 
-#[derive(Default, Clone)]
-pub enum Alignment {
-    #[default]
-    Left,
-    Center,
-    Right
-}
-
-impl Alignment {
-    #[allow(clippy::inherent_to_string)]
-    pub fn to_string(&self) -> String {
-        (match *self {
-            Alignment::Left => "left",
-            Alignment::Center => "center",
-            Alignment::Right => "right"
-        }).to_string()
-    }
-}
-
-#[derive(Clone)]
-pub enum Effect {
-    Typewriter
+pub enum TextEffects {
+    Typewriter(usize, u64) // Typewriter(char_index, tick_interval)
 }
 
 #[derive(Default)]
 pub struct Label {
-    position: Vector2D<f32>,
-    align: Alignment,
-    fill: (u32, Color),
+    transform: Transform,
+    font: Interpolatable<f32>,
+    angle: Interpolatable<f32>,
+    fill: Color,
     stroke: Option<Color>,
-    effects: Vec<Effect>,
-    text: String
-}
+    text: String,
+    dimensions: Vector2D<f32>,
+    effects: Option<TextEffects>,
+    events: Events,
 
-impl_builder!(Label {
-    position: Vector2D<f32>,
-    align: Alignment,
-    fill: (u32, Color),
-    stroke: Option<Color>,
-    effects: Vec<Effect>,
-    text: String
-});
+    ticks: u64,
+}
 
 impl UiElement for Label {
-    fn setup(&mut self) {}
-    
-    fn on_hover(&self) {
-
+    fn get_mut_events(&mut self) -> &mut Events {
+        &mut self.events
     }
 
-    fn on_click(&self) {
-
+    fn set_transform(&mut self, transform: Transform) {
+        self.transform = transform;
     }
 
-    fn render(&self, context: &mut Canvas2d) {
-        context.save();
-        context.translate(self.position.x, self.position.y);
+    fn get_transform(&self) -> &Transform {
+        &self.transform
+    }
 
-        context.set_miter_limit(2.0);
-        context.fill_style(self.fill.1);
-        context.set_font(&format!("bold {}px BankGothic", self.fill.0));
-        context.set_text_align(&self.align.to_string());
+    fn set_hovering(&mut self, val: bool) {
+        self.events.is_hovering = val;
+    }
 
-        if let Some(stroke) = self.stroke {
-            context.stroke_style(stroke);
-            context.set_stroke_size((self.fill.0 / 5) as f64);
-            context.stroke_text(&self.text);
+    fn get_bounding_rect(&self) -> BoundingRect {
+        let mut position = -self.dimensions * (1.0 / 2.0);
+        let mut dimensions = self.dimensions;
+
+        self.transform.transform_point(&mut position);
+
+        let scale = self.transform.get_scale();
+        dimensions.x *= scale.x;
+        dimensions.y *= scale.y;
+
+        BoundingRect::new(
+            position,
+            dimensions
+        )
+    }
+
+    fn render(&mut self, context: &mut Canvas2d) {
+        self.ticks += 1;
+
+        let mut char_index: isize = isize::MAX;
+        if let Some(TextEffects::Typewriter(idx, interval)) = &mut self.effects {
+            if self.ticks % *interval == 0 {
+                *idx += 1;
+            }
+
+            char_index = *idx as isize;
         }
 
-        context.fill_text(&self.text);
+        if self.events.is_hovering {
+            if let Some(inflation) = self.events.hover_effects.iter().find_map(
+            |item| match item {
+                HoverEffects::Inflation(a) => Some(*a),
+                _ => None,
+            }) {
+                self.font.target = self.font.original * inflation;
+            }
 
-        context.restore();
+            if let Some((degrees, infinite)) = self.events.hover_effects.iter().find_map(
+            |item| match item {
+                HoverEffects::Shake(a, b) => Some((*a, *b)),
+                _ => None,
+            }) {
+                if fuzzy_compare!(self.angle.value, self.angle.target, 1e-1) {
+                    self.angle.direction *= -1.0;
+                    if self.angle.direction == 1.0 && !infinite {
+                        self.angle.target = 0.01;
+                    }
+                }
+                
+                if self.angle.target != 0.01 {
+                    self.angle.target = (degrees * (std::f32::consts::PI / 180.0)) * self.angle.direction;
+                } else {
+                    self.angle.direction = 1.0;
+                }
+            }
+        } else {
+            self.font.target = self.font.original;
+            self.angle.target = self.angle.original;
+        }
+
+        self.font.value = lerp!(self.font.value, self.font.target, 0.2);
+        self.angle.value = lerp_angle!(self.angle.value, self.angle.target, 0.25);
+
+        let text: Vec<_> = self.text.split("\n").collect();
+        let stroke_size = self.stroke.map_or(0.0, |_| self.font.value / 5.0);
+        let margin = self.font.value + stroke_size;
+
+        let half_up = text.len() as f32 * margin / 2.0;
+        let (mut width, mut height) = (0.0, 0.0);
+
+        for (i, mut partial) in text.into_iter().enumerate() {
+            char_index -= partial.len() as isize;
+            if char_index < 0 {
+                partial = &partial[0..(partial.len() - char_index.unsigned_abs())];
+            }
+
+            context.save();
+            
+            context.reset_transform();
+            context.set_transform(&self.transform);
+
+            context.translate(
+                0.0,
+                ((i + 1) as f32 * margin) - half_up
+            );
+            context.rotate(self.angle.value);
+    
+            context.set_miter_limit(2.0);
+            context.fill_style(self.fill);
+            context.set_font(&format!("bold {}px Ubuntu", self.font.value as u32));
+            context.set_text_align("center");
+    
+            if stroke_size != 0.0 {
+                context.stroke_style(self.stroke.unwrap());
+                context.set_stroke_size(stroke_size as f64);
+                context.stroke_text(partial);
+            }
+    
+            let metrics = context.measure_text(partial);
+            let text_width = metrics.width() as f32;
+            let text_height = margin;
+    
+            if text_width > width {
+                width = text_width;
+            }
+
+            height += text_height;
+    
+            context.fill_text(partial);
+            context.restore();
+    
+            if DEBUG {
+                self.get_bounding_rect().render(context);
+            }
+
+            if char_index < 0 {
+                break;
+            }
+        }
+
+        self.dimensions = Vector2D::new(width, height);
     }
 }
 
-impl Label {}
+impl Label {
+    pub fn new() -> Label {
+        Label::default()
+    }
+
+    pub fn with_transform(mut self, transform: Transform) -> Label {
+        self.transform = transform;
+        self
+    }
+
+    pub fn with_font(mut self, font: f32) -> Label {
+        self.font = Interpolatable::new(font);
+        self
+    }
+
+    pub fn with_angle(mut self, angle: f32) -> Label {
+        self.angle = Interpolatable::new(angle);
+        self
+    }
+
+    pub fn with_fill(mut self, fill: Color) -> Label {
+        self.fill = fill;
+        self
+    }
+
+    pub fn with_stroke(mut self, stroke: Color) -> Label {
+        self.stroke = Some(stroke);
+        self
+    }
+
+    pub fn with_text(mut self, text: String) -> Label {
+        self.text = text;
+        self
+    }
+
+    pub fn with_dimensions(mut self, dimensions: Vector2D<f32>) -> Label {
+        self.dimensions = dimensions;
+        self
+    }
+
+    pub fn with_effects(mut self, effects: TextEffects) -> Label {
+        self.effects = Some(effects);
+        self
+    }
+
+    pub fn with_events(mut self, events: Events) -> Label {
+        self.events = events;
+        self
+    }
+
+    pub fn set_text(&mut self, text: String) {
+        self.text = text;
+    }
+}

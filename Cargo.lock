@@ -1835,6 +1835,7 @@ dependencies = [
  "derive_builder",
  "gloo",
  "shared",
+ "wasm-bindgen",
  "web-sys",
 ]
 

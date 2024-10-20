@@ -1,12 +1,14 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
 use shared::utils::vec2::Vector2D;
-use ui::{canvas2d::Canvas2d, color::Color, label::{Alignment, Label}, UiElement};
+use ui::{button::Button, canvas2d::{Canvas2d, Transform}, color::Color, core::{Events, HoverEffects, UiElement}, label::Label};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, Performance};
 
-use crate::world::{get_world, World};
+use crate::world::{self, get_world, World};
+
+use super::phases::{GamePhase, HomescreenElements};
 
 #[derive(Default)]
 pub struct TimeInformation {
@@ -15,16 +17,9 @@ pub struct TimeInformation {
     deltas: VecDeque<f64>
 }
 
-pub enum GamePhase {
-    Home,
-    Game,
-    Death
-}
-
 pub struct Renderer {
     pub canvas2d: Canvas2d,
-    pub ui_elements: Vec<Box<dyn UiElement>>,
-    pub mouse: Vector2D<u32>,
+    pub mouse: Vector2D<f32>,
     pub time: TimeInformation,
     pub phase: GamePhase
 }
@@ -35,10 +30,9 @@ impl Renderer {
 
         Renderer {
             canvas2d,
-            ui_elements: Vec::new(),
-            mouse: Vector2D::INTEGER_ZERO,
+            mouse: Vector2D::ZERO,
             time: TimeInformation::default(),
-            phase: GamePhase::Home
+            phase: GamePhase::default()
         }
     }
 
@@ -47,7 +41,6 @@ impl Renderer {
             let time = &mut world.renderer.time;
             time.ticks += 1;
         
-            // let timestamp = window().performance().unwrap().now();
             let delta = timestamp - time.last_render;
             time.last_render = timestamp;
         
@@ -63,7 +56,7 @@ impl Renderer {
         world.renderer.canvas2d.save();
         
         match world.renderer.phase {
-            GamePhase::Home => Renderer::render_homescreen(world, delta_average),
+            GamePhase::Home(_) => Renderer::render_homescreen(world, delta_average),
             GamePhase::Game => Renderer::render_game(world, delta_average),
             _ => ()
         }
@@ -81,26 +74,25 @@ impl Renderer {
     }
 
     pub fn render_homescreen(world: &mut World, delta_average: f64) {
-        let mut dimensions = world.renderer.canvas2d.get_dimensions().to_float();
-        world.renderer.canvas2d.translate(dimensions.x / 2.0, dimensions.y / 2.0);
+        let context = &world.renderer.canvas2d;
+
+        context.save();
+        context.fill_style(Color(14, 14, 14));
+        context.fill_rect(0, 0, context.get_width(), context.get_height());
+        context.restore();
+
+        let mut dimensions = context.get_dimensions();
+        context.translate(dimensions.x / 2.0, dimensions.y / 2.0);
 
         let factor = (dimensions.x / 1920.0).max(dimensions.y / 1080.0);
         dimensions *= 1.0 / factor;
 
-        world.renderer.canvas2d.scale(factor, factor);
+        context.scale(factor, factor);
 
-        if world.renderer.ui_elements.is_empty() {
-            let label = Label::new()
-                .align(Alignment::Center)
-                .fill((108, Color::BLACK))
-                .stroke(Some(Color(255, 0, 0)))
-                .text("Hello world.".to_string());
-
-            world.renderer.ui_elements.push(Box::new(label));
-        }
-
-        for element in world.renderer.ui_elements.iter() {
-            element.render(&mut world.renderer.canvas2d);
+        if world.renderer.time.ticks == 1 {
+            HomescreenElements::setup(world);
+        } else {
+            HomescreenElements::render(world, delta_average);
         }
     }
 

@@ -4,6 +4,15 @@ pub struct Color(pub u8, pub u8, pub u8);
 impl Color {
     pub const BLACK: Color = Color(0, 0, 0);
     pub const WHITE: Color = Color(255, 255, 255);
+    pub const RED: Color = Color(255, 0, 0);
+    pub const GREEN: Color = Color(0, 255, 0);
+    pub const BLUE: Color = Color(0, 0, 255);
+    pub const YELLOW: Color = Color(255, 255, 0);
+    pub const CYAN: Color = Color(0, 255, 255);
+    pub const MAGENTA: Color = Color(255, 0, 255);
+    pub const GRAY: Color = Color(128, 128, 128);
+    pub const ORANGE: Color = Color(255, 165, 0);
+    pub const PURPLE: Color = Color(128, 0, 128);
 
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Color {
         Color(r, g, b)
