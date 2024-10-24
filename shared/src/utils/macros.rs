@@ -32,3 +32,10 @@ macro_rules! lerp_angle
         }
     };
 }
+
+#[macro_export]
+macro_rules! rand {
+    ($min:expr, $max:expr) => {
+        rand::thread_rng().gen_range($min..=$max)
+    };
+}

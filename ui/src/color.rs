@@ -1,3 +1,6 @@
+use shared::rand;
+use rand::Rng;
+
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Color(pub u8, pub u8, pub u8);
 
@@ -14,11 +17,26 @@ impl Color {
     pub const ORANGE: Color = Color(255, 165, 0);
     pub const PURPLE: Color = Color(128, 0, 128);
 
+    pub fn random() -> Color {
+        let colors = [
+            Color::RED, 
+            Color::from_hex("ffa500"),
+            Color::from_hex("0000ff"),
+            Color::from_hex("008000")
+        ];
+
+        colors[rand!(0, colors.len() - 1)]
+    }
+
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Color {
         Color(r, g, b)
     }
 
     pub fn from_hex(hex: &str) -> Color {
+        if hex.starts_with('&') {
+            panic!("use of & inside Color::from_hex; please remove");
+        }
+
         let parsed = u32::from_str_radix(hex, 16).expect("couldnt parse color");
         Color(
             ((parsed >> 16) & 255) as u8,

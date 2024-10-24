@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 derive_builder = "0.20.2"
 gloo = "0.11.0"
+glow = "0.15.0"
+rand = "0.8.5"
 shared = { path = "../shared" }
 wasm-bindgen = "0.2.95"
 
@@ -30,5 +32,11 @@ features = [
   "Location",
   "BeforeUnloadEvent",
   "TextMetrics",
-  "DomMatrix"
+  "DomMatrix",
+  "WebGlRenderingContext",
+  "WebGlTexture",
+  "WebGlShader",
+  "WebGlProgram",
+  "WebGlUniformLocation",
+  "WebGlBuffer"
 ]

@@ -3,12 +3,12 @@ use std::{collections::VecDeque};
 use gloo::console::console;
 use gloo_utils::{document, window};
 use shared::utils::vec2::Vector2D;
-use ui::{button::Button, canvas2d::{Canvas2d, Transform}, color::Color, core::{Events, HoverEffects, UiElement}, label::Label};
+use ui::{canvas2d::{Canvas2d, Transform}, color::Color, core::{Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, gl::webgl::WebGl, translate};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, Performance};
 
 use crate::world::{self, get_world, World};
 
-use super::phases::{GamePhase, HomescreenElements};
+use super::phases::GamePhase;
 
 #[derive(Default)]
 pub struct TimeInformation {
@@ -19,20 +19,33 @@ pub struct TimeInformation {
 
 pub struct Renderer {
     pub canvas2d: Canvas2d,
+    pub gl: WebGl,
+
     pub mouse: Vector2D<f32>,
     pub time: TimeInformation,
-    pub phase: GamePhase
+    pub phase: GamePhase,
+    pub body: Body,
+    pub fps_counter: Label
 }
 
 impl Renderer {
     pub fn new() -> Renderer {
-        let canvas2d = Canvas2d::new(&document());
-
         Renderer {
-            canvas2d,
+            canvas2d: Canvas2d::new(),
+            gl: WebGl::new(),
             mouse: Vector2D::ZERO,
             time: TimeInformation::default(),
-            phase: GamePhase::default()
+            phase: GamePhase::default(),
+            body: Body::default()
+                .with_fill(Color(14, 14, 14))
+                .with_rendering_script(GamePhase::render_homescreen),
+            fps_counter: Label::new()
+                .with_text("165.0 FPS".to_string())
+                .with_fill(Color::WHITE)
+                .with_font(28.0)
+                .with_stroke(Color::BLACK)
+                .with_transform(translate!(75.0, 35.0))
+                .with_events(Events::with_hoverable(false))
         }
     }
 
@@ -53,8 +66,10 @@ impl Renderer {
         };        
 
         world.renderer.canvas2d.clear_rect();
+
         world.renderer.canvas2d.save();
-        
+        world.renderer.canvas2d.set_line_join("round");
+
         match world.renderer.phase {
             GamePhase::Home(_) => Renderer::render_homescreen(world, delta_average),
             GamePhase::Game => Renderer::render_game(world, delta_average),
@@ -62,6 +77,7 @@ impl Renderer {
         }
 
         world.renderer.canvas2d.restore();
+        world.renderer.gl.render(&world.renderer.canvas2d);
 
         let closure = Closure::once(move |ts: f64| {
             Renderer::tick(get_world(), ts);
@@ -74,28 +90,58 @@ impl Renderer {
     }
 
     pub fn render_homescreen(world: &mut World, delta_average: f64) {
-        let context = &world.renderer.canvas2d;
+        let context = &mut world.renderer.canvas2d;
 
-        context.save();
-        context.fill_style(Color(14, 14, 14));
-        context.fill_rect(0, 0, context.get_width(), context.get_height());
-        context.restore();
+        if world.renderer.body.get_mut_children().unwrap().is_empty() {
+            let title = Label::new()
+                .with_text("PolyFlux".to_string())
+                .with_fill(Color::WHITE)
+                .with_font(72.0)
+                .with_stroke(Color::BLACK)
+                .with_transform(translate!(0.0, -80.0))
+                .with_events(Events::with_hoverable(false))
+                .with_effects(TextEffects::Typewriter(0, 2));
 
-        let mut dimensions = context.get_dimensions();
-        context.translate(dimensions.x / 2.0, dimensions.y / 2.0);
+            let text = Label::new()
+                .with_text("Start".to_string())
+                .with_fill(Color::WHITE)
+                .with_font(32.0)
+                .with_stroke(Color::BLACK)
+                .with_transform(translate!(0.0, 10.0))
+                .with_events(Events::with_hover_effects(vec![
+                    HoverEffects::Inflation(1.1)
+                ]));
 
-        let factor = (dimensions.x / 1920.0).max(dimensions.y / 1080.0);
-        dimensions *= 1.0 / factor;
+            let start = Button::new()
+                .with_fill(Color::GREEN)
+                .with_stroke(7.0)
+                .with_roundness(5.0)
+                .with_dimensions(Vector2D::new(200.0, 75.0))
+                .with_transform(translate!(0.0, 100.0))
+                .with_events(Events::with_hover_effects(vec![
+                    HoverEffects::Inflation(1.1),
+                    HoverEffects::AdjustBrightness(0.0)
+                ]))
+                .with_children(vec![Box::new(text)]);
 
-        context.scale(factor, factor);
-
-        if world.renderer.time.ticks == 1 {
-            HomescreenElements::setup(world);
-        } else {
-            HomescreenElements::render(world, delta_average);
+            world.renderer.body.set_children(vec![
+                Box::new(title),
+                Box::new(start)
+            ]);
         }
+
+        Renderer::render_ui(world, delta_average);
     }
 
     pub fn render_game(world: &mut World, delta_average: f64) {
+    }
+
+    pub fn render_ui(world: &mut World, delta_average: f64) {
+        let context = &mut world.renderer.canvas2d;
+
+        world.renderer.body.render(context);
+        world.renderer.fps_counter.render(context);
+
+        world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
     }
 }

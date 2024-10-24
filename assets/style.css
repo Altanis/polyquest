@@ -12,3 +12,35 @@ canvas {
     height: 100%;
     width: 100%;
 }
+
+#offscreen_canvas {
+    display: none;
+    z-index: -9999;
+}
+
+#text_input_container {
+    display: block;
+    position: absolute;
+    border: 5px solid white;
+    z-index: 100;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 10px;
+}
+
+#text_input {
+    border-radius: 5px;
+    width: 340px;
+    height: 45px;
+    line-height: 40px;
+    font-size: 40px;
+    padding-left: 5px;
+    padding-right: 5px;
+    color: white;
+    background-color: rgba(0, 0, 0, 0.9);
+    font-family: "Ubuntu";
+    padding: 5px;
+    border: 0;
+    outline: none;
+}

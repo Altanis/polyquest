@@ -1,0 +1,105 @@
+use shared::utils::vec2::Vector2D;
+
+use crate::{canvas2d::{Canvas2d, Transform}, color::Color, core::{BoundingRect, Events, RenderingScript, UiElement}};
+
+#[derive(Default)]
+pub struct Body {
+    transform: Transform,
+    fill: Color,
+    events: Events,
+    dimensions: Vector2D<f32>,
+    children: Vec<Box<dyn UiElement>>,
+    rendering_script: Option<RenderingScript>
+}
+
+impl UiElement for Body {
+    fn get_mut_events(&mut self) -> &mut Events {
+        &mut self.events
+    }
+
+    fn set_transform(&mut self, transform: Transform) {
+        self.transform = transform.clone();
+    }
+
+    fn get_transform(&self) -> &Transform {
+        &self.transform
+    }
+
+    fn set_hovering(&mut self, val: bool) {
+        self.events.is_hovering = val;
+        for child in self.children.iter_mut() {
+            child.set_hovering(val);
+        }
+    }
+
+    fn get_mut_children(&mut self) -> Option<&mut Vec<Box<dyn UiElement>>> {
+        Some(&mut self.children)
+    }
+
+    fn set_children(&mut self, children: Vec<Box<dyn UiElement>>) {
+        self.children = children;
+    }
+
+    fn get_bounding_rect(&self) -> BoundingRect {
+        BoundingRect::new(
+            Vector2D::ZERO,
+            self.dimensions
+        )
+    }
+
+    fn render(&mut self, context: &mut crate::canvas2d::Canvas2d) {
+        context.save();
+        context.fill_style(self.fill);
+        context.fill_rect(0, 0, context.get_width(), context.get_height());
+        context.restore();
+
+        context.save();
+
+        self.dimensions = context.get_dimensions();
+        context.translate(self.dimensions.x / 2.0, self.dimensions.y / 2.0);
+
+        let factor = (self.dimensions.x / 1920.0).max(self.dimensions.y / 1080.0);
+        self.dimensions *= 1.0 / factor;
+
+        context.scale(factor, factor);
+
+        self.pre_render(context);
+
+        for child in self.children.iter_mut() {
+            child.render(context);
+        }
+
+        context.restore();
+    }
+}
+
+impl Body {
+    pub fn pre_render(&mut self, context: &mut Canvas2d) {
+        if let Some(ref mut render_script) = self.rendering_script {
+            render_script(context);
+        }
+    }
+
+    pub fn with_fill(mut self, fill: Color) -> Body {
+        self.fill = fill;
+        self
+    }
+
+    pub fn with_events(mut self, events: Events) -> Body {
+        self.events = events;
+        self
+    }
+
+    pub fn with_children(mut self, children: Vec<Box<dyn UiElement>>) -> Body {
+        self.children = children;
+        self
+    }
+
+    pub fn with_rendering_script<F>(mut self, rendering_script: F) -> Body
+    where
+        F: FnMut(&mut Canvas2d) + 'static
+    {
+        self.rendering_script = Some(Box::new(rendering_script));
+        self
+    }
+}

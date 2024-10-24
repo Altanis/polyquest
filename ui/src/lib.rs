@@ -15,7 +15,7 @@ pub fn get_debug_window_props() -> Result<(JsValue, JsValue), JsValue> {
 }
 
 pub mod core;
-pub mod color;
 pub mod canvas2d;
-pub mod label;
-pub mod button;
+pub mod gl;
+pub mod color;
+pub mod elements;

@@ -1,7 +1,67 @@
-use shared::utils::vec2::Vector2D;
+use gloo::utils::document;
+use shared::{rand, utils::vec2::Vector2D};
 use web_sys::{wasm_bindgen::JsCast, CanvasRenderingContext2d, Document, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
+use rand::Rng;
 
 use crate::color::Color;
+
+#[macro_export]
+macro_rules! translate {
+    ($a:expr, $b:expr) => {
+        Transform::default().translate($a, $b)
+    }
+}
+
+#[macro_export]
+macro_rules! scale {
+    ($a:expr, $b:expr) => {
+        Transform::default().scale($a, $b)
+    }
+}
+
+#[macro_export]
+macro_rules! rotate {
+    ($a:expr) => {
+        Transform::default().rotate($a)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ShapeType {
+    Circle,
+    Square,
+    Triangle,
+    Pentagon
+}
+
+impl ShapeType {
+    pub fn random() -> ShapeType {
+        match rand!(0, 3) {
+            0 => ShapeType::Circle,
+            1 => ShapeType::Square,
+            2 => ShapeType::Triangle,
+            3 => ShapeType::Pentagon,
+            _ => panic!("invalid shape?")
+        }
+    }
+
+    pub fn render(&self, context: &mut Canvas2d, radius: f32, fill: bool, stroke: bool) {
+        match *self {
+            ShapeType::Circle => context.begin_arc(0.0, 0.0, radius, std::f64::consts::TAU),
+            ShapeType::Square => context.begin_rect(-radius, -radius, radius * 2.0, radius * 2.0),
+            ShapeType::Triangle => context.begin_triangle(radius),
+            ShapeType::Pentagon => context.begin_pentagon(radius),
+        }
+
+        if fill {
+            context.fill();
+        }
+
+        if stroke {
+            context.stroke();
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct Transform {
@@ -112,9 +172,15 @@ pub struct Canvas2d {
     ctx: CanvasRenderingContext2d
 }
 
+impl Default for Canvas2d {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Canvas2d {
-    pub fn new(document: &Document) -> Canvas2d {
-        let canvas = document.get_element_by_id("offscreen_canvas")
+    pub fn new() -> Canvas2d {
+        let canvas = document().get_element_by_id("offscreen_canvas")
             .unwrap()
             .dyn_into::<HtmlCanvasElement>()
             .unwrap();
@@ -130,6 +196,10 @@ impl Canvas2d {
             canvas,
             ctx
         }
+    }
+
+    pub fn get_canvas(&self) -> &HtmlCanvasElement {
+        &self.canvas
     }
 
     pub fn set_cursor(&self, style: &str) {
@@ -154,6 +224,10 @@ impl Canvas2d {
 
     pub fn restore(&self) {
         self.ctx.restore();
+    }
+
+    pub fn set_line_join(&self, value: &str) {
+        self.ctx.set_line_join(value);
     }
 
     pub fn clear_rect(&self) {
@@ -185,6 +259,18 @@ impl Canvas2d {
         self.ctx.set_line_width(size.into());
     }
 
+    pub fn shadow_color(&self, color: Color) {
+        self.ctx.set_shadow_color(&color.css());
+    }
+
+    pub fn shadow_blur(&self, blur: f64) {
+        self.ctx.set_shadow_blur(blur);
+    }
+
+    pub fn global_alpha(&self, alpha: f64) {
+        self.ctx.set_global_alpha(alpha);
+    }
+
     pub fn set_font(&self, font: &str) {
         self.ctx.set_font(font);
     }
@@ -213,14 +299,41 @@ impl Canvas2d {
         self.ctx.stroke_rect(x.into(), y.into(), w.into(), h.into());
     }
 
-    pub fn begin_ellipse<T: Into<f64>>(&self, x: T, y: T, r: T, radians: f64) {
+    pub fn begin_arc<T: Into<f64>>(&self, x: T, y: T, r: T, radians: f64) {
         self.ctx.begin_path();
         let _ = self.ctx.arc(x.into(), y.into(), r.into(), 0.0, radians);
+    }
+
+    pub fn begin_rect<T: Into<f64>>(&self, x: T, y: T, w: T, h: T) {
+        self.ctx.begin_path();
+        self.ctx.rect(x.into(), y.into(), w.into(), h.into());
     }
 
     pub fn begin_round_rect<T: Into<f64>>(&self, x: T, y: T, w: T, h: T, r: T) {
         self.ctx.begin_path();
         let _ = self.ctx.round_rect_with_f64(x.into(), y.into(), w.into(), h.into(), r.into());
+    }
+
+    pub fn begin_triangle<T: Into<f64>>(&self, r: T) {
+        let radius = r.into();
+
+        self.ctx.begin_path();
+        self.ctx.move_to(0.0, -radius * 1.3);
+        self.ctx.line_to(radius * 1.3 * 0.8660254037844387, radius * 1.3 * 0.5);
+        self.ctx.line_to(-radius * 1.3 * 0.8660254037844387, radius * 1.3 * 0.5);
+        self.ctx.close_path();
+    }
+
+    pub fn begin_pentagon<T: Into<f64>>(&self, r: T) {
+        let radius = r.into();
+
+        self.ctx.begin_path();
+        self.ctx.move_to(0.0, -radius);
+        self.ctx.line_to(radius * 0.9510565162951535, -radius * 0.30901699437494745);
+        self.ctx.line_to(radius * 0.5877852522924731, radius * 0.8090169943749473);
+        self.ctx.line_to(-radius * 0.587785252292473, radius * 0.8090169943749475);
+        self.ctx.line_to(-radius * 0.9510565162951536, -radius * 0.30901699437494734);
+        self.ctx.close_path();
     }
 
     pub fn translate<T: Into<f64>>(&self, tx: T, ty: T) {

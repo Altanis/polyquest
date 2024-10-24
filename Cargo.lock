@@ -205,6 +205,7 @@ dependencies = [
  "console_error_panic_hook",
  "gloo",
  "gloo-utils",
+ "rand",
  "reqwest",
  "serde_json",
  "shared",
@@ -709,6 +710,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "glow"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e33cd8ff5e02c1a5463ec10a846c8f3166a3ae0382ec33de6a327ea6dd61c41d"
+dependencies = [
+ "js-sys",
+ "slotmap",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
@@ -1482,6 +1495,7 @@ dependencies = [
 name = "shared"
 version = "0.1.0"
 dependencies = [
+ "rand",
  "strum",
  "strum_macros",
 ]
@@ -1508,6 +1522,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "slotmap"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbff4acf519f630b3a3ddcfaea6c06b42174d9a44bc70c620e9ed1649d58b82a"
+dependencies = [
+ "version_check",
 ]
 
 [[package]]
@@ -1834,6 +1857,8 @@ version = "0.1.0"
 dependencies = [
  "derive_builder",
  "gloo",
+ "glow",
+ "rand",
  "shared",
  "wasm-bindgen",
  "web-sys",

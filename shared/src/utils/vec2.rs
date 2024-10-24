@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-
-use crate::{fuzzy_compare, lerp};
+use crate::{fuzzy_compare, lerp, rand};
+use rand::Rng;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct Vector2D<T> {
@@ -116,5 +116,30 @@ impl Vector2D<f32> {
     pub fn lerp_towards(&mut self, other: Vector2D<f32>, factor: f32) {
         self.x = lerp!(self.x, other.x, factor);
         self.y = lerp!(self.y, other.y, factor);
+    }
+
+    /// Creates a random vector in bounds of [min, max].
+    pub fn from_random(min: f32, max: f32) -> Vector2D<f32> {
+        Vector2D::new(rand!(min, max), rand!(min, max))
+    }
+
+    /// Gets the magnitude^2 of the vector.
+    pub fn magnitude_squared(&self) -> f32 {
+        self.x * self.x + self.y * self.y
+    }
+
+    /// Gets the magnitude of the vector.
+    pub fn magnitude(&self) -> f32 {
+        self.magnitude_squared().sqrt()
+    }    
+
+    /// Gets the distance of the vector from another vector.
+    pub fn distance(self, other: Vector2D<f32>) -> f32 {
+        (other - self).magnitude()
+    }
+
+    /// Gets the distance squared of the vector from another vector.
+    pub fn distance_squared(self, other: Vector2D<f32>) -> f32 {
+        (other - self).magnitude_squared()
     }
 }

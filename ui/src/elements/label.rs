@@ -37,6 +37,10 @@ impl UiElement for Label {
         self.events.is_hovering = val;
     }
 
+    // Text labels are meant to not have children.
+    fn get_mut_children(&mut self) -> Option<&mut Vec<Box<dyn UiElement>>> { None }
+    fn set_children(&mut self, _: Vec<Box<dyn UiElement>>) {}
+
     fn get_bounding_rect(&self) -> BoundingRect {
         let mut position = -self.dimensions * (1.0 / 2.0);
         let mut dimensions = self.dimensions;
@@ -65,46 +69,24 @@ impl UiElement for Label {
             char_index = *idx as isize;
         }
 
-        if self.events.is_hovering {
-            if let Some(inflation) = self.events.hover_effects.iter().find_map(
-            |item| match item {
-                HoverEffects::Inflation(a) => Some(*a),
-                _ => None,
-            }) {
-                self.font.target = self.font.original * inflation;
-            }
+        let mut shake_lerp_factor = 0.25;
 
-            if let Some((degrees, infinite)) = self.events.hover_effects.iter().find_map(
-            |item| match item {
-                HoverEffects::Shake(a, b) => Some((*a, *b)),
-                _ => None,
-            }) {
-                if fuzzy_compare!(self.angle.value, self.angle.target, 1e-1) {
-                    self.angle.direction *= -1.0;
-                    if self.angle.direction == 1.0 && !infinite {
-                        self.angle.target = 0.01;
-                    }
-                }
-                
-                if self.angle.target != 0.01 {
-                    self.angle.target = (degrees * (std::f32::consts::PI / 180.0)) * self.angle.direction;
-                } else {
-                    self.angle.direction = 1.0;
-                }
-            }
+        if self.events.is_hovering {
+            shake_lerp_factor = self.on_hover();
         } else {
             self.font.target = self.font.original;
             self.angle.target = self.angle.original;
         }
 
         self.font.value = lerp!(self.font.value, self.font.target, 0.2);
-        self.angle.value = lerp_angle!(self.angle.value, self.angle.target, 0.25);
+        self.angle.value = lerp_angle!(self.angle.value, self.angle.target, shake_lerp_factor);
 
         let text: Vec<_> = self.text.split("\n").collect();
         let stroke_size = self.stroke.map_or(0.0, |_| self.font.value / 5.0);
         let margin = self.font.value + stroke_size;
 
-        let half_up = text.len() as f32 * margin / 2.0;
+        let text_len = text.len();
+        let half_up = text_len as f32 * margin / 2.0;
         let (mut width, mut height) = (0.0, 0.0);
 
         for (i, mut partial) in text.into_iter().enumerate() {
@@ -114,14 +96,15 @@ impl UiElement for Label {
             }
 
             context.save();
-            
-            context.reset_transform();
             context.set_transform(&self.transform);
 
-            context.translate(
-                0.0,
-                ((i + 1) as f32 * margin) - half_up
-            );
+            if text_len != 1 {
+                context.translate(
+                    0.0,
+                    ((i + 1) as f32 * margin) - half_up
+                );
+            }
+
             context.rotate(self.angle.value);
     
             context.set_miter_limit(2.0);
@@ -158,6 +141,47 @@ impl UiElement for Label {
         }
 
         self.dimensions = Vector2D::new(width, height);
+    }
+}
+
+impl Label {
+    pub fn on_hover(&mut self) -> f32 {
+        let mut slf = 0.25;
+
+        if let Some(inflation) = self.events.hover_effects.iter().find_map(
+        |item| match item {
+            HoverEffects::Inflation(a) => Some(*a),
+            _ => None,
+        }) {
+            self.font.target = self.font.original * inflation;
+        }
+
+        if let Some((degrees, infinite, lf)) = self.events.hover_effects.iter().find_map(
+        |item| match item {
+            HoverEffects::Shake(a, b, c) => Some((*a, *b, *c)),
+            _ => None,
+        }) {
+            if fuzzy_compare!(self.angle.value, self.angle.target, 1e-1) {
+                self.angle.direction *= -1.0;
+                if self.angle.direction == 1.0 && !infinite {
+                    self.angle.target = 0.01;
+                }
+            }
+            
+            if self.angle.target != 0.01 {
+                self.angle.target = (degrees * (std::f32::consts::PI / 180.0)) * self.angle.direction;
+            } else {
+                self.angle.direction = 1.0;
+            }
+
+            slf = lf;
+        }
+
+        slf
+    }
+
+    pub fn set_text(&mut self, text: String) {
+        self.text = text;
     }
 }
 
@@ -209,9 +233,5 @@ impl Label {
     pub fn with_events(mut self, events: Events) -> Label {
         self.events = events;
         self
-    }
-
-    pub fn set_text(&mut self, text: String) {
-        self.text = text;
     }
 }

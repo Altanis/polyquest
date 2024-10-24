@@ -7,6 +7,9 @@ pub trait UiElement {
     fn set_transform(&mut self, transform: Transform);
     fn get_transform(&self) -> &Transform;
 
+    fn get_mut_children(&mut self) -> Option<&mut Vec<Box<dyn UiElement>>>;
+    fn set_children(&mut self, children: Vec<Box<dyn UiElement>>);
+
     fn set_hovering(&mut self, val: bool);
 
     fn get_bounding_rect(&self) -> BoundingRect;
@@ -39,7 +42,7 @@ impl BoundingRect {
         context.fill_style(Color(255, 0, 0));
         context.stroke_style(Color(255, 0, 0));
 
-        context.begin_ellipse(0.0, 0.0, 5.0, std::f64::consts::TAU);
+        context.begin_arc(0.0, 0.0, 5.0, std::f64::consts::TAU);
         context.fill();
 
         context.stroke_rect(0.0, 0.0, self.dimensions.x, self.dimensions.y);
@@ -90,7 +93,7 @@ impl Events {
 pub enum HoverEffects {
     Inflation(f32), // Inflation(blowup_factor)
     AdjustBrightness(f32), // AdjustBrightness(brightness)
-    Shake(f32, bool), // Shake(+/- angle, infinite)
+    Shake(f32, bool, f32), // Shake(+/- angle, infinite, factor)
 }
 
 pub struct Interpolatable<T: Default + Clone> {
@@ -121,3 +124,5 @@ impl<T: Default + Clone> Interpolatable<T> {
         }
     }
 }
+
+pub type RenderingScript = Box<dyn FnMut(&mut Canvas2d)>;
