@@ -1,7 +1,5 @@
-use gloo::console::console;
 use shared::{fuzzy_compare, lerp_angle, utils::vec2::Vector2D};
-
-use crate::{canvas2d::{Canvas2d, Transform}, color::Color, core::{BoundingRect, Events, HoverEffects, Interpolatable, UiElement}, elements::label::Label, DEBUG};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, Events, HoverEffects, Interpolatable, UiElement}, utils::color::Color, DEBUG};
 
 #[derive(Default)]
 pub struct Button
@@ -37,6 +35,10 @@ impl UiElement for Button {
         for child in self.children.iter_mut() {
             child.set_hovering(val);
         }
+    }
+
+    fn set_clicked(&mut self, val: bool) {
+        self.events.is_clicked = val;
     }
 
     fn get_mut_children(&mut self) -> Option<&mut Vec<Box<dyn UiElement>>> {
@@ -75,6 +77,10 @@ impl UiElement for Button {
             self.dimensions.target = self.dimensions.original;
             self.angle.target = self.angle.original;
             // self.transform.target = self.transform.original.clone();
+        }
+
+        if self.events.is_clicked {
+            self.on_click();
         }
 
         self.dimensions.value.lerp_towards(self.dimensions.target, 0.2);
@@ -129,6 +135,13 @@ impl UiElement for Button {
 }
 
 impl Button {
+    fn on_click(&mut self) {
+        self.events.is_clicked = false;
+        if let Some(click_fn) = &self.events.on_click {
+            (click_fn)();
+        }
+    }
+
     fn on_hover(&mut self) -> f32 {
         let mut slf = 0.25;
 

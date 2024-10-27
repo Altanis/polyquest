@@ -1,9 +1,9 @@
-use gloo::utils::document;
+use gloo::utils::{document, window};
 use shared::{rand, utils::vec2::Vector2D};
-use web_sys::{wasm_bindgen::JsCast, CanvasRenderingContext2d, Document, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
+use web_sys::{wasm_bindgen::JsCast, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
 use rand::Rng;
 
-use crate::color::Color;
+use crate::utils::color::Color;
 
 #[macro_export]
 macro_rules! translate {
@@ -172,18 +172,19 @@ pub struct Canvas2d {
     ctx: CanvasRenderingContext2d
 }
 
-impl Default for Canvas2d {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Canvas2d {
-    pub fn new() -> Canvas2d {
-        let canvas = document().get_element_by_id("offscreen_canvas")
-            .unwrap()
-            .dyn_into::<HtmlCanvasElement>()
-            .unwrap();
+    pub fn new(id: &str) -> Canvas2d {
+        let canvas = if id.is_empty() {
+            document().create_element("canvas")
+                .unwrap()
+                .dyn_into::<HtmlCanvasElement>()
+                .unwrap()
+        } else {
+            document().get_element_by_id(id)
+                .unwrap()
+                .dyn_into::<HtmlCanvasElement>()
+                .unwrap()
+        };
 
         let ctx = canvas
             .get_context("2d")
@@ -192,10 +193,14 @@ impl Canvas2d {
             .dyn_into::<CanvasRenderingContext2d>()
             .unwrap();
 
-        Canvas2d {
+        let canvas = Canvas2d {
             canvas,
             ctx
-        }
+        };
+
+        canvas.resize(&window());
+
+        canvas
     }
 
     pub fn get_canvas(&self) -> &HtmlCanvasElement {

@@ -1,5 +1,5 @@
 use shared::utils::vec2::Vector2D;
-use crate::{canvas2d::{Canvas2d, Transform}, color::Color};
+use crate::{canvas2d::{Canvas2d, Transform}, utils::{color::Color, sound::Sound}};
 
 pub trait UiElement {
     fn get_mut_events(&mut self) -> &mut Events;
@@ -11,6 +11,7 @@ pub trait UiElement {
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>);
 
     fn set_hovering(&mut self, val: bool);
+    fn set_clicked(&mut self, val: bool);
 
     fn get_bounding_rect(&self) -> BoundingRect;
     fn render(&mut self, context: &mut Canvas2d);
@@ -54,8 +55,9 @@ impl BoundingRect {
 pub struct Events {
     pub hoverable: bool,
     pub is_hovering: bool,
+    pub is_clicked: bool,
     pub hover_effects: Vec<HoverEffects>,
-    pub on_click: fn()
+    pub on_click: Option<Box<OnClickScript>>
 }
 
 impl Default for Events {
@@ -63,33 +65,31 @@ impl Default for Events {
         Events {
             hoverable: true,
             is_hovering: false,
-            hover_effects: Vec::new(),
-            on_click: || {}
+            is_clicked: false,
+            hover_effects: vec![],
+            on_click: None
         }
     }
 }
 
 impl Events {
-    pub fn with_hoverable(hoverable: bool) -> Events {
-        Events {
-            hoverable,
-            is_hovering: false,
-            hover_effects: Vec::new(),
-            on_click: || {}
-        }
+    pub fn with_hoverable(mut self, hoverable: bool) -> Events {
+        self.hoverable = hoverable;
+        self
     }
 
-    pub fn with_hover_effects(effects: Vec<HoverEffects>) -> Events {
-        Events {
-            hoverable: true,
-            is_hovering: false,
-            hover_effects: effects,
-            on_click: || {}
-        }
+    pub fn with_hover_effects(mut self, hover_effects: Vec<HoverEffects>) -> Events {
+        self.hover_effects = hover_effects;
+        self
+    }
+
+    pub fn with_on_click(mut self, click_fn: Box<OnClickScript>) -> Events {
+        self.on_click = Some(click_fn);
+        self
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum HoverEffects {
     Inflation(f32), // Inflation(blowup_factor)
     AdjustBrightness(f32), // AdjustBrightness(brightness)
@@ -125,4 +125,5 @@ impl<T: Default + Clone> Interpolatable<T> {
     }
 }
 
-pub type RenderingScript = Box<dyn FnMut(&mut Canvas2d)>;
+pub type RenderingScript = dyn FnMut(&mut Canvas2d);
+pub type OnClickScript = dyn Fn();

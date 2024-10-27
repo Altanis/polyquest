@@ -1,4 +1,5 @@
 #![allow(clippy::inherent_to_string)]
+#![allow(clippy::new_without_default)]
 
 use gloo::utils::window;
 use wasm_bindgen::JsValue;
@@ -17,5 +18,5 @@ pub fn get_debug_window_props() -> Result<(JsValue, JsValue), JsValue> {
 pub mod core;
 pub mod canvas2d;
 pub mod gl;
-pub mod color;
+pub mod utils;
 pub mod elements;

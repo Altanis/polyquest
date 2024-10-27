@@ -1,5 +1,5 @@
 use shared::{fuzzy_compare, lerp, lerp_angle, utils::vec2::Vector2D};
-use crate::{canvas2d::{Canvas2d, Transform}, color::Color, core::{BoundingRect, Events, HoverEffects, Interpolatable, UiElement}, DEBUG};
+use crate::{canvas2d::{Canvas2d, Transform}, utils::color::Color, core::{BoundingRect, Events, HoverEffects, Interpolatable, UiElement}, DEBUG};
 
 pub enum TextEffects {
     Typewriter(usize, u64) // Typewriter(char_index, tick_interval)
@@ -35,6 +35,10 @@ impl UiElement for Label {
 
     fn set_hovering(&mut self, val: bool) {
         self.events.is_hovering = val;
+    }
+
+    fn set_clicked(&mut self, val: bool) {
+        self.events.is_clicked = val;
     }
 
     // Text labels are meant to not have children.

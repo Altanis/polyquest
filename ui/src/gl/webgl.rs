@@ -1,14 +1,15 @@
 use gloo::utils::document;
 use wasm_bindgen::JsCast;
-use web_sys::{js_sys::Float32Array, HtmlCanvasElement, WebGlRenderingContext, Window};
+use web_sys::{js_sys::Float32Array, HtmlCanvasElement, WebGlProgram, WebGlRenderingContext, Window};
 
 use crate::canvas2d::Canvas2d;
 
-use super::shaders::{NORMAL_FRAG_SHADER, NORMAL_VERT_SHADER};
+use super::shaders::{CRT_FRAG_SHADER, NORMAL_VERT_SHADER};
 
 pub struct WebGl {
     canvas: HtmlCanvasElement,
-    ctx: WebGlRenderingContext
+    ctx: WebGlRenderingContext,
+    program: WebGlProgram
 }
 
 impl Default for WebGl {
@@ -72,10 +73,48 @@ impl WebGl {
             .dyn_into::<WebGlRenderingContext>()
             .unwrap();
 
+        let program = WebGl::init_program(&ctx, NORMAL_VERT_SHADER, CRT_FRAG_SHADER);
+
         WebGl {
             canvas,
-            ctx
+            ctx,
+            program
         }
+    }
+
+    pub fn init_program(gl: &WebGlRenderingContext, vert: &str, frag: &str) -> WebGlProgram {
+        let vert_shader = compile_shader(gl, WebGlRenderingContext::VERTEX_SHADER, vert).expect("c");
+        let frag_shader = compile_shader(gl, WebGlRenderingContext::FRAGMENT_SHADER, frag).expect("d");
+    
+        let program = link_program(gl, &vert_shader, &frag_shader).expect("a");
+
+        let position_loc = gl.get_attrib_location(&program, "a_position") as u32;
+        let texcoord_loc = gl.get_attrib_location(&program, "a_texcoord") as u32;
+    
+        let vertices: [f32; 20] = [
+            -1.0, -1.0, 0.0, 0.0, 1.0,
+            1.0, -1.0, 0.0, 1.0, 1.0,   
+            -1.0,  1.0, 0.0, 0.0, 0.0,
+            1.0,  1.0, 0.0, 1.0, 0.0,
+        ];
+    
+        let buffer = gl.create_buffer().ok_or("failed to create buffer").expect("b");
+        gl.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&buffer));
+        unsafe {
+            let vertices_array = Float32Array::view(&vertices);
+            gl.buffer_data_with_array_buffer_view(
+                WebGlRenderingContext::ARRAY_BUFFER,
+                &vertices_array,
+                WebGlRenderingContext::STATIC_DRAW,
+            );
+        }
+    
+        gl.vertex_attrib_pointer_with_i32(position_loc, 3, WebGlRenderingContext::FLOAT, false, 20, 0);
+        gl.enable_vertex_attrib_array(position_loc);
+        gl.vertex_attrib_pointer_with_i32(texcoord_loc, 2, WebGlRenderingContext::FLOAT, false, 20, 12);
+        gl.enable_vertex_attrib_array(texcoord_loc);
+
+        program
     }
 
     pub fn set_cursor(&self, style: &str) {
@@ -124,45 +163,19 @@ impl WebGl {
         );    
     }
 
-    pub fn render(&self, context: &Canvas2d) {
+    pub fn render(&self, context: &Canvas2d, time: f64) {   
         let gl = &self.ctx;
 
-        let vert_shader = compile_shader(gl, WebGlRenderingContext::VERTEX_SHADER, NORMAL_VERT_SHADER).expect("c");
-        let frag_shader = compile_shader(gl, WebGlRenderingContext::FRAGMENT_SHADER, NORMAL_FRAG_SHADER).expect("d");
-    
-        let program = link_program(gl, &vert_shader, &frag_shader).expect("a");
+        gl.use_program(Some(&self.program));
+        
+        let texture_loc = gl.get_uniform_location(&self.program, "u_texture");
+        let resolution_loc = gl.get_uniform_location(&self.program, "u_resolution");
+        let time_loc = gl.get_uniform_location(&self.program, "u_time");
 
-        let position_loc = gl.get_attrib_location(&program, "a_position") as u32;
-        let texcoord_loc = gl.get_attrib_location(&program, "a_texcoord") as u32;
-        let texture_loc = gl.get_uniform_location(&program, "u_texture");
-    
-        let vertices: [f32; 20] = [
-            -1.0, -1.0, 0.0, 0.0, 0.0,
-            1.0, -1.0, 0.0, 1.0, 0.0,   
-            -1.0,  1.0, 0.0, 0.0, 1.0,
-            1.0,  1.0, 0.0, 1.0, 1.0,
-        ];
-    
-        let buffer = gl.create_buffer().ok_or("failed to create buffer").expect("b");
-        gl.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&buffer));
-        unsafe {
-            let vertices_array = Float32Array::view(&vertices);
-            gl.buffer_data_with_array_buffer_view(
-                WebGlRenderingContext::ARRAY_BUFFER,
-                &vertices_array,
-                WebGlRenderingContext::STATIC_DRAW,
-            );
-        }
-    
-        gl.vertex_attrib_pointer_with_i32(position_loc, 3, WebGlRenderingContext::FLOAT, false, 20, 0);
-        gl.enable_vertex_attrib_array(position_loc);
-        gl.vertex_attrib_pointer_with_i32(texcoord_loc, 2, WebGlRenderingContext::FLOAT, false, 20, 12);
-        gl.enable_vertex_attrib_array(texcoord_loc);
-    
-        gl.use_program(Some(&program));
-
-        self.draw_crc2d(context);
         gl.uniform1i(texture_loc.as_ref(), 0);
+        gl.uniform1f(time_loc.as_ref(), time as f32);
+        self.draw_crc2d(context);
+        gl.uniform2fv_with_f32_array(resolution_loc.as_ref(), &[context.get_width() as f32, context.get_height() as f32]);
         gl.viewport(0, 0, context.get_width() as i32, context.get_height() as i32);
     
         gl.clear_color(0.0, 0.0, 0.0, 1.0);

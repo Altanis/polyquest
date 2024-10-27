@@ -1,9 +1,10 @@
 use std::{borrow::BorrowMut, cell::RefCell, ops::DerefMut, rc::Rc, sync::{LazyLock, Mutex, MutexGuard}};
 
 use gloo_utils::window;
+use ui::utils::sound::Sound;
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast, JsValue}, BeforeUnloadEvent, Event, KeyboardEvent, MouseEvent};
 
-use crate::{core::rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, register_event};
+use crate::{register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}};
 
 pub type LockedWorld = MutexGuard<'static, Option<Box<World>>>;
 
@@ -27,13 +28,15 @@ pub fn get_world() -> &'static mut World {
 }
 
 pub struct World {
-    pub renderer: Renderer
+    pub renderer: Renderer,
+    pub soundtrack: Sound
 }
 
 impl World {
     pub fn new() -> World {
         World {
-            renderer: Renderer::new()
+            renderer: Renderer::new(),
+            soundtrack: Sound::new("soundtrack_home", true)
         }
     }
 

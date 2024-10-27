@@ -2,7 +2,9 @@
 
 extern crate console_error_panic_hook;
 
-mod core;
+mod connection;
+mod rendering;
+mod simulation;
 mod world;
 
 use std::panic;

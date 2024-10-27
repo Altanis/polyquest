@@ -36,5 +36,6 @@ features = [
   "HtmlDivElement",
   "Performance",
   "Location",
-  "BeforeUnloadEvent"
+  "BeforeUnloadEvent",
+  "HtmlAudioElement"
 ]

@@ -1,6 +1,6 @@
 use shared::utils::vec2::Vector2D;
 
-use crate::{canvas2d::{Canvas2d, Transform}, color::Color, core::{BoundingRect, Events, RenderingScript, UiElement}};
+use crate::{canvas2d::{Canvas2d, Transform}, utils::color::Color, core::{BoundingRect, Events, RenderingScript, UiElement}};
 
 #[derive(Default)]
 pub struct Body {
@@ -9,7 +9,7 @@ pub struct Body {
     events: Events,
     dimensions: Vector2D<f32>,
     children: Vec<Box<dyn UiElement>>,
-    rendering_script: Option<RenderingScript>
+    rendering_script: Option<Box<RenderingScript>>
 }
 
 impl UiElement for Body {
@@ -25,12 +25,8 @@ impl UiElement for Body {
         &self.transform
     }
 
-    fn set_hovering(&mut self, val: bool) {
-        self.events.is_hovering = val;
-        for child in self.children.iter_mut() {
-            child.set_hovering(val);
-        }
-    }
+    fn set_hovering(&mut self, _: bool) {}
+    fn set_clicked(&mut self, _: bool) {}
 
     fn get_mut_children(&mut self) -> Option<&mut Vec<Box<dyn UiElement>>> {
         Some(&mut self.children)

@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@700&display=swap');
+/* @import url('https://fonts.cdnfonts.com/css/minecraft-4'); */
+/* @import url('https://fonts.googleapis.com/css2?family=Tiny5&display=swap'); */
 
 body {
     margin: 0;
@@ -21,7 +23,7 @@ canvas {
 #text_input_container {
     display: block;
     position: absolute;
-    border: 5px solid white;
+    border: 5px solid rgba(255, 255, 255, 0.75);
     z-index: 100;
     top: 50%;
     left: 50%;
@@ -37,7 +39,7 @@ canvas {
     font-size: 40px;
     padding-left: 5px;
     padding-right: 5px;
-    color: white;
+    color: rgba(255, 255, 255, 0.75);
     background-color: rgba(0, 0, 0, 0.9);
     font-family: "Ubuntu";
     padding: 5px;
