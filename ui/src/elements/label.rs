@@ -1,8 +1,9 @@
+use gloo::{console::console, utils::window};
 use shared::{fuzzy_compare, lerp, lerp_angle, utils::vec2::Vector2D};
-use crate::{canvas2d::{Canvas2d, Transform}, utils::color::Color, core::{BoundingRect, Events, HoverEffects, Interpolatable, UiElement}, DEBUG};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, Events, HoverEffects, Interpolatable, UiElement}, utils::{color::Color, sound::Sound}, DEBUG};
 
 pub enum TextEffects {
-    Typewriter(usize, u64) // Typewriter(char_index, tick_interval)
+    Typewriter(usize, u64, Option<Sound>) // Typewriter(char_index, tick_interval)
 }
 
 #[derive(Default)]
@@ -15,6 +16,7 @@ pub struct Label {
     text: String,
     dimensions: Vector2D<f32>,
     effects: Option<TextEffects>,
+    children: Vec<Box<dyn UiElement>>,
     events: Events,
 
     ticks: u64,
@@ -42,7 +44,10 @@ impl UiElement for Label {
     }
 
     // Text labels are meant to not have children.
-    fn get_mut_children(&mut self) -> Option<&mut Vec<Box<dyn UiElement>>> { None }
+    fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
+        &mut self.children
+    }
+
     fn set_children(&mut self, _: Vec<Box<dyn UiElement>>) {}
 
     fn get_bounding_rect(&self) -> BoundingRect {
@@ -65,12 +70,20 @@ impl UiElement for Label {
         self.ticks += 1;
 
         let mut char_index: isize = isize::MAX;
-        if let Some(TextEffects::Typewriter(idx, interval)) = &mut self.effects {
-            if self.ticks % *interval == 0 {
+        if let Some(TextEffects::Typewriter(idx, interval, sound)) = &mut self.effects {
+            char_index = *idx as isize;
+            
+            if window().navigator().user_activation().has_been_active() && let Some(sound) = sound {
+                if !sound.is_playing() && (char_index as usize) < self.text.len() {
+                    sound.play();
+                } else if sound.is_playing() && (char_index as usize) >= self.text.len() {
+                    sound.stop(0.9);
+                }
+            }
+            
+            if self.ticks % *interval == 0 && (char_index as usize) < self.text.len() {
                 *idx += 1;
             }
-
-            char_index = *idx as isize;
         }
 
         let mut shake_lerp_factor = 0.25;

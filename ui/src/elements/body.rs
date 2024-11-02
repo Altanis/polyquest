@@ -8,8 +8,7 @@ pub struct Body {
     fill: Color,
     events: Events,
     dimensions: Vector2D<f32>,
-    children: Vec<Box<dyn UiElement>>,
-    rendering_script: Option<Box<RenderingScript>>
+    children: Vec<Box<dyn UiElement>>
 }
 
 impl UiElement for Body {
@@ -28,8 +27,8 @@ impl UiElement for Body {
     fn set_hovering(&mut self, _: bool) {}
     fn set_clicked(&mut self, _: bool) {}
 
-    fn get_mut_children(&mut self) -> Option<&mut Vec<Box<dyn UiElement>>> {
-        Some(&mut self.children)
+    fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
+        &mut self.children
     }
 
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>) {
@@ -58,24 +57,10 @@ impl UiElement for Body {
         self.dimensions *= 1.0 / factor;
 
         context.scale(factor, factor);
-
-        self.pre_render(context);
-
-        for child in self.children.iter_mut() {
-            child.render(context);
-        }
-
-        context.restore();
     }
 }
 
 impl Body {
-    pub fn pre_render(&mut self, context: &mut Canvas2d) {
-        if let Some(ref mut render_script) = self.rendering_script {
-            render_script(context);
-        }
-    }
-
     pub fn with_fill(mut self, fill: Color) -> Body {
         self.fill = fill;
         self
@@ -88,14 +73,6 @@ impl Body {
 
     pub fn with_children(mut self, children: Vec<Box<dyn UiElement>>) -> Body {
         self.children = children;
-        self
-    }
-
-    pub fn with_rendering_script<F>(mut self, rendering_script: F) -> Body
-    where
-        F: FnMut(&mut Canvas2d) + 'static
-    {
-        self.rendering_script = Some(Box::new(rendering_script));
         self
     }
 }

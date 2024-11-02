@@ -1,30 +1,24 @@
-use std::{borrow::BorrowMut, cell::RefCell, ops::DerefMut, rc::Rc, sync::{LazyLock, Mutex, MutexGuard}};
-
+use std::{borrow::BorrowMut, cell::RefCell, ops::DerefMut, rc::Rc, sync::{LazyLock, MappedMutexGuard, Mutex, MutexGuard}};
+use send_wrapper::SendWrapper;
 use gloo_utils::window;
 use ui::utils::sound::Sound;
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast, JsValue}, BeforeUnloadEvent, Event, KeyboardEvent, MouseEvent};
 
-use crate::{register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}};
+use crate::{register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, storage_get};
 
-pub type LockedWorld = MutexGuard<'static, Option<Box<World>>>;
+pub type LockedWorld = MutexGuard<'static, Box<World>>;
 
-pub static mut WORLD: Mutex<Option<Box<World>>> = Mutex::new(None);
+pub static WORLD: Mutex<Option<Box<SendWrapper<World>>>> = Mutex::new(None);
 
 pub fn init_world() {
-    unsafe {
-        *WORLD.borrow_mut() = Some(Box::new(World::new())).into();
-    }
+    *WORLD.lock().unwrap() = Some(Box::new(SendWrapper::new(World::new())));
 }
 
-pub fn get_world() -> &'static mut World {
-    unsafe {
-        let mut world_guard = WORLD.lock().unwrap();
-        if let Some(ref mut world) = *world_guard {
-            std::mem::transmute::<&mut World, &'static mut World>(world.deref_mut())
-        } else {
-            panic!("world accessed without it being set");
-        }
-    }
+pub fn get_world() -> MappedMutexGuard<'static, Box<SendWrapper<World>>> {
+    let mut world_guard = WORLD.lock().unwrap();
+    MutexGuard::map(world_guard, |world_opt| {
+        world_opt.as_mut().expect("WORLD has not been initialized")
+    })
 }
 
 pub struct World {
@@ -36,7 +30,11 @@ impl World {
     pub fn new() -> World {
         World {
             renderer: Renderer::new(),
-            soundtrack: Sound::new("soundtrack_home", true)
+            soundtrack: if storage_get!("lore_done").is_none() {
+                Sound::new("soundtrack_lore", true)
+            } else {
+                Sound::new("soundtrack_home", true)
+            }
         }
     }
 
@@ -61,7 +59,7 @@ impl World {
 
         {
             let closure = Closure::wrap(Box::new(move |ts: f64| {
-                Renderer::tick(get_world(), ts);
+                Renderer::tick(&mut get_world(), ts);
             }) as Box<dyn FnMut(_)>);
             
             let _ = window()

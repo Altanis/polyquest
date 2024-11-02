@@ -3,11 +3,13 @@ use gloo_utils::{document, window};
 use shared::{rand, utils::vec2::Vector2D};
 use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{Events, HoverEffects, UiElement}, elements::{button::Button, label::{Label, TextEffects}}, translate, utils::{color::Color, sound::Sound}};
 use rand::Rng;
-use web_sys::{wasm_bindgen::JsCast, HtmlInputElement};
-use crate::world::{get_world, World};
+use wasm_bindgen_futures::spawn_local;
+use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement};
+use crate::{storage_get, world::{get_world, World}};
 
+#[derive(Debug, Clone)]
 pub enum GamePhase {
-    Lore,
+    Lore(u8),
     Home(Box<HomescreenElements>),
     Game,
     Death
@@ -15,11 +17,17 @@ pub enum GamePhase {
 
 impl Default for GamePhase {
     fn default() -> Self {
-        GamePhase::Home(Box::default())
+        let lore_played = storage_get!("lore_done");
+
+        if lore_played.is_none() {
+            GamePhase::Lore(0)
+        } else {
+            GamePhase::Home(Box::default())
+        }
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct Shape {
     position: Vector2D<f32>,
     color: Color,
@@ -29,6 +37,7 @@ struct Shape {
     shape: ShapeType
 }
 
+#[derive(Debug, Clone)]
 pub struct HomescreenElements {
     shapes: [Shape; 50]
 }
@@ -70,8 +79,96 @@ impl Default for HomescreenElements {
 }
 
 impl GamePhase {
-    pub fn generate_lore_elements() -> Vec<Box<dyn UiElement>> {
-        vec![]
+    pub fn generate_lore_elements(world: &mut World) -> Vec<Box<dyn UiElement>> {
+        let GamePhase::Lore(phase) = world.renderer.phase else { return vec![]; };
+
+        let text = match phase {
+            0 => "Are you there?",
+            1 => "Long ago, peace thrived\nacross the universe.",
+            2 => "Civilizations from distant worlds shared\nknowledge, power, and resources in harmony.",
+            3 => "Health, Energy, Experience.\nEvery known being relies on these essentials.",
+            4 => "Health flows from cometary waters.\nEnergy from the stars.\nExperience from the resources of planets.",
+            5 => "As populations grew,\ndemand for these resources surged.",
+            6 => "Supplies dwindled, and once-peaceful\n societies turned to conflict.",
+            7 => "Alliances formed, each racing to\n amass resources, while tensions flared.",
+            8 => "Some civilizations rose up for peace.",
+            9 => "They were all eventually killed.",
+            10 => "Survive.\nHarvest Health, Energy, and Experience.",
+            11 => "Trade with allies for weapons and gear.",
+            12 => "Good luck.",
+            _ => {
+                world.soundtrack = Sound::new("soundtrack_home", true);
+                world.renderer.phase = GamePhase::Home(Box::default());
+
+                document().get_element_by_id("text_input_container")
+                    .unwrap()
+                    .dyn_into::<HtmlDivElement>()
+                    .unwrap()
+                    .style()
+                    .set_property("display", "block");
+
+                return vec![];
+            }
+        };
+
+        if phase == 9 {
+            world.soundtrack.stop(0.0);
+        }
+
+        let sound_name = if phase == 9 { "dialogue_unsettling" } else { "dialogue_normal" };
+
+        let dialogue = Label::new()
+            .with_text(text.to_string())
+            .with_fill(Color::WHITE)
+            .with_font(36.0)
+            .with_stroke(Color::BLACK)
+            .with_transform(translate!(0.0, -80.0))
+            .with_events(Events::default().with_hoverable(false))
+            .with_effects(TextEffects::Typewriter(
+                0, 
+                2,
+                Some(Sound::new(
+                    sound_name,
+                    false
+                ))
+            ));
+
+        let continue_text = Label::new()
+            .with_text("Continue".to_string())
+            .with_fill(Color::WHITE)
+            .with_font(32.0)
+            .with_stroke(Color::BLACK)
+            .with_transform(translate!(0.0, 10.0))
+            .with_events(Events::default()
+                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+            );
+
+        let start = Button::new()
+            .with_fill(Color::GREEN)
+            .with_stroke(7.0)
+            .with_roundness(5.0)
+            .with_dimensions(Vector2D::new(200.0, 75.0))
+            .with_transform(translate!(0.0, 100.0))
+            .with_events(Events::default()
+                .with_hover_effects(vec![
+                    HoverEffects::Inflation(1.1),
+                    HoverEffects::AdjustBrightness(0.0)
+                ])
+                .with_on_click(Box::new(|| {
+                    spawn_local(async {
+                        Sound::new(sound_name, false).stop(0.0);
+
+                        let mut world = get_world();
+                        let GamePhase::Lore(phase) = &mut world.renderer.phase else { return; };
+
+                        *phase += 1;
+                        world.renderer.body.set_children(vec![]);
+                    });
+                }))
+            )
+            .with_children(vec![Box::new(continue_text)]);
+
+        vec![Box::new(dialogue), Box::new(start)]
     }
 
     pub fn generate_homescreen_elements() -> Vec<Box<dyn UiElement>> {
@@ -82,7 +179,7 @@ impl GamePhase {
             .with_stroke(Color::BLACK)
             .with_transform(translate!(0.0, -80.0))
             .with_events(Events::default().with_hoverable(false))
-            .with_effects(TextEffects::Typewriter(0, 2));
+            .with_effects(TextEffects::Typewriter(0, 2, Some(Sound::new("dialogue_normal", false))));
 
         let text = Label::new()
             .with_text("Start".to_string())
@@ -106,16 +203,18 @@ impl GamePhase {
                     HoverEffects::AdjustBrightness(0.0)
                 ])
                 .with_on_click(Box::new(|| {
-                    let name = document().get_element_by_id("text_input").unwrap()
-                        .dyn_into::<HtmlInputElement>().unwrap()
-                        .value();
+                    spawn_local(async {
+                        let name = document().get_element_by_id("text_input").unwrap()
+                            .dyn_into::<HtmlInputElement>().unwrap()
+                            .value();
                     
-                    if !name.is_empty() {
-                        let mut world = get_world();
-                        world.soundtrack.stop();
+                        if !name.is_empty() {
+                            let mut world = get_world();
+                            world.soundtrack.stop(0.0);
 
-                        Sound::new("button_click", false).play();
-                    }
+                            Sound::new("button_click", false).play();
+                        }
+                    });
                 }))
             )
             .with_children(vec![Box::new(text)]);
@@ -123,8 +222,7 @@ impl GamePhase {
         vec![Box::new(title), Box::new(start)]
     }
 
-    pub fn render_homescreen(context: &mut Canvas2d) {
-        let world = get_world();
+    pub fn render_homescreen(world: &mut World) {
         let GamePhase::Home(ref mut elements) = world.renderer.phase else { return; };
 
         for shape in elements.shapes.iter_mut() {
@@ -135,21 +233,21 @@ impl GamePhase {
                 shape.position.y = 1920.0 / 2.0;
             }
 
-            context.save();
-            context.translate(shape.position.x, shape.position.y);
-            context.rotate(shape.angle);
+            world.renderer.canvas2d.save();
+            world.renderer.canvas2d.translate(shape.position.x, shape.position.y);
+            world.renderer.canvas2d.rotate(shape.angle);
 
-            context.stroke_style(shape.color);
-            context.set_stroke_size(5.0);
-            // context.shadow_blur(2.0);
-            // context.shadow_color(shape.color);
+            world.renderer.canvas2d.stroke_style(shape.color);
+            world.renderer.canvas2d.set_stroke_size(5.0);
+            // world.renderer.canvas2d.shadow_blur(2.0);
+            // world.renderer.canvas2d.shadow_color(shape.color);
 
-            shape.shape.render(context, shape.radius, false, true);
-            context.fill_style(shape.color);
-            context.global_alpha(0.2);
-            context.fill();
+            shape.shape.render(&world.renderer.canvas2d, shape.radius, false, true);
+            world.renderer.canvas2d.fill_style(shape.color);
+            world.renderer.canvas2d.global_alpha(0.2);
+            world.renderer.canvas2d.fill();
 
-            context.restore();
+            world.renderer.canvas2d.restore();
         }
     }
 }

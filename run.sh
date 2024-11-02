@@ -1,5 +1,5 @@
 cd client
-wasm-pack build --target=web
+wasm-pack build --debug --target=web
 mv pkg/client_bg.wasm ../assets/client_bg.wasm
 mv pkg/client_bg.wasm.d.ts ../assets/client_bg.wasm.d.ts
 mv pkg/client.d.ts ../assets/client.d.ts

@@ -19,7 +19,7 @@ pub enum EventType {
     KeyUp(KeyboardEvent),
 }
 
-pub fn handle_event(world: &'static mut World, event_type: EventType) {
+pub fn handle_event(world: &mut World, event_type: EventType) {
     match event_type {
         EventType::BeforeUnload(event) => {let _ = on_beforeunload(world, event);},
         EventType::ContextMenu(event) => on_contextmenu(world, event),
@@ -38,7 +38,7 @@ macro_rules! register_event {
         let event_name_fn = concat!("on_", $event);
 
         let closure = Closure::wrap(Box::new(move |event: Event| {
-            let world = get_world();
+            let mut world = get_world();
 
             let event_type = match event_name_fn {
                 "on_beforeunload" => EventType::BeforeUnload(event.dyn_into::<BeforeUnloadEvent>().unwrap()),
@@ -52,7 +52,7 @@ macro_rules! register_event {
                 _ => unimplemented!("Event not implemented: {}", event_name_fn),
             };
 
-            events::handle_event(world, event_type);
+            events::handle_event(&mut world, event_type);
         }) as Box<dyn FnMut(_)>);
 
         let _ = gloo_utils::window()
@@ -65,26 +65,26 @@ macro_rules! register_event {
     }};
 }
 
-pub fn on_beforeunload(world: &'static mut World, event: BeforeUnloadEvent) -> BeforeUnloadEvent {
+pub fn on_beforeunload(world: &mut World, event: BeforeUnloadEvent) -> BeforeUnloadEvent {
     event.set_return_value("Are you sure you want to leave? You will lose your progress.");
     event
 }
 
-pub fn on_contextmenu(world: &'static mut World, event: MouseEvent) {
+pub fn on_contextmenu(world: &mut World, event: MouseEvent) {
     event.prevent_default();
 }
 
-pub fn on_resize(world: &'static mut World) {
+pub fn on_resize(world: &mut World) {
     world.renderer.canvas2d.resize(&window());
 }
 
-pub fn on_mousedown(world: &'static mut World, event: MouseEvent) {}
-pub fn on_mouseup(world: &'static mut World, event: MouseEvent) {
+pub fn on_mousedown(world: &mut World, event: MouseEvent) {}
+pub fn on_mouseup(world: &mut World, event: MouseEvent) {
     let mut is_hovering = false;
     let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
     point *= window().device_pixel_ratio() as f32;
 
-    let children = world.renderer.body.get_mut_children().unwrap();
+    let children = world.renderer.body.get_mut_children();
 
     for ui_element in children.iter_mut() {
         let hovering = ui_element.get_mut_events().hoverable &&
@@ -96,12 +96,12 @@ pub fn on_mouseup(world: &'static mut World, event: MouseEvent) {
     }
 }
 
-pub fn on_mousemove(world: &'static mut World, event: MouseEvent) {
+pub fn on_mousemove(world: &mut World, event: MouseEvent) {
     let mut is_hovering = false;
     let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
     point *= window().device_pixel_ratio() as f32;
 
-    let children = world.renderer.body.get_mut_children().unwrap();
+    let children = world.renderer.body.get_mut_children();
 
     for ui_element in children.iter_mut() {
         let hovering = ui_element.get_mut_events().hoverable &&
@@ -117,7 +117,7 @@ pub fn on_mousemove(world: &'static mut World, event: MouseEvent) {
     context.set_cursor(if is_hovering { "pointer" } else { "default "});
 }
 
-pub fn on_keydown(world: &'static mut World, event: KeyboardEvent) {}
-pub fn on_keyup(world: &'static mut World, event: KeyboardEvent) {}
+pub fn on_keydown(world: &mut World, event: KeyboardEvent) {}
+pub fn on_keyup(world: &mut World, event: KeyboardEvent) {}
 
 // touchstart, touchend, etc.

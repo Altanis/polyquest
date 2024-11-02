@@ -41,8 +41,8 @@ impl UiElement for Button {
         self.events.is_clicked = val;
     }
 
-    fn get_mut_children(&mut self) -> Option<&mut Vec<Box<dyn UiElement>>> {
-        Some(&mut self.children)
+    fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
+        &mut self.children
     }
 
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>) {

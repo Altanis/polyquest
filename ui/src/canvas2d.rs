@@ -45,7 +45,7 @@ impl ShapeType {
         }
     }
 
-    pub fn render(&self, context: &mut Canvas2d, radius: f32, fill: bool, stroke: bool) {
+    pub fn render(&self, context: &Canvas2d, radius: f32, fill: bool, stroke: bool) {
         match *self {
             ShapeType::Circle => context.begin_arc(0.0, 0.0, radius, std::f64::consts::TAU),
             ShapeType::Square => context.begin_rect(-radius, -radius, radius * 2.0, radius * 2.0),

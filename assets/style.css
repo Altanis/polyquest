@@ -15,13 +15,13 @@ canvas {
     width: 100%;
 }
 
-#offscreen_canvas {
+#webgl_canvas {
     display: none;
     z-index: -9999;
 }
 
 #text_input_container {
-    display: block;
+    display: none;
     position: absolute;
     border: 5px solid rgba(255, 255, 255, 0.75);
     z-index: 100;

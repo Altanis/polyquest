@@ -164,23 +164,23 @@ impl WebGl {
     }
 
     pub fn render(&self, context: &Canvas2d, time: f64) {   
-        let gl = &self.ctx;
+        // let gl = &self.ctx;
 
-        gl.use_program(Some(&self.program));
+        // gl.use_program(Some(&self.program));
         
-        let texture_loc = gl.get_uniform_location(&self.program, "u_texture");
-        let resolution_loc = gl.get_uniform_location(&self.program, "u_resolution");
-        let time_loc = gl.get_uniform_location(&self.program, "u_time");
+        // let texture_loc = gl.get_uniform_location(&self.program, "u_texture");
+        // let resolution_loc = gl.get_uniform_location(&self.program, "u_resolution");
+        // let time_loc = gl.get_uniform_location(&self.program, "u_time");
 
-        gl.uniform1i(texture_loc.as_ref(), 0);
-        gl.uniform1f(time_loc.as_ref(), time as f32);
-        self.draw_crc2d(context);
-        gl.uniform2fv_with_f32_array(resolution_loc.as_ref(), &[context.get_width() as f32, context.get_height() as f32]);
-        gl.viewport(0, 0, context.get_width() as i32, context.get_height() as i32);
+        // gl.uniform1i(texture_loc.as_ref(), 0);
+        // gl.uniform1f(time_loc.as_ref(), time as f32);
+        // self.draw_crc2d(context);
+        // gl.uniform2fv_with_f32_array(resolution_loc.as_ref(), &[context.get_width() as f32, context.get_height() as f32]);
+        // gl.viewport(0, 0, context.get_width() as i32, context.get_height() as i32);
     
-        gl.clear_color(0.0, 0.0, 0.0, 1.0);
-        gl.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
+        // gl.clear_color(0.0, 0.0, 0.0, 1.0);
+        // gl.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
     
-        gl.draw_arrays(WebGlRenderingContext::TRIANGLE_STRIP, 0, 4);
+        // gl.draw_arrays(WebGlRenderingContext::TRIANGLE_STRIP, 0, 4);
     } 
 }

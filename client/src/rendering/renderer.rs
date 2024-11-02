@@ -37,8 +37,7 @@ impl Renderer {
             time: TimeInformation::default(),
             phase: GamePhase::default(),
             body: Body::default()
-                .with_fill(Color(14, 14, 14))
-                .with_rendering_script(GamePhase::render_homescreen),
+                .with_fill(Color(14, 14, 14)),
             fps_counter: Label::new()
                 .with_text("165.0 FPS".to_string())
                 .with_fill(Color::WHITE)
@@ -50,7 +49,7 @@ impl Renderer {
     }
 
     pub fn tick(world: &mut World, timestamp: f64) {
-        if !world.soundtrack.is_playing() {
+        if world.soundtrack.has_not_started() && window().navigator().user_activation().has_been_active() {
             world.soundtrack.play();
         }
 
@@ -79,6 +78,7 @@ impl Renderer {
         world.renderer.canvas2d.set_line_join("round");
 
         match world.renderer.phase {
+            GamePhase::Lore(_) => Renderer::render_lore(world, delta_average),
             GamePhase::Home(_) => Renderer::render_homescreen(world, delta_average),
             GamePhase::Game => Renderer::render_game(world, delta_average),
             _ => ()
@@ -91,7 +91,7 @@ impl Renderer {
         );
 
         let closure = Closure::once(move |ts: f64| {
-            Renderer::tick(get_world(), ts);
+            Renderer::tick(&mut get_world(), ts);
         });
 
         let _ = window()
@@ -100,25 +100,45 @@ impl Renderer {
         closure.forget();
     }
 
-    pub fn render_homescreen(world: &mut World, delta_average: f64) {
-        let context = &mut world.renderer.canvas2d;
+    pub fn render_lore(world: &mut World, delta_average: f64) {
+        if world.renderer.body.get_mut_children().is_empty() {
+            let lore = GamePhase::generate_lore_elements(world);
+            world.renderer.body.set_children(lore);
+        }
 
-        if world.renderer.body.get_mut_children().unwrap().is_empty() {
+        world.renderer.canvas2d.save();
+        
+        world.renderer.body.render(&mut world.renderer.canvas2d);
+        for child in world.renderer.body.get_mut_children().iter_mut() {
+            child.render(&mut world.renderer.canvas2d);
+        }
+        
+        world.renderer.canvas2d.restore();
+
+        world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
+        world.renderer.fps_counter.render(&mut world.renderer.canvas2d);
+    }
+
+    pub fn render_homescreen(world: &mut World, delta_average: f64) {
+        if world.renderer.body.get_mut_children().is_empty() {
             world.renderer.body.set_children(GamePhase::generate_homescreen_elements());
         }
 
-        Renderer::render_ui(world, delta_average);
+        world.renderer.canvas2d.save();
+        
+        world.renderer.body.render(&mut world.renderer.canvas2d);
+        GamePhase::render_homescreen(world);
+
+        for child in world.renderer.body.get_mut_children().iter_mut() {
+            child.render(&mut world.renderer.canvas2d);
+        }
+        
+        world.renderer.canvas2d.restore();
+
+        world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
+        world.renderer.fps_counter.render(&mut world.renderer.canvas2d);
     }
 
     pub fn render_game(world: &mut World, delta_average: f64) {
-    }
-
-    pub fn render_ui(world: &mut World, delta_average: f64) {
-        let context = &mut world.renderer.canvas2d;
-
-        world.renderer.body.render(context);
-        world.renderer.fps_counter.render(context);
-
-        world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
     }
 }

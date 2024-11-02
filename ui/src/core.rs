@@ -7,7 +7,7 @@ pub trait UiElement {
     fn set_transform(&mut self, transform: Transform);
     fn get_transform(&self) -> &Transform;
 
-    fn get_mut_children(&mut self) -> Option<&mut Vec<Box<dyn UiElement>>>;
+    fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>>;
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>);
 
     fn set_hovering(&mut self, val: bool);
@@ -125,5 +125,5 @@ impl<T: Default + Clone> Interpolatable<T> {
     }
 }
 
-pub type RenderingScript = dyn FnMut(&mut Canvas2d);
+pub type RenderingScript = dyn Fn(&Canvas2d);
 pub type OnClickScript = dyn Fn();
