@@ -15,7 +15,7 @@ canvas {
     width: 100%;
 }
 
-#webgl_canvas {
+#offscreen_canvas {
     display: none;
     z-index: -9999;
 }

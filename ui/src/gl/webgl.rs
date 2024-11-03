@@ -1,6 +1,6 @@
 use gloo::utils::document;
 use wasm_bindgen::JsCast;
-use web_sys::{js_sys::Float32Array, HtmlCanvasElement, WebGlProgram, WebGlRenderingContext, Window};
+use web_sys::{js_sys::Float32Array, HtmlCanvasElement, WebGlProgram, WebGlRenderingContext, WebGlTexture, Window};
 
 use crate::canvas2d::Canvas2d;
 
@@ -9,7 +9,8 @@ use super::shaders::{CRT_FRAG_SHADER, NORMAL_VERT_SHADER};
 pub struct WebGl {
     canvas: HtmlCanvasElement,
     ctx: WebGlRenderingContext,
-    program: WebGlProgram
+    program: WebGlProgram,
+    texture: WebGlTexture
 }
 
 impl Default for WebGl {
@@ -73,12 +74,19 @@ impl WebGl {
             .dyn_into::<WebGlRenderingContext>()
             .unwrap();
 
+        let texture = ctx.create_texture().unwrap();
+        ctx.bind_texture(
+            WebGlRenderingContext::TEXTURE_2D, 
+            Some(&texture)
+        );
+
         let program = WebGl::init_program(&ctx, NORMAL_VERT_SHADER, CRT_FRAG_SHADER);
 
         WebGl {
             canvas,
             ctx,
-            program
+            program,
+            texture
         }
     }
 
@@ -121,19 +129,23 @@ impl WebGl {
         let _ = self.canvas.style().set_property("cursor", style);
     }
     
-    pub fn resize(&self, window: &Window) {
+    pub fn resize(&mut self, window: &Window) {
         self.canvas.set_width((window.inner_width().unwrap().as_f64().unwrap() * window.device_pixel_ratio()) as u32);
         self.canvas.set_height((window.inner_height().unwrap().as_f64().unwrap() * window.device_pixel_ratio()) as u32);
+        
+        self.ctx.delete_texture(Some(&self.texture));
+
+        let texture = self.ctx.create_texture().unwrap();
+        self.texture = texture;
+        self.ctx.bind_texture(
+            WebGlRenderingContext::TEXTURE_2D, 
+            Some(&self.texture)
+        );
     }
 
     fn draw_crc2d(&self, context: &Canvas2d) {
         self.canvas.set_width(context.get_width());
         self.canvas.set_height(context.get_height());
-
-        self.ctx.bind_texture(
-            WebGlRenderingContext::TEXTURE_2D, 
-            Some(&self.ctx.create_texture().unwrap())
-        );
 
         self.ctx.tex_image_2d_with_u32_and_u32_and_canvas(
             WebGlRenderingContext::TEXTURE_2D,
@@ -164,23 +176,23 @@ impl WebGl {
     }
 
     pub fn render(&self, context: &Canvas2d, time: f64) {   
-        // let gl = &self.ctx;
+        let gl = &self.ctx;
 
-        // gl.use_program(Some(&self.program));
+        gl.use_program(Some(&self.program));
         
-        // let texture_loc = gl.get_uniform_location(&self.program, "u_texture");
-        // let resolution_loc = gl.get_uniform_location(&self.program, "u_resolution");
-        // let time_loc = gl.get_uniform_location(&self.program, "u_time");
+        let texture_loc = gl.get_uniform_location(&self.program, "u_texture");
+        let resolution_loc = gl.get_uniform_location(&self.program, "u_resolution");
+        let time_loc = gl.get_uniform_location(&self.program, "u_time");
 
-        // gl.uniform1i(texture_loc.as_ref(), 0);
-        // gl.uniform1f(time_loc.as_ref(), time as f32);
-        // self.draw_crc2d(context);
-        // gl.uniform2fv_with_f32_array(resolution_loc.as_ref(), &[context.get_width() as f32, context.get_height() as f32]);
-        // gl.viewport(0, 0, context.get_width() as i32, context.get_height() as i32);
+        gl.uniform1i(texture_loc.as_ref(), 0);
+        gl.uniform1f(time_loc.as_ref(), time as f32);
+        self.draw_crc2d(context);
+        gl.uniform2fv_with_f32_array(resolution_loc.as_ref(), &[context.get_width() as f32, context.get_height() as f32]);
+        gl.viewport(0, 0, context.get_width() as i32, context.get_height() as i32);
     
-        // gl.clear_color(0.0, 0.0, 0.0, 1.0);
-        // gl.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
+        gl.clear_color(0.0, 0.0, 0.0, 1.0);
+        gl.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
     
-        // gl.draw_arrays(WebGlRenderingContext::TRIANGLE_STRIP, 0, 4);
+        gl.draw_arrays(WebGlRenderingContext::TRIANGLE_STRIP, 0, 4);
     } 
 }

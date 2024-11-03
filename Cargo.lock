@@ -714,18 +714,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "glow"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e33cd8ff5e02c1a5463ec10a846c8f3166a3ae0382ec33de6a327ea6dd61c41d"
-dependencies = [
- "js-sys",
- "slotmap",
- "wasm-bindgen",
- "web-sys",
-]
-
-[[package]]
 name = "h2"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1532,15 +1520,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "slotmap"
-version = "1.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbff4acf519f630b3a3ddcfaea6c06b42174d9a44bc70c620e9ed1649d58b82a"
-dependencies = [
- "version_check",
-]
-
-[[package]]
 name = "smallvec"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1865,7 +1844,6 @@ dependencies = [
  "derive_builder",
  "gloo",
  "gloo-timers",
- "glow",
  "rand",
  "shared",
  "wasm-bindgen",
