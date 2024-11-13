@@ -10,7 +10,8 @@ mod world;
 
 use std::panic;
 use gloo::console::console;
-use web_sys::wasm_bindgen::{self, prelude::*};
+use gloo_utils::window;
+use web_sys::{js_sys::Reflect, wasm_bindgen::{self, prelude::*}};
 use world::{get_world, init_world, World};
 
 #[macro_export]
@@ -18,6 +19,21 @@ macro_rules! storage_get {
     ($item: expr) => {
         window().local_storage().unwrap().unwrap().get($item).unwrap_or(None)  
     };
+}
+
+#[macro_export]
+macro_rules! storage_set {
+    ($item: expr, $value: expr) => {
+        let _ = window().local_storage().unwrap().unwrap().set($item, $value);
+    };
+}
+
+pub fn get_debug_window_props() -> Result<(JsValue, JsValue), JsValue> {
+    let window = window();
+    let starlight = Reflect::get(&window, &JsValue::from_str("starlight"))?;
+    let moonshine = Reflect::get(&window, &JsValue::from_str("moonshine"))?;
+
+    Ok((starlight, moonshine))
 }
 
 #[wasm_bindgen(start)]

@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@700&display=swap');
 /* @import url('https://fonts.cdnfonts.com/css/minecraft-4'); */
 /* @import url('https://fonts.googleapis.com/css2?family=Tiny5&display=swap'); */
@@ -15,7 +16,7 @@ canvas {
     width: 100%;
 }
 
-#offscreen_canvas {
+#webgl_canvas {
     display: none;
     z-index: -9999;
 }

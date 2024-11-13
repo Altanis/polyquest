@@ -1,5 +1,7 @@
+use gloo::console::console;
 use shared::{fuzzy_compare, lerp_angle, utils::vec2::Vector2D};
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, Events, HoverEffects, Interpolatable, UiElement}, utils::color::Color, DEBUG};
+use web_sys::MouseEvent;
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, Interpolatable, UiElement}, utils::color::Color, DEBUG};
 
 #[derive(Default)]
 pub struct Button
@@ -13,11 +15,16 @@ pub struct Button
     angle: Interpolatable<f32>,
     events: Events,
     children: Vec<Box<dyn UiElement>>,
+    z_index: i32,
 
     ticks: u64
 }
 
 impl UiElement for Button {
+    fn get_identity(&self) -> crate::core::ElementType {
+        ElementType::Button    
+    }
+
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
@@ -29,15 +36,21 @@ impl UiElement for Button {
     fn get_transform(&self) -> &Transform {
         &self.transform.value
     }
-
-    fn set_hovering(&mut self, val: bool) {
-        self.events.is_hovering = val;
-        for child in self.children.iter_mut() {
-            child.set_hovering(val);
-        }
+    
+    fn get_z_index(&self) -> i32 {
+        self.z_index
     }
 
-    fn set_clicked(&mut self, val: bool) {
+    fn set_hovering(&mut self, val: bool, event: &MouseEvent) -> bool {
+        self.events.is_hovering = val;
+        for child in self.children.iter_mut() {
+            child.set_hovering(val, event);
+        }
+
+        val
+    }
+
+    fn set_clicked(&mut self, val: bool, _: &MouseEvent) {
         self.events.is_clicked = val;
     }
 
@@ -65,7 +78,7 @@ impl UiElement for Button {
         )
     }
     
-    fn render(&mut self, context: &mut Canvas2d) {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) {
         self.ticks += 1;
 
         let mut shake_lerp_factor = 0.25;
@@ -76,11 +89,14 @@ impl UiElement for Button {
             self.fill.target = self.fill.original;
             self.dimensions.target = self.dimensions.original;
             self.angle.target = self.angle.original;
-            // self.transform.target = self.transform.original.clone();
         }
 
         if self.events.is_clicked {
             self.on_click();
+        }
+
+        if let Some(t) = (self.transform.value.generate_translation)(dimensions) {
+            self.transform.value.set_translation(t);
         }
 
         self.dimensions.value.lerp_towards(self.dimensions.target, 0.2);
@@ -120,7 +136,7 @@ impl UiElement for Button {
         context.stroke();
 
         for child in self.children.iter_mut() {
-            child.render(context);
+            child.render(context, dimensions);
         }
 
         context.restore();
@@ -203,6 +219,11 @@ impl Button {
         self
     }
 
+    pub fn with_translation(mut self, translation: Box<dyn GenerateTranslationScript>) -> Button {
+        self.transform.value.generate_translation = translation;
+        self
+    }
+
     pub fn with_angle(mut self, angle: f32) -> Button {
         self.angle = Interpolatable::new(angle);
         self
@@ -235,6 +256,11 @@ impl Button {
 
     pub fn with_children(mut self, children: Vec<Box<dyn UiElement>>) -> Button {
         self.children = children;
+        self
+    }
+
+    pub fn with_z_index(mut self, z_index: i32) -> Button {
+        self.z_index = z_index;
         self
     }
 }

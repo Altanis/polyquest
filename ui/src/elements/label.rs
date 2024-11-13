@@ -1,6 +1,7 @@
 use gloo::{console::console, utils::window};
 use shared::{fuzzy_compare, lerp, lerp_angle, utils::vec2::Vector2D};
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, Events, HoverEffects, Interpolatable, UiElement}, utils::{color::Color, sound::Sound}, DEBUG};
+use web_sys::MouseEvent;
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, Interpolatable, UiElement}, utils::{color::Color, sound::Sound}, DEBUG};
 
 pub enum TextEffects {
     Typewriter(usize, u64, Option<Sound>) // Typewriter(char_index, tick_interval)
@@ -15,6 +16,7 @@ pub struct Label {
     stroke: Option<Color>,
     text: String,
     dimensions: Vector2D<f32>,
+    z_index: i32,
     effects: Option<TextEffects>,
     children: Vec<Box<dyn UiElement>>,
     events: Events,
@@ -23,6 +25,10 @@ pub struct Label {
 }
 
 impl UiElement for Label {
+    fn get_identity(&self) -> crate::core::ElementType {
+        ElementType::Label    
+    }
+
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
@@ -35,11 +41,16 @@ impl UiElement for Label {
         &self.transform
     }
 
-    fn set_hovering(&mut self, val: bool) {
-        self.events.is_hovering = val;
+    fn get_z_index(&self) -> i32 {
+        self.z_index
     }
 
-    fn set_clicked(&mut self, val: bool) {
+    fn set_hovering(&mut self, val: bool, _: &MouseEvent) -> bool {
+        self.events.is_hovering = val;
+        val
+    }
+
+    fn set_clicked(&mut self, val: bool, _: &MouseEvent) {
         self.events.is_clicked = val;
     }
 
@@ -66,7 +77,7 @@ impl UiElement for Label {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d) {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) {
         self.ticks += 1;
 
         let mut char_index: isize = isize::MAX;
@@ -93,6 +104,10 @@ impl UiElement for Label {
         } else {
             self.font.target = self.font.original;
             self.angle.target = self.angle.original;
+        }
+
+        if let Some(t) = (self.transform.generate_translation)(dimensions) {
+            self.transform.set_translation(t);
         }
 
         self.font.value = lerp!(self.font.value, self.font.target, 0.2);
@@ -122,11 +137,21 @@ impl UiElement for Label {
                 );
             }
 
+            let (font, prefix) = match partial {
+                _ if partial.starts_with("{icon}") => ("'Font Awesome 6 Free'", "{icon}"),
+                _ if partial.starts_with("{brand}") => ("'Font Awesome 6 Brands'", "{brand}"),
+                _ => ("Ubuntu", ""),
+            };
+            
+            if !prefix.is_empty() {
+                partial = &partial[prefix.len()..];
+            }
+
             context.rotate(self.angle.value);
     
             context.set_miter_limit(2.0);
             context.fill_style(self.fill);
-            context.set_font(&format!("bold {}px Ubuntu", self.font.value as u32));
+            context.set_font(&format!("bold {}px {}", self.font.value as u32, font));
             context.set_text_align("center");
     
             if stroke_size != 0.0 {
@@ -158,6 +183,13 @@ impl UiElement for Label {
         }
 
         self.dimensions = Vector2D::new(width, height);
+
+        if DEBUG {
+            context.save();
+            context.reset_transform();
+            self.get_bounding_rect().render(context);
+            context.restore();
+        }
     }
 }
 
@@ -212,6 +244,11 @@ impl Label {
         self
     }
 
+    pub fn with_translation(mut self, translation: Box<dyn GenerateTranslationScript>) -> Label {
+        self.transform.generate_translation = translation;
+        self
+    }
+
     pub fn with_font(mut self, font: f32) -> Label {
         self.font = Interpolatable::new(font);
         self
@@ -249,6 +286,11 @@ impl Label {
 
     pub fn with_events(mut self, events: Events) -> Label {
         self.events = events;
+        self
+    }
+
+    pub fn with_z_index(mut self, z_index: i32) -> Label {
+        self.z_index = z_index;
         self
     }
 }

@@ -1,20 +1,34 @@
 use shared::utils::vec2::Vector2D;
+use web_sys::MouseEvent;
 use crate::{canvas2d::{Canvas2d, Transform}, utils::{color::Color, sound::Sound}};
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum ElementType {
+    Body,
+    Button,
+    Checkbox,
+    Label,
+    Modal
+}
+
 pub trait UiElement {
+    fn get_identity(&self) -> ElementType;
+
     fn get_mut_events(&mut self) -> &mut Events;
 
     fn set_transform(&mut self, transform: Transform);
     fn get_transform(&self) -> &Transform;
 
+    fn get_z_index(&self) -> i32;
+
     fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>>;
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>);
 
-    fn set_hovering(&mut self, val: bool);
-    fn set_clicked(&mut self, val: bool);
+    fn set_hovering(&mut self, val: bool, event: &MouseEvent) -> bool;
+    fn set_clicked(&mut self, val: bool, event: &MouseEvent);
 
     fn get_bounding_rect(&self) -> BoundingRect;
-    fn render(&mut self, context: &mut Canvas2d);
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>);
 }
 
 #[derive(Debug, Clone)]
@@ -127,3 +141,22 @@ impl<T: Default + Clone> Interpolatable<T> {
 
 pub type RenderingScript = dyn Fn(&Canvas2d);
 pub type OnClickScript = dyn Fn();
+
+pub trait GenerateTranslationScript: Fn(Vector2D<f32>) -> Option<Vector2D<f32>> + Send + Sync + 'static {
+    fn clone_box(&self) -> Box<dyn GenerateTranslationScript>;
+}
+
+impl<T> GenerateTranslationScript for T
+where
+    T: Fn(Vector2D<f32>) -> Option<Vector2D<f32>> + Clone + Send + Sync + 'static,
+{
+    fn clone_box(&self) -> Box<dyn GenerateTranslationScript> {
+        Box::new(self.clone())
+    }
+}
+
+impl Default for Box<dyn GenerateTranslationScript> {
+    fn default() -> Self {
+        Box::new(|_| None)
+    }
+}

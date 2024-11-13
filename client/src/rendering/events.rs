@@ -1,7 +1,7 @@
 use gloo::console::console;
 use gloo_utils::{body, document, window};
 use shared::utils::vec2::Vector2D;
-use ui::core::UiElement;
+use ui::core::{ElementType, UiElement};
 use web_sys::{wasm_bindgen::JsCast, BeforeUnloadEvent, KeyboardEvent, MouseEvent};
 use crate::world::World;
 
@@ -17,6 +17,21 @@ pub enum EventType {
     MouseMove(MouseEvent),
     KeyDown(KeyboardEvent),
     KeyUp(KeyboardEvent),
+}
+
+pub enum KeyCode {
+    Escape
+}
+
+impl TryInto<KeyCode> for u32 {
+    type Error = ();
+
+    fn try_into(self) -> Result<KeyCode, Self::Error> {
+        match self {
+            32 => Ok(KeyCode::Escape),
+            _ => Err(())
+        }
+    }
 }
 
 pub fn handle_event(world: &mut World, event_type: EventType) {
@@ -80,19 +95,15 @@ pub fn on_resize(world: &mut World) {
 
 pub fn on_mousedown(world: &mut World, event: MouseEvent) {}
 pub fn on_mouseup(world: &mut World, event: MouseEvent) {
-    let mut is_hovering = false;
     let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
     point *= window().device_pixel_ratio() as f32;
 
     let children = world.renderer.body.get_mut_children();
-
     for ui_element in children.iter_mut() {
         let hovering = ui_element.get_mut_events().hoverable &&
             ui_element.get_bounding_rect().intersects(point);
 
-        if hovering {
-            ui_element.set_clicked(true);
-        }
+        ui_element.set_clicked(hovering, &event);
     }
 }
 
@@ -102,22 +113,40 @@ pub fn on_mousemove(world: &mut World, event: MouseEvent) {
     point *= window().device_pixel_ratio() as f32;
 
     let children = world.renderer.body.get_mut_children();
-
     for ui_element in children.iter_mut() {
         let hovering = ui_element.get_mut_events().hoverable &&
             ui_element.get_bounding_rect().intersects(point);
-        ui_element.set_hovering(hovering);
 
-        if !is_hovering && hovering {
-            is_hovering = hovering;
+        let should_hover = ui_element.set_hovering(hovering, &event);
+        if !is_hovering && should_hover {
+            is_hovering = true;
         }
     }
 
-    let context = &mut world.renderer.gl;
-    context.set_cursor(if is_hovering { "pointer" } else { "default "});
+    let context = &mut world.renderer.canvas2d;
+    context.set_cursor(if is_hovering { "pointer" } else { "default" });
 }
 
 pub fn on_keydown(world: &mut World, event: KeyboardEvent) {}
-pub fn on_keyup(world: &mut World, event: KeyboardEvent) {}
+
+pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
+    match event.key_code().try_into() {
+        Ok(KeyCode::Escape) => {
+            let mut deletion_indices = Vec::new();
+            for (i, child) in world.renderer.body.get_mut_children().iter_mut().enumerate() {
+                if child.get_identity() == ElementType::Modal {
+                    deletion_indices.push(i);
+                }
+            }
+        
+            for index in deletion_indices {
+                world.renderer.body
+                    .get_mut_children()
+                    .remove(index);
+            }
+        },
+        _ => ()
+    }
+}
 
 // touchstart, touchend, etc.

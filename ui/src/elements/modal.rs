@@ -1,0 +1,220 @@
+use gloo::{console::console, utils::window};
+use shared::utils::vec2::Vector2D;
+use web_sys::MouseEvent;
+
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, Interpolatable, UiElement}, translate, utils::color::Color};
+
+use super::{button::Button, label::Label};
+
+#[derive(Default)]
+pub struct Modal {
+    transform: Interpolatable<Transform>,
+    raw_transform: Transform,
+    fill: Color,
+    stroke: f64,
+    roundness: f32,
+    events: Events,
+    dimensions: Vector2D<f32>,
+    children: Vec<Box<dyn UiElement>>
+}
+
+impl UiElement for Modal {
+    fn get_identity(&self) -> crate::core::ElementType {
+        ElementType::Modal    
+    }
+
+    fn get_mut_events(&mut self) -> &mut Events {
+        &mut self.events
+    }
+
+    fn set_transform(&mut self, transform: Transform) {
+        self.transform.value = transform.clone();
+    }
+
+    fn get_transform(&self) -> &Transform {
+        &self.transform.value
+    }
+
+    fn get_z_index(&self) -> i32 {
+        999
+    }
+
+    fn set_hovering(&mut self, val: bool, event: &MouseEvent) -> bool {
+        self.events.is_hovering = val;
+
+        let mut is_hovering = false;
+        let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
+        point *= window().device_pixel_ratio() as f32;
+    
+        for ui_element in self.get_mut_children().iter_mut() {
+            let hovering = ui_element.get_mut_events().hoverable &&
+                ui_element.get_bounding_rect().intersects(point);
+    
+            let should_hover = ui_element.set_hovering(hovering, event);
+    
+            if !is_hovering && should_hover {
+                is_hovering = hovering;
+            }
+        }
+    
+        is_hovering
+    }
+    
+    fn set_clicked(&mut self, _: bool, event: &MouseEvent) {
+        let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
+        point *= window().device_pixel_ratio() as f32;
+    
+        for ui_element in self.get_mut_children().iter_mut() {
+            let hovering = ui_element.get_mut_events().hoverable &&
+                ui_element.get_bounding_rect().intersects(point);
+    
+            ui_element.set_clicked(hovering, event);
+        }
+    }
+
+    fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
+        &mut self.children
+    }
+
+    fn set_children(&mut self, children: Vec<Box<dyn UiElement>>) {
+        self.children = children;
+    }
+
+    fn get_bounding_rect(&self) -> BoundingRect {
+        BoundingRect::new(
+            Vector2D::ZERO,
+            self.dimensions
+        )
+    }
+
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) {
+        context.save();
+        context.reset_transform();
+        context.fill_style(Color(0, 0, 0));
+        context.global_alpha(0.6);
+        context.fill_rect(0, 0, context.get_width(), context.get_height());
+        context.restore();
+
+        if let Some(t) = (self.transform.value.generate_translation)(dimensions) {
+            self.transform.target.set_translation(t);
+        }
+
+        // self.dimensions.value.lerp_towards(self.dimensions.target, 0.2);
+        self.transform.value.lerp_towards(&self.transform.target, 0.2);
+
+        context.save();
+        context.set_transform(&self.transform.value);
+        // context.scale(self.dimensions.target.x / self.dimensions.value.x, self.dimensions.target.y / self.dimensions.value.y);
+
+        let position = -self.dimensions * (1.0 / 2.0);
+        context.translate(position.x, position.y);
+
+        self.raw_transform = context.get_transform();
+
+        context.fill_style(self.fill);
+        context.set_stroke_size(self.stroke);
+        if self.stroke != 0.0 {
+            let color = Color::blend_colors(
+                self.fill, 
+                Color::BLACK, 
+                0.25
+            );
+
+            context.set_stroke_size(self.stroke);
+            context.stroke_style(color);
+        }
+
+        context.begin_round_rect(
+            0.0,
+            0.0,
+            self.dimensions.x,
+            self.dimensions.y,
+            self.roundness
+        );
+
+        context.fill();
+        context.stroke();
+
+        for child in self.get_mut_children().iter_mut() {
+            child.render(context, dimensions);
+        }
+
+        context.restore();
+    }
+}
+
+impl Modal {
+    pub fn new() -> Modal {
+        Modal::default()
+    }
+
+    pub fn with_transform(mut self, transform: Transform) -> Modal {
+        self.transform = Interpolatable::new(transform);
+        self
+    }
+
+    pub fn with_translation(mut self, translation: Box<dyn GenerateTranslationScript>) -> Modal {
+        self.transform.value.generate_translation = translation;
+        self
+    }
+
+    pub fn with_fill(mut self, fill: Color) -> Modal {
+        self.fill = fill;
+        self
+    }
+        
+    pub fn with_stroke(mut self, stroke: f64) -> Modal {
+        self.stroke = stroke;
+        self
+    }
+
+    pub fn with_roundness(mut self, roundness: f32) -> Modal {
+        self.roundness = roundness;
+        self
+    }
+
+    pub fn with_events(mut self, events: Events) -> Modal {
+        self.events = events;
+        self
+    }
+
+    pub fn with_dimensions(mut self, dimensions: Vector2D<f32>) -> Modal {
+        self.dimensions = dimensions;
+        self
+    }
+
+    pub fn with_children(mut self, children: Vec<Box<dyn UiElement>>) -> Modal {
+        self.children = children;
+        self
+    }
+
+    pub fn with_close_button(mut self, cb: Box<dyn Fn()>) -> Modal {
+        let text = Label::new()
+            .with_text("X".to_string())
+            .with_fill(Color::WHITE)
+            .with_font(32.0)
+            .with_stroke(Color::BLACK)
+            .with_transform(translate!(0.0, 10.0))
+            .with_events(Events::default()
+                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+            );
+
+        let close = Button::new()
+            .with_fill(Color::RED)
+            .with_stroke(7.0)
+            .with_roundness(5.0)
+            .with_dimensions(Vector2D::new(50.0, 50.0))
+            .with_transform(translate!(1000.0, 0.0))
+            .with_events(Events::default()
+                .with_hover_effects(vec![
+                    HoverEffects::Inflation(1.1),
+                    HoverEffects::AdjustBrightness(0.0)
+                ])
+                .with_on_click(cb)
+            )
+            .with_children(vec![Box::new(text)]);
+
+        self.children.push(Box::new(close));
+        self
+    }
+}

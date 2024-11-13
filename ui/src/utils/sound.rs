@@ -1,10 +1,10 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gloo::{console::console, utils::{body, document, window}};
+use gloo::{console::console, utils::{body, document}};
 use gloo_timers::callback::Interval;
 use shared::fuzzy_compare;
 use wasm_bindgen::{prelude::Closure, JsCast};
-use web_sys::HtmlAudioElement;
+use web_sys::{Event, HtmlAudioElement};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Sound {
@@ -32,7 +32,20 @@ impl Sound {
             file
         };
 
-        file.set_autoplay(r#loop);
+        if r#loop {
+            let closure = Closure::wrap(Box::new(move |_: Event| {
+                let file = document().get_element_by_id(name)
+                    .unwrap()
+                    .dyn_into::<HtmlAudioElement>()
+                    .unwrap();
+
+                file.set_current_time(0.0);
+                let _ = file.play();
+            }) as Box<dyn FnMut(_)>);
+
+            let _ = file.add_event_listener_with_callback("ended", closure.as_ref().unchecked_ref());
+            closure.forget();
+        }
 
         Sound { 
             name, 
@@ -73,8 +86,6 @@ impl Sound {
                     let volume = file.volume();
                     if fuzzy_compare!(volume, 0.0, 1e-1) {
                         if let Some(interval) = interval_handle.borrow_mut().take() {
-                            console!("paused".to_string());
-
                             let _ = file.pause();
                             file.set_volume(1.0);
     

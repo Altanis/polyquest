@@ -33,8 +33,8 @@ impl Color {
     }
 
     pub fn from_hex(hex: &str) -> Color {
-        if hex.starts_with('&') {
-            panic!("use of & inside Color::from_hex; please remove");
+        if hex.starts_with('#') {
+            panic!("use of # inside Color::from_hex; please remove");
         }
 
         let parsed = u32::from_str_radix(hex, 16).expect("couldnt parse color");
@@ -61,9 +61,9 @@ impl Color {
     }
 
     pub fn blend_with(&mut self, factor: f32, color: Color) -> &mut Color {
-        self.0 = ((color.0 as f32 * factor + self.0 as f32 * (1.0 - factor)) as u8).min(255);
-        self.1 = ((color.1 as f32 * factor + self.1 as f32 * (1.0 - factor)) as u8).min(255);
-        self.2 = ((color.2 as f32 * factor + self.2 as f32 * (1.0 - factor)) as u8).min(255);
+        self.0 = (color.0 as f32 * factor + self.0 as f32 * (1.0 - factor)) as u8;
+        self.1 = (color.1 as f32 * factor + self.1 as f32 * (1.0 - factor)) as u8;
+        self.2 = (color.2 as f32 * factor + self.2 as f32 * (1.0 - factor)) as u8;
 
         self
     }

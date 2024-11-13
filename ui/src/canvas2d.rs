@@ -1,9 +1,9 @@
-use gloo::utils::{document, window};
+use gloo::{console::console, utils::{document, window}};
 use shared::{rand, utils::vec2::Vector2D};
 use web_sys::{wasm_bindgen::JsCast, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
 use rand::Rng;
 
-use crate::utils::color::Color;
+use crate::{core::GenerateTranslationScript, utils::color::Color};
 
 #[macro_export]
 macro_rules! translate {
@@ -63,14 +63,14 @@ impl ShapeType {
     }
 }
 
-#[derive(Debug)]
 pub struct Transform {
-    matrix: DomMatrix
+    matrix: DomMatrix,
+    pub generate_translation: Box<dyn GenerateTranslationScript>
 }
 
 impl Default for Transform {
     fn default() -> Self {
-        Transform::new(DomMatrix::new().unwrap())
+        Transform::new(DomMatrix::new().unwrap(), Box::default())
     }
 }
 
@@ -96,15 +96,17 @@ impl Clone for Transform {
         matrix.set_f(self.f());
 
         Transform {
-            matrix
+            matrix,
+            generate_translation: self.generate_translation.clone_box()
         }
     }
 }
 
 impl Transform {
-    pub fn new(matrix: DomMatrix) -> Transform {
+    pub fn new(matrix: DomMatrix, generate_translation: Box<dyn GenerateTranslationScript>) -> Transform {
         Transform {
-            matrix
+            matrix,
+            generate_translation
         }
     }
 
@@ -116,7 +118,10 @@ impl Transform {
     pub fn f(&self) -> f64 { self.matrix.f() }
 
     pub fn scale(&self, sx: f64, sy: f64) -> Transform {
-        Transform::new(self.matrix.scale_non_uniform_self_with_scale_y(sx, sy))
+        Transform::new(
+            self.matrix.scale_non_uniform_self_with_scale_y(sx, sy), 
+            self.generate_translation.clone_box()
+        )
     }
 
     pub fn get_scale(&self) -> Vector2D<f32> {
@@ -126,7 +131,10 @@ impl Transform {
     }
 
     pub fn rotate(&self, angle: f64) -> Transform {
-        Transform::new(self.matrix.rotate_self(angle))
+        Transform::new(
+            self.matrix.rotate_self(angle), 
+            self.generate_translation.clone_box()
+        )
     }
 
     pub fn get_rotation(&self) -> f64 {
@@ -134,11 +142,19 @@ impl Transform {
     }
 
     pub fn translate(&self, tx: f64, ty: f64) -> Transform {
-        Transform::new(self.matrix.translate_self(tx, ty))
+        Transform::new(
+            self.matrix.translate_self(tx, ty), 
+            self.generate_translation.clone_box()
+        )
     }
 
     pub fn get_translation(&self) -> Vector2D<f32> {
         Vector2D::new(self.e() as f32, self.f() as f32)
+    }
+
+    pub fn set_translation(&self, translation: Vector2D<f32>) {
+        self.matrix.set_e(translation.x as f64);
+        self.matrix.set_f(translation.y as f64);
     }
 
     pub fn transform_point(&self, point: &mut Vector2D<f32>) {
@@ -304,6 +320,13 @@ impl Canvas2d {
         self.ctx.stroke_rect(x.into(), y.into(), w.into(), h.into());
     }
 
+    pub fn begin_check_mark(&self, position: Vector2D<f64>, dimensions: Vector2D<f64>) {
+        self.ctx.begin_path();
+        self.ctx.move_to(position.x, position.y + dimensions.y * 0.5);
+        self.ctx.line_to(position.x + dimensions.x * 0.4, position.y + dimensions.y);
+        self.ctx.line_to(position.x + dimensions.x * 0.4, position.y);
+    }
+
     pub fn begin_arc<T: Into<f64>>(&self, x: T, y: T, r: T, radians: f64) {
         self.ctx.begin_path();
         let _ = self.ctx.arc(x.into(), y.into(), r.into(), 0.0, radians);
@@ -362,7 +385,7 @@ impl Canvas2d {
     }
 
     pub fn get_transform(&self) -> Transform {
-        Transform::new(self.ctx.get_transform().unwrap())
+        Transform::new(self.ctx.get_transform().unwrap(), Box::default())
     }
 
     pub fn reset_transform(&self) {

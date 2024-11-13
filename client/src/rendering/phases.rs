@@ -1,11 +1,13 @@
+use std::collections::BTreeSet;
+
 use gloo::console::console;
 use gloo_utils::{document, window};
 use shared::{rand, utils::vec2::Vector2D};
-use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{Events, HoverEffects, UiElement}, elements::{button::Button, label::{Label, TextEffects}}, translate, utils::{color::Color, sound::Sound}};
+use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal}, get_debug_window_props, translate, utils::{color::Color, sound::Sound}};
 use rand::Rng;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement};
-use crate::{storage_get, world::{get_world, World}};
+use crate::{storage_get, storage_set, world::{get_world, World}};
 
 #[derive(Debug, Clone)]
 pub enum GamePhase {
@@ -22,6 +24,13 @@ impl Default for GamePhase {
         if lore_played.is_none() {
             GamePhase::Lore(0)
         } else {
+            document().get_element_by_id("text_input_container")
+                .unwrap()
+                .dyn_into::<HtmlDivElement>()
+                .unwrap()
+                .style()
+                .set_property("display", "block");
+
             GamePhase::Home(Box::default())
         }
     }
@@ -100,6 +109,8 @@ impl GamePhase {
                 world.soundtrack = Sound::new("soundtrack_home", true);
                 world.renderer.phase = GamePhase::Home(Box::default());
 
+                storage_set!("lore_done", "1");
+
                 document().get_element_by_id("text_input_container")
                     .unwrap()
                     .dyn_into::<HtmlDivElement>()
@@ -171,7 +182,9 @@ impl GamePhase {
         vec![Box::new(dialogue), Box::new(start)]
     }
 
-    pub fn generate_homescreen_elements() -> Vec<Box<dyn UiElement>> {
+    pub fn generate_homescreen_elements(world: &World) -> Vec<Box<dyn UiElement>> {
+        let mut elements: Vec<Box<dyn UiElement>> = vec![];
+
         let title = Label::new()
             .with_text("PolyQuest".to_string())
             .with_fill(Color::WHITE)
@@ -180,16 +193,6 @@ impl GamePhase {
             .with_transform(translate!(0.0, -80.0))
             .with_events(Events::default().with_hoverable(false))
             .with_effects(TextEffects::Typewriter(0, 2, Some(Sound::new("dialogue_normal", false))));
-
-        let text = Label::new()
-            .with_text("Start".to_string())
-            .with_fill(Color::WHITE)
-            .with_font(32.0)
-            .with_stroke(Color::BLACK)
-            .with_transform(translate!(0.0, 10.0))
-            .with_events(Events::default()
-                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
-            );
 
         let start = Button::new()
             .with_fill(Color::GREEN)
@@ -217,9 +220,100 @@ impl GamePhase {
                     });
                 }))
             )
-            .with_children(vec![Box::new(text)]);
+            .with_children(vec![Box::new(
+                Label::new()
+                    .with_text("Start".to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(32.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(0.0, 10.0))
+                    .with_events(Events::default()
+                        .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                    )
+            )]);
+
+        let buttons: [(Vector2D<f32>, Color, &str, Box<OnClickScript>); 2] = [
+            (
+                Vector2D::new(0.0, 0.0),
+                Color::GRAY, "{icon}\u{f013}",
+                Box::new(|| {
+                    spawn_local(async {
+                        let mut modal = Modal::new()
+                            .with_fill(Color::ORANGE)
+                            .with_stroke(10.0)
+                            .with_roundness(5.0)
+                            .with_dimensions(Vector2D::new(1000.0, 750.0))
+                            .with_close_button(Box::new(|| {
+                                spawn_local(async {
+                                    let mut world = get_world();
+                
+                                    let mut deletion_indices = Vec::new();
+                                    for (i, child) in world.renderer.body.get_mut_children().iter_mut().enumerate() {
+                                        if child.get_identity() == ElementType::Modal {
+                                            deletion_indices.push(i);
+                                        }
+                                    }
+                
+                                    for index in deletion_indices {
+                                        world.renderer.body
+                                            .get_mut_children()
+                                            .remove(index);
+                                    }
+                                });
+                            }));
+                        
+                        let width = window().inner_width().unwrap().unchecked_into_f64();
+                        
+                        modal.set_transform(translate!(width, 0.0));
+                        get_world().renderer.body.get_mut_children().push(Box::new(modal));
+                    });
+                })
+            ),
+            (
+                Vector2D::new(-100.0, 0.0), 
+                Color::BLUE, "{brand}\u{f392}",
+                Box::new(|| {
+                    spawn_local(async {
+                        let _ = window().open_with_url("https://discord.gg/UTvaAAgku3");
+                    });
+                })
+            )
+        ];
+
+        for (translation, color, text, cb) in buttons {
+            let button = Button::new()
+                .with_fill(color)
+                .with_stroke(5.0)
+                .with_roundness(5.0)
+                .with_dimensions(Vector2D::new(60.0, 60.0))
+                .with_translation(Box::new(move |dimensions| {
+                    Some(dimensions * (1.0 / 1.75) + translation)
+                }))
+                .with_events(Events::default()
+                    .with_hover_effects(vec![
+                        HoverEffects::Inflation(1.1),
+                        HoverEffects::AdjustBrightness(0.0)
+                    ])
+                    .with_on_click(cb)
+                )
+                .with_children(vec![Box::new(
+                    Label::new()
+                        .with_text(text.to_string())
+                        .with_fill(Color::WHITE)
+                        .with_font(32.0)
+                        .with_transform(translate!(0.0, 10.0))
+                        .with_events(Events::default()
+                            .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                        )
+                )]);
             
-        vec![Box::new(title), Box::new(start)]
+            elements.push(Box::new(button));
+        }
+
+        elements.push(Box::new(title));
+        elements.push(Box::new(start));
+
+        elements
     }
 
     pub fn render_homescreen(world: &mut World) {

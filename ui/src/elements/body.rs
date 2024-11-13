@@ -1,6 +1,7 @@
 use shared::utils::vec2::Vector2D;
+use web_sys::MouseEvent;
 
-use crate::{canvas2d::{Canvas2d, Transform}, utils::color::Color, core::{BoundingRect, Events, RenderingScript, UiElement}};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, UiElement}, utils::color::Color};
 
 #[derive(Default)]
 pub struct Body {
@@ -12,6 +13,10 @@ pub struct Body {
 }
 
 impl UiElement for Body {
+    fn get_identity(&self) -> crate::core::ElementType {
+        ElementType::Body    
+    }
+
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
@@ -24,10 +29,18 @@ impl UiElement for Body {
         &self.transform
     }
 
-    fn set_hovering(&mut self, _: bool) {}
-    fn set_clicked(&mut self, _: bool) {}
+    fn get_z_index(&self) -> i32 {
+        1
+    }
+
+    fn set_hovering(&mut self, _: bool, _: &MouseEvent) -> bool {
+        false
+    }
+
+    fn set_clicked(&mut self, _: bool, _: &MouseEvent) {}
 
     fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
+        self.children.sort_by_key(|child| child.get_z_index());
         &mut self.children
     }
 
@@ -42,7 +55,7 @@ impl UiElement for Body {
         )
     }
 
-    fn render(&mut self, context: &mut crate::canvas2d::Canvas2d) {
+    fn render(&mut self, context: &mut Canvas2d, _: Vector2D<f32>) {
         context.save();
         context.fill_style(self.fill);
         context.fill_rect(0, 0, context.get_width(), context.get_height());
@@ -57,10 +70,23 @@ impl UiElement for Body {
         self.dimensions *= 1.0 / factor;
 
         context.scale(factor, factor);
+
+        if let Some(t) = (self.transform.generate_translation)(self.dimensions) {
+            self.transform.set_translation(t);
+        }
     }
 }
 
 impl Body {
+    pub fn render_children(&mut self, context: &mut Canvas2d) {
+        let dimensions = self.dimensions;
+        let children = self.get_mut_children();
+
+        for child in children.iter_mut() {
+            child.render(context, dimensions);
+        }
+    }
+
     pub fn with_fill(mut self, fill: Color) -> Body {
         self.fill = fill;
         self

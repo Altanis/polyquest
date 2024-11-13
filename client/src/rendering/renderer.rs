@@ -106,37 +106,32 @@ impl Renderer {
             world.renderer.body.set_children(lore);
         }
 
+        let dimensions = world.renderer.body.get_bounding_rect().dimensions;
+
         world.renderer.canvas2d.save();
-        
-        world.renderer.body.render(&mut world.renderer.canvas2d);
-        for child in world.renderer.body.get_mut_children().iter_mut() {
-            child.render(&mut world.renderer.canvas2d);
-        }
-        
+        world.renderer.body.render(&mut world.renderer.canvas2d, dimensions);
+        world.renderer.body.render_children(&mut world.renderer.canvas2d);
         world.renderer.canvas2d.restore();
 
         world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
-        world.renderer.fps_counter.render(&mut world.renderer.canvas2d);
+        world.renderer.fps_counter.render(&mut world.renderer.canvas2d, dimensions);
     }
 
     pub fn render_homescreen(world: &mut World, delta_average: f64) {
         if world.renderer.body.get_mut_children().is_empty() {
-            world.renderer.body.set_children(GamePhase::generate_homescreen_elements());
+            world.renderer.body.set_children(GamePhase::generate_homescreen_elements(world));
         }
+
+        let dimensions = world.renderer.body.get_bounding_rect().dimensions;
 
         world.renderer.canvas2d.save();
-        
-        world.renderer.body.render(&mut world.renderer.canvas2d);
+        world.renderer.body.render(&mut world.renderer.canvas2d, dimensions);
         GamePhase::render_homescreen(world);
-
-        for child in world.renderer.body.get_mut_children().iter_mut() {
-            child.render(&mut world.renderer.canvas2d);
-        }
-        
+        world.renderer.body.render_children(&mut world.renderer.canvas2d);
         world.renderer.canvas2d.restore();
 
         world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
-        world.renderer.fps_counter.render(&mut world.renderer.canvas2d);
+        world.renderer.fps_counter.render(&mut world.renderer.canvas2d, dimensions);
     }
 
     pub fn render_game(world: &mut World, delta_average: f64) {
