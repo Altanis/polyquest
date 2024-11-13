@@ -1,4 +1,4 @@
-use gloo::{console::console, utils::window};
+use gloo::utils::window;
 use shared::{fuzzy_compare, lerp, lerp_angle, utils::vec2::Vector2D};
 use web_sys::MouseEvent;
 use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, Interpolatable, UiElement}, utils::{color::Color, sound::Sound}, DEBUG};
@@ -77,7 +77,7 @@ impl UiElement for Label {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
         self.ticks += 1;
 
         let mut char_index: isize = isize::MAX;
@@ -190,7 +190,11 @@ impl UiElement for Label {
             self.get_bounding_rect().render(context);
             context.restore();
         }
+
+        false
     }
+
+    fn destroy(&mut self) {}
 }
 
 impl Label {

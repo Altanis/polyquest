@@ -55,7 +55,7 @@ impl UiElement for Body {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, _: Vector2D<f32>) {
+    fn render(&mut self, context: &mut Canvas2d, _: Vector2D<f32>) -> bool {
         context.save();
         context.fill_style(self.fill);
         context.fill_rect(0, 0, context.get_width(), context.get_height());
@@ -74,16 +74,24 @@ impl UiElement for Body {
         if let Some(t) = (self.transform.generate_translation)(self.dimensions) {
             self.transform.set_translation(t);
         }
+
+        false
     }
+
+    fn destroy(&mut self) {}
 }
 
 impl Body {
     pub fn render_children(&mut self, context: &mut Canvas2d) {
-        let dimensions = self.dimensions;
-        let children = self.get_mut_children();
+        let mut deletions = vec![];
+        for (i, child) in self.children.iter_mut().enumerate() {
+            if child.render(context, self.dimensions) {
+                deletions.push(i);
+            }
+        }
 
-        for child in children.iter_mut() {
-            child.render(context, dimensions);
+        for deletion in deletions {
+            self.children.remove(deletion);
         }
     }
 

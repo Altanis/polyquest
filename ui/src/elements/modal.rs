@@ -1,5 +1,5 @@
 use gloo::{console::console, utils::window};
-use shared::utils::vec2::Vector2D;
+use shared::{fuzzy_compare, utils::vec2::Vector2D};
 use web_sys::MouseEvent;
 
 use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, Interpolatable, UiElement}, translate, utils::color::Color};
@@ -11,11 +11,10 @@ pub struct Modal {
     transform: Interpolatable<Transform>,
     raw_transform: Transform,
     fill: Color,
-    stroke: f64,
-    roundness: f32,
     events: Events,
     dimensions: Vector2D<f32>,
-    children: Vec<Box<dyn UiElement>>
+    children: Vec<Box<dyn UiElement>>,
+    deletion: bool
 }
 
 impl UiElement for Modal {
@@ -87,7 +86,9 @@ impl UiElement for Modal {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
+        let mut to_delete = false;
+
         context.save();
         context.reset_transform();
         context.fill_style(Color(0, 0, 0));
@@ -95,12 +96,15 @@ impl UiElement for Modal {
         context.fill_rect(0, 0, context.get_width(), context.get_height());
         context.restore();
 
-        if let Some(t) = (self.transform.value.generate_translation)(dimensions) {
+        if !self.deletion && let Some(t) = (self.transform.value.generate_translation)(dimensions) {
             self.transform.target.set_translation(t);
         }
 
         // self.dimensions.value.lerp_towards(self.dimensions.target, 0.2);
         self.transform.value.lerp_towards(&self.transform.target, 0.2);
+        if self.deletion && fuzzy_compare!(self.transform.value.get_translation().x, 2000.0, 100.0) {
+            to_delete = true;
+        }
 
         context.save();
         context.set_transform(&self.transform.value);
@@ -112,15 +116,16 @@ impl UiElement for Modal {
         self.raw_transform = context.get_transform();
 
         context.fill_style(self.fill);
-        context.set_stroke_size(self.stroke);
-        if self.stroke != 0.0 {
+
+        let stroke = 10.0;
+        if stroke != 0.0 {
             let color = Color::blend_colors(
                 self.fill, 
                 Color::BLACK, 
                 0.25
             );
 
-            context.set_stroke_size(self.stroke);
+            context.set_stroke_size(stroke);
             context.stroke_style(color);
         }
 
@@ -129,7 +134,7 @@ impl UiElement for Modal {
             0.0,
             self.dimensions.x,
             self.dimensions.y,
-            self.roundness
+            5.0
         );
 
         context.fill();
@@ -140,6 +145,13 @@ impl UiElement for Modal {
         }
 
         context.restore();
+
+        to_delete
+    }
+    
+    fn destroy(&mut self) {
+        self.deletion = true;
+        self.transform.target.set_translation(Vector2D::new(2000.0, 0.0));
     }
 }
 
@@ -160,16 +172,6 @@ impl Modal {
 
     pub fn with_fill(mut self, fill: Color) -> Modal {
         self.fill = fill;
-        self
-    }
-        
-    pub fn with_stroke(mut self, stroke: f64) -> Modal {
-        self.stroke = stroke;
-        self
-    }
-
-    pub fn with_roundness(mut self, roundness: f32) -> Modal {
-        self.roundness = roundness;
         self
     }
 
@@ -201,8 +203,6 @@ impl Modal {
 
         let close = Button::new()
             .with_fill(Color::RED)
-            .with_stroke(7.0)
-            .with_roundness(5.0)
             .with_dimensions(Vector2D::new(50.0, 50.0))
             .with_transform(translate!(1000.0, 0.0))
             .with_events(Events::default()

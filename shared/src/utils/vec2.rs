@@ -142,4 +142,9 @@ impl Vector2D<f32> {
     pub fn distance_squared(self, other: Vector2D<f32>) -> f32 {
         (other - self).magnitude_squared()
     }
+
+    /// Returns the smaller component.
+    pub fn min(&self) -> f32 {
+        self.x.min(self.y)
+    }
 }

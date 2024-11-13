@@ -156,8 +156,6 @@ impl GamePhase {
 
         let start = Button::new()
             .with_fill(Color::GREEN)
-            .with_stroke(7.0)
-            .with_roundness(5.0)
             .with_dimensions(Vector2D::new(200.0, 75.0))
             .with_transform(translate!(0.0, 100.0))
             .with_events(Events::default()
@@ -196,8 +194,6 @@ impl GamePhase {
 
         let start = Button::new()
             .with_fill(Color::GREEN)
-            .with_stroke(7.0)
-            .with_roundness(5.0)
             .with_dimensions(Vector2D::new(200.0, 75.0))
             .with_transform(translate!(0.0, 100.0))
             .with_events(Events::default()
@@ -240,31 +236,21 @@ impl GamePhase {
                     spawn_local(async {
                         let mut modal = Modal::new()
                             .with_fill(Color::ORANGE)
-                            .with_stroke(10.0)
-                            .with_roundness(5.0)
                             .with_dimensions(Vector2D::new(1000.0, 750.0))
                             .with_close_button(Box::new(|| {
                                 spawn_local(async {
                                     let mut world = get_world();
                 
-                                    let mut deletion_indices = Vec::new();
-                                    for (i, child) in world.renderer.body.get_mut_children().iter_mut().enumerate() {
+                                    for child in world.renderer.body.get_mut_children().iter_mut() {
                                         if child.get_identity() == ElementType::Modal {
-                                            deletion_indices.push(i);
+                                            child.destroy();
+                                            break;
                                         }
-                                    }
-                
-                                    for index in deletion_indices {
-                                        world.renderer.body
-                                            .get_mut_children()
-                                            .remove(index);
                                     }
                                 });
                             }));
                         
-                        let width = window().inner_width().unwrap().unchecked_into_f64();
-                        
-                        modal.set_transform(translate!(width, 0.0));
+                        modal.set_transform(translate!(2000.0, 0.0));
                         get_world().renderer.body.get_mut_children().push(Box::new(modal));
                     });
                 })
@@ -283,8 +269,6 @@ impl GamePhase {
         for (translation, color, text, cb) in buttons {
             let button = Button::new()
                 .with_fill(color)
-                .with_stroke(5.0)
-                .with_roundness(5.0)
                 .with_dimensions(Vector2D::new(60.0, 60.0))
                 .with_translation(Box::new(move |dimensions| {
                     Some(dimensions * (1.0 / 1.75) + translation)

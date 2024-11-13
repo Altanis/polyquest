@@ -1,4 +1,3 @@
-use gloo::console::console;
 use shared::{fuzzy_compare, lerp_angle, utils::vec2::Vector2D};
 use web_sys::MouseEvent;
 use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, Interpolatable, UiElement}, utils::color::Color, DEBUG};
@@ -9,8 +8,6 @@ pub struct Button
     transform: Interpolatable<Transform>,
     raw_transform: Transform,
     fill: Interpolatable<Color>,
-    stroke: f32,
-    roundness: f32,
     dimensions: Interpolatable<Vector2D<f32>>,
     angle: Interpolatable<f32>,
     events: Events,
@@ -78,7 +75,7 @@ impl UiElement for Button {
         )
     }
     
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
         self.ticks += 1;
 
         let mut shake_lerp_factor = 0.25;
@@ -111,14 +108,16 @@ impl UiElement for Button {
         self.raw_transform = context.get_transform();
 
         context.fill_style(self.fill.value);
-        if self.stroke != 0.0 {
+
+        let stroke = self.dimensions.value.min() / 10.0;
+        if stroke != 0.0 {
             let color = Color::blend_colors(
                 self.fill.value, 
                 Color::BLACK, 
                 0.25
             );
 
-            context.set_stroke_size(self.stroke);
+            context.set_stroke_size(stroke);
             context.stroke_style(color);
         }
 
@@ -129,7 +128,7 @@ impl UiElement for Button {
             position.y,
             self.dimensions.value.x,
             self.dimensions.value.y,
-            self.roundness
+            5.0
         );
 
         context.fill();
@@ -147,7 +146,11 @@ impl UiElement for Button {
             self.get_bounding_rect().render(context);
             context.restore();
         }
+
+        false
     }
+
+    fn destroy(&mut self) {}
 }
 
 impl Button {
@@ -231,16 +234,6 @@ impl Button {
 
     pub fn with_fill(mut self, fill: Color) -> Button {
         self.fill = Interpolatable::new(fill);
-        self
-    }
-
-    pub fn with_stroke(mut self, stroke: f32) -> Button {
-        self.stroke = stroke;
-        self
-    }
-
-    pub fn with_roundness(mut self, roundness: f32) -> Button {
-        self.roundness = roundness;
         self
     }
 

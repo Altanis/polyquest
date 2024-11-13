@@ -28,7 +28,7 @@ impl TryInto<KeyCode> for u32 {
 
     fn try_into(self) -> Result<KeyCode, Self::Error> {
         match self {
-            32 => Ok(KeyCode::Escape),
+            27 => Ok(KeyCode::Escape),
             _ => Err(())
         }
     }

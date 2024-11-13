@@ -1,6 +1,6 @@
 use shared::utils::vec2::Vector2D;
 use web_sys::MouseEvent;
-use crate::{canvas2d::{Canvas2d, Transform}, utils::{color::Color, sound::Sound}};
+use crate::{canvas2d::{Canvas2d, Transform}, elements::body::Body, utils::{color::Color, sound::Sound}};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ElementType {
@@ -28,7 +28,8 @@ pub trait UiElement {
     fn set_clicked(&mut self, val: bool, event: &MouseEvent);
 
     fn get_bounding_rect(&self) -> BoundingRect;
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>);
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool;
+    fn destroy(&mut self);
 }
 
 #[derive(Debug, Clone)]

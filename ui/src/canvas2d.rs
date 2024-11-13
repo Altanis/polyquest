@@ -76,12 +76,14 @@ impl Default for Transform {
 
 impl PartialEq for Transform {
     fn eq(&self, other: &Self) -> bool {
-        self.a() == other.a() &&
-            self.b() == other.b() &&
-            self.c() == other.c() &&
-            self.d() == other.d() &&
-            self.e() == other.e() &&
-            self.f() == other.f()
+        let epsilon = 1e-6; // Example tolerance value
+
+        (self.a() - other.a()).abs() < epsilon &&
+        (self.b() - other.b()).abs() < epsilon &&
+        (self.c() - other.c()).abs() < epsilon &&
+        (self.d() - other.d()).abs() < epsilon &&
+        (self.e() - other.e()).abs() < epsilon &&
+        (self.f() - other.f()).abs() < epsilon
     }
 }
 

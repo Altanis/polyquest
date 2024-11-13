@@ -12,7 +12,6 @@ pub struct Checkbox {
     accent: Color,
     box_stroke: (f32, Color),
     dimensions: Interpolatable<Vector2D<f32>>,
-    roundness: f32,
     z_index: i32,
 
     value: bool,
@@ -76,7 +75,7 @@ impl UiElement for Checkbox {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
         self.ticks += 1;
 
         if self.events.is_hovering {
@@ -112,7 +111,7 @@ impl UiElement for Checkbox {
             position.y,
             self.dimensions.value.x,
             self.dimensions.value.y,
-            self.roundness
+            5.0
         );
 
         context.fill();
@@ -141,7 +140,11 @@ impl UiElement for Checkbox {
             self.get_bounding_rect().render(context);
             context.restore();
         }
+
+        false
     }
+
+    fn destroy(&mut self) {}
 }
 
 impl Checkbox {
@@ -183,11 +186,6 @@ impl Checkbox {
 
     pub fn with_box_stroke(mut self, stroke: (f32, Color)) -> Checkbox {
         self.box_stroke = stroke;
-        self
-    }
-
-    pub fn with_roundness(mut self, roundness: f32) -> Checkbox {
-        self.roundness = roundness;
         self
     }
 
