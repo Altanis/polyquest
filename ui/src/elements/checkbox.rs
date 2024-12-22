@@ -1,3 +1,4 @@
+use gloo::console::console;
 use shared::utils::vec2::Vector2D;
 use web_sys::MouseEvent;
 
@@ -5,6 +6,8 @@ use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, E
 
 #[derive(Default)]
 pub struct Checkbox {
+    id: String,
+
     transform: Transform,
     raw_transform: Transform,
 
@@ -25,6 +28,10 @@ pub struct Checkbox {
 impl UiElement for Checkbox {
     fn get_identity(&self) -> crate::core::ElementType {
         ElementType::Checkbox    
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
     }
 
     fn get_mut_events(&mut self) -> &mut Events {
@@ -55,6 +62,13 @@ impl UiElement for Checkbox {
     // Checkboxes are not meant to have children.
     fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
         &mut self.children
+    }
+
+    fn get_element_by_id(&mut self, id: &str) -> Option<(usize, &mut Box<dyn UiElement>)> {
+        self.children
+            .iter_mut()
+            .enumerate()
+            .find(|(_, child)| child.get_id() == id)
     }
 
     fn set_children(&mut self, _: Vec<Box<dyn UiElement>>) {}
@@ -156,12 +170,26 @@ impl Checkbox {
     pub fn on_click(&mut self) {
         self.value = !self.value;
         self.events.is_clicked = false;
+
+        if let Some(script) = &self.events.on_click {
+            (script)();
+        }
     }
 }
 
 impl Checkbox {
     pub fn new() -> Checkbox {
         Checkbox::default()
+    }
+
+    pub fn with_id(mut self, id: &str) -> Checkbox {
+        self.id = id.to_string();
+        self
+    }
+
+    pub fn with_value(mut self, value: bool) -> Checkbox {
+        self.value = value;
+        self
     }
 
     pub fn with_transform(mut self, transform: Transform) -> Checkbox {

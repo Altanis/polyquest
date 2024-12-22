@@ -104,7 +104,7 @@ impl Vector2D<f32> {
 
     /// Whether or not the vector is zero.
     pub fn is_zero(&self, tolerance: f32) -> bool {
-        fuzzy_compare!(self.x, 0.0, tolerance) && fuzzy_compare!(self.y, 0.0, tolerance)
+        self.partial_eq(Vector2D::ZERO, tolerance)
     }
 
     /// Gets the angle from the x-axis.
@@ -141,6 +141,11 @@ impl Vector2D<f32> {
     /// Gets the distance squared of the vector from another vector.
     pub fn distance_squared(self, other: Vector2D<f32>) -> f32 {
         (other - self).magnitude_squared()
+    }
+
+    /// Checks if two vectors are nearly equivalent.
+    pub fn partial_eq(self, other: Vector2D<f32>, tolerance: f32) -> bool {
+        fuzzy_compare!(self.x, other.x, tolerance) && fuzzy_compare!(self.y, other.y, tolerance)   
     }
 
     /// Returns the smaller component.

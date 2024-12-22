@@ -27,5 +27,6 @@ features = [
   "WebGlProgram",
   "WebGlTexture",
   "WebGlBuffer",
-  "WebGlUniformLocation"
+  "WebGlUniformLocation",
+  "DomStringMap"
 ]

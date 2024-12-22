@@ -1,5 +1,5 @@
 use gloo::{console::console, utils::window};
-use shared::{fuzzy_compare, utils::vec2::Vector2D};
+use shared::{fuzzy_compare, lerp, utils::vec2::Vector2D};
 use web_sys::MouseEvent;
 
 use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, Interpolatable, UiElement}, translate, utils::color::Color};
@@ -8,13 +8,15 @@ use super::{button::Button, label::Label};
 
 #[derive(Default)]
 pub struct Modal {
-    transform: Interpolatable<Transform>,
+    id: String,
+    transform: Transform,
     raw_transform: Transform,
     fill: Color,
     events: Events,
-    dimensions: Vector2D<f32>,
+    dimensions: Interpolatable<Vector2D<f32>>,
     children: Vec<Box<dyn UiElement>>,
-    deletion: bool
+    deletion: bool,
+    opacity: Interpolatable<f32>
 }
 
 impl UiElement for Modal {
@@ -22,16 +24,20 @@ impl UiElement for Modal {
         ElementType::Modal    
     }
 
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
 
     fn set_transform(&mut self, transform: Transform) {
-        self.transform.value = transform.clone();
+        self.transform = transform.clone();
     }
 
     fn get_transform(&self) -> &Transform {
-        &self.transform.value
+        &self.transform
     }
 
     fn get_z_index(&self) -> i32 {
@@ -75,6 +81,13 @@ impl UiElement for Modal {
         &mut self.children
     }
 
+    fn get_element_by_id(&mut self, id: &str) -> Option<(usize, &mut Box<dyn UiElement>)> {
+        self.children
+            .iter_mut()
+            .enumerate()
+            .find(|(_, child)| child.get_id() == id)
+    }
+
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>) {
         self.children = children;
     }
@@ -82,7 +95,7 @@ impl UiElement for Modal {
     fn get_bounding_rect(&self) -> BoundingRect {
         BoundingRect::new(
             Vector2D::ZERO,
-            self.dimensions
+            self.dimensions.value
         )
     }
 
@@ -96,21 +109,19 @@ impl UiElement for Modal {
         context.fill_rect(0, 0, context.get_width(), context.get_height());
         context.restore();
 
-        if !self.deletion && let Some(t) = (self.transform.value.generate_translation)(dimensions) {
-            self.transform.target.set_translation(t);
+        if !self.deletion && let Some(t) = (self.transform.generate_translation)(dimensions) {
+            self.transform.set_translation(t);
         }
 
-        // self.dimensions.value.lerp_towards(self.dimensions.target, 0.2);
-        self.transform.value.lerp_towards(&self.transform.target, 0.2);
-        if self.deletion && fuzzy_compare!(self.transform.value.get_translation().x, 2000.0, 100.0) {
+        self.dimensions.value.lerp_towards(self.dimensions.target, 0.2);
+        if self.deletion && self.dimensions.value.is_zero(10.0) {
             to_delete = true;
         }
-
+        
         context.save();
-        context.set_transform(&self.transform.value);
-        // context.scale(self.dimensions.target.x / self.dimensions.value.x, self.dimensions.target.y / self.dimensions.value.y);
+        context.set_transform(&self.transform);
 
-        let position = -self.dimensions * (1.0 / 2.0);
+        let position = -self.dimensions.value * (1.0 / 2.0);
         context.translate(position.x, position.y);
 
         self.raw_transform = context.get_transform();
@@ -132,16 +143,24 @@ impl UiElement for Modal {
         context.begin_round_rect(
             0.0,
             0.0,
-            self.dimensions.x,
-            self.dimensions.y,
+            self.dimensions.value.x,
+            self.dimensions.value.y,
             5.0
         );
 
         context.fill();
         context.stroke();
 
-        for child in self.get_mut_children().iter_mut() {
-            child.render(context, dimensions);
+        if self.dimensions.value.partial_eq(self.dimensions.target, 100.0) {
+            self.opacity.value = lerp!(self.opacity.value, self.opacity.target, 0.2);
+            let opacity = self.opacity.value as f64;
+
+            for child in self.get_mut_children().iter_mut() {
+                context.save();
+                context.global_alpha(opacity);
+                child.render(context, dimensions);
+                context.restore();
+            }    
         }
 
         context.restore();
@@ -151,22 +170,36 @@ impl UiElement for Modal {
     
     fn destroy(&mut self) {
         self.deletion = true;
-        self.transform.target.set_translation(Vector2D::new(2000.0, 0.0));
+        self.dimensions.target = Vector2D::ZERO;
+        self.opacity.target = 0.0;
+
+        self.children.clear();
     }
 }
 
 impl Modal {
     pub fn new() -> Modal {
-        Modal::default()
+        let mut modal = Modal {
+            opacity: Interpolatable::new(1.0),
+            ..Default::default()
+        };
+
+        modal.opacity.value = 0.0;
+        modal
+    }
+
+    pub fn with_id(mut self, id: &str) -> Modal {
+        self.id = id.to_string();
+        self
     }
 
     pub fn with_transform(mut self, transform: Transform) -> Modal {
-        self.transform = Interpolatable::new(transform);
+        self.transform = transform;
         self
     }
 
     pub fn with_translation(mut self, translation: Box<dyn GenerateTranslationScript>) -> Modal {
-        self.transform.value.generate_translation = translation;
+        self.transform.generate_translation = translation;
         self
     }
 
@@ -181,7 +214,9 @@ impl Modal {
     }
 
     pub fn with_dimensions(mut self, dimensions: Vector2D<f32>) -> Modal {
-        self.dimensions = dimensions;
+        self.dimensions = Interpolatable::new(dimensions);
+        self.dimensions.value = Vector2D::ZERO;
+
         self
     }
 
@@ -204,7 +239,7 @@ impl Modal {
         let close = Button::new()
             .with_fill(Color::RED)
             .with_dimensions(Vector2D::new(50.0, 50.0))
-            .with_transform(translate!(1000.0, 0.0))
+            .with_transform(translate!(self.dimensions.target.x as f64, 0.0))
             .with_events(Events::default()
                 .with_hover_effects(vec![
                     HoverEffects::Inflation(1.1),

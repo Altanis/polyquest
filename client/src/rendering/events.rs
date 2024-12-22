@@ -98,8 +98,14 @@ pub fn on_mouseup(world: &mut World, event: MouseEvent) {
     let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
     point *= window().device_pixel_ratio() as f32;
 
-    let children = world.renderer.body.get_mut_children();
-    for ui_element in children.iter_mut() {
+    let mut z_index = -999;
+    for ui_element in world.renderer.body.get_mut_children().iter_mut().rev() {
+        if ui_element.get_z_index() < z_index {
+            break;
+        } else {
+            z_index = ui_element.get_z_index();
+        }
+        
         let hovering = ui_element.get_mut_events().hoverable &&
             ui_element.get_bounding_rect().intersects(point);
 
@@ -112,8 +118,14 @@ pub fn on_mousemove(world: &mut World, event: MouseEvent) {
     let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
     point *= window().device_pixel_ratio() as f32;
 
-    let children = world.renderer.body.get_mut_children();
-    for ui_element in children.iter_mut() {
+    let mut z_index = -999;
+    for ui_element in world.renderer.body.get_mut_children().iter_mut().rev() {
+        if ui_element.get_z_index() < z_index {
+            break;
+        } else {
+            z_index = ui_element.get_z_index();
+        }
+
         let hovering = ui_element.get_mut_events().hoverable &&
             ui_element.get_bounding_rect().intersects(point);
 
@@ -123,7 +135,7 @@ pub fn on_mousemove(world: &mut World, event: MouseEvent) {
         }
     }
 
-    let context = &mut world.renderer.canvas2d;
+    let context = &mut world.renderer.gl;
     context.set_cursor(if is_hovering { "pointer" } else { "default" });
 }
 
@@ -140,9 +152,8 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
             }
         
             for index in deletion_indices {
-                world.renderer.body
-                    .get_mut_children()
-                    .remove(index);
+                world.renderer.body.get_mut_children()[index]
+                    .destroy();
             }
         },
         _ => ()

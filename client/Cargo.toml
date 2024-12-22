@@ -21,11 +21,8 @@ send_wrapper = "0.6.0"
 [dependencies.web-sys]
 version = "0.3.72"
 features = [
-  "BinaryType",
-  "MessageEvent",
   "MouseEvent",
   "KeyboardEvent",
-  "WebSocket",
   "Window",
   "CanvasRenderingContext2d",
   "Document",
@@ -40,5 +37,12 @@ features = [
   "BeforeUnloadEvent",
   "HtmlAudioElement",
   "Navigator",
-  "UserActivation"
+  "UserActivation",
+  "BinaryType",
+  "Blob",
+  "ErrorEvent",
+  "FileReader",
+  "MessageEvent",
+  "ProgressEvent",
+  "WebSocket",
 ]

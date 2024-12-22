@@ -9,6 +9,7 @@ pub enum TextEffects {
 
 #[derive(Default)]
 pub struct Label {
+    id: String,
     transform: Transform,
     font: Interpolatable<f32>,
     angle: Interpolatable<f32>,
@@ -27,6 +28,10 @@ pub struct Label {
 impl UiElement for Label {
     fn get_identity(&self) -> crate::core::ElementType {
         ElementType::Label    
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
     }
 
     fn get_mut_events(&mut self) -> &mut Events {
@@ -59,6 +64,13 @@ impl UiElement for Label {
         &mut self.children
     }
 
+    fn get_element_by_id(&mut self, id: &str) -> Option<(usize, &mut Box<dyn UiElement>)> {
+        self.children
+            .iter_mut()
+            .enumerate()
+            .find(|(_, child)| child.get_id() == id)
+    }
+
     fn set_children(&mut self, _: Vec<Box<dyn UiElement>>) {}
 
     fn get_bounding_rect(&self) -> BoundingRect {
@@ -88,7 +100,7 @@ impl UiElement for Label {
                 if !sound.is_playing() && (char_index as usize) < self.text.len() {
                     sound.play();
                 } else if sound.is_playing() && (char_index as usize) >= self.text.len() {
-                    sound.stop(0.9);
+                    sound.stop();
                 }
             }
             
@@ -241,6 +253,11 @@ impl Label {
 impl Label {
     pub fn new() -> Label {
         Label::default()
+    }
+
+    pub fn with_id(mut self, id: &str) -> Label {
+        self.id = id.to_string();
+        self
     }
 
     pub fn with_transform(mut self, transform: Transform) -> Label {

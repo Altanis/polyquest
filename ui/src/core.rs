@@ -13,6 +13,7 @@ pub enum ElementType {
 
 pub trait UiElement {
     fn get_identity(&self) -> ElementType;
+    fn get_id(&self) -> String;
 
     fn get_mut_events(&mut self) -> &mut Events;
 
@@ -22,6 +23,7 @@ pub trait UiElement {
     fn get_z_index(&self) -> i32;
 
     fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>>;
+    fn get_element_by_id(&mut self, id: &str) -> Option<(usize, &mut Box<dyn UiElement>)>;
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>);
 
     fn set_hovering(&mut self, val: bool, event: &MouseEvent) -> bool;

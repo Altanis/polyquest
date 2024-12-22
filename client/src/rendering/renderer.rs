@@ -3,10 +3,10 @@ use std::{collections::VecDeque};
 use gloo::console::console;
 use gloo_utils::{document, window};
 use shared::utils::vec2::Vector2D;
-use ui::{canvas2d::{Canvas2d, Transform}, core::{Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, gl::webgl::WebGl, translate, utils::{color::Color, sound::Sound}};
-use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, Performance};
+use ui::{canvas2d::{Canvas2d, Transform}, core::{ElementType, Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, gl::webgl::WebGl, translate, utils::{color::Color, sound::Sound}};
+use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, HtmlDivElement, Performance};
 
-use crate::world::{self, get_world, World};
+use crate::{connection::socket::ConnectionState, world::{self, get_world, World}};
 
 use super::phases::GamePhase;
 
@@ -49,8 +49,17 @@ impl Renderer {
     }
 
     pub fn tick(world: &mut World, timestamp: f64) {
-        if world.soundtrack.has_not_started() && window().navigator().user_activation().has_been_active() {
-            world.soundtrack.play();
+        world.sounds.tick();
+
+        if !world.sounds.can_play && window().navigator().user_activation().has_been_active() {
+            world.sounds.can_play = true;
+
+            match world.renderer.phase {
+                GamePhase::Lore(_) => world.sounds.get_mut_sound("soundtrack_lore").play(),
+                GamePhase::Home(_) => world.sounds.get_mut_sound("soundtrack_home").play(),
+                GamePhase::Game => world.sounds.get_mut_sound("soundtrack_game").play(),
+                _ => ()
+            }
         }
 
         if world.renderer.time.start_time == 0.0 {
@@ -100,7 +109,14 @@ impl Renderer {
         closure.forget();
     }
 
-    pub fn render_lore(world: &mut World, delta_average: f64) {
+    pub fn render_lore(world: &mut World, delta_average: f64) {        
+        document().get_element_by_id("text_input_container")
+            .unwrap()
+            .dyn_into::<HtmlDivElement>()
+            .unwrap()
+            .style()
+            .set_property("display", "none");
+
         if world.renderer.body.get_mut_children().is_empty() {
             let lore = GamePhase::generate_lore_elements(world);
             world.renderer.body.set_children(lore);
@@ -118,8 +134,44 @@ impl Renderer {
     }
 
     pub fn render_homescreen(world: &mut World, delta_average: f64) {
+        let modal_exists = world.renderer.body.get_mut_children()
+            .iter_mut()
+            .any(|child| child.get_identity() == ElementType::Modal);
+        let should_display_textbox = modal_exists && world.connection.state == ConnectionState::Connected;
+        
+        document().get_element_by_id("text_input_container")
+            .unwrap()
+            .dyn_into::<HtmlDivElement>()
+            .unwrap()
+            .style()
+            .set_property("display", if should_display_textbox { "block" } else { "none" });
+
         if world.renderer.body.get_mut_children().is_empty() {
             world.renderer.body.set_children(GamePhase::generate_homescreen_elements(world));
+        }
+
+        let connection_text = match world.connection.state {
+            ConnectionState::Connected => "",
+            ConnectionState::Connecting => "Connecting...",
+            ConnectionState::Failed => "Could not connect."
+        };
+
+        if !connection_text.is_empty() {
+            let state = Label::new()
+                .with_id("connecting_text")
+                .with_text(connection_text.to_string())
+                .with_fill(Color::WHITE)
+                .with_font(40.0)
+                .with_stroke(Color::BLACK)
+                .with_events(Events::default().with_hoverable(false));
+
+            if let Some((idx, _)) = world.renderer.body.get_element_by_id("connecting_text") {
+                world.renderer.body.get_mut_children().remove(idx);
+            }
+
+            world.renderer.body.get_mut_children().push(Box::new(state));
+        } else if let Some((idx, _)) = world.renderer.body.get_element_by_id("connecting_text") {
+            world.renderer.body.get_mut_children().remove(idx);
         }
 
         let dimensions = world.renderer.body.get_bounding_rect().dimensions;
@@ -135,5 +187,23 @@ impl Renderer {
     }
 
     pub fn render_game(world: &mut World, delta_average: f64) {
+        document().get_element_by_id("text_input_container")
+            .unwrap()
+            .dyn_into::<HtmlDivElement>()
+            .unwrap()
+            .style()
+            .set_property("display", "none");
+
+        if world.renderer.body.get_mut_children().is_empty() {
+            world.renderer.body.set_children(GamePhase::generate_game_elements(world));
+        }
+
+        let dimensions = world.renderer.body.get_bounding_rect().dimensions;
+
+        world.renderer.canvas2d.save();
+        world.renderer.body.render(&mut world.renderer.canvas2d, dimensions);
+        GamePhase::render_game(world);
+        world.renderer.body.render_children(&mut world.renderer.canvas2d);
+        world.renderer.canvas2d.restore();
     }
 }

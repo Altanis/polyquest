@@ -34,6 +34,7 @@ impl WebSocketServer {
        ConnectInfo(addr): ConnectInfo<SocketAddr>,
        State(server): State<WrappedServer>
     ) -> impl IntoResponse {
+        println!("bro");
         socket.on_upgrade(move |socket| {
             WebSocketServer::accept_client(socket, server.clone())
         })

@@ -1,10 +1,10 @@
 use std::{borrow::BorrowMut, cell::RefCell, ops::DerefMut, rc::Rc, sync::{LazyLock, MappedMutexGuard, Mutex, MutexGuard}};
 use send_wrapper::SendWrapper;
 use gloo_utils::window;
-use ui::utils::sound::Sound;
+use ui::utils::sound::{Sound, SoundHolder};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast, JsValue}, BeforeUnloadEvent, Event, KeyboardEvent, MouseEvent};
 
-use crate::{register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, storage_get};
+use crate::{connection::socket::Connection, register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, storage_get};
 
 pub type LockedWorld = MutexGuard<'static, Box<World>>;
 
@@ -23,18 +23,25 @@ pub fn get_world() -> MappedMutexGuard<'static, Box<SendWrapper<World>>> {
 
 pub struct World {
     pub renderer: Renderer,
-    pub soundtrack: Sound
+    pub sounds: SoundHolder,
+    pub connection: Connection
 }
 
 impl World {
     pub fn new() -> World {
+        let sounds = SoundHolder::new(vec![
+            ("button_click", false),
+            ("dialogue_normal", false),
+            ("dialogue_unsettling", false),
+            ("soundtrack_game", true),
+            ("soundtrack_home", true),
+            ("soundtrack_lore", true)
+        ]);
+
         World {
             renderer: Renderer::new(),
-            soundtrack: if storage_get!("lore_done").is_none() {
-                Sound::new("soundtrack_lore", true)
-            } else {
-                Sound::new("soundtrack_home", true)
-            }
+            sounds,
+            connection: Connection::new()
         }
     }
 

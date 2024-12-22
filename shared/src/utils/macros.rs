@@ -6,6 +6,16 @@ macro_rules! fuzzy_compare {
 }
 
 #[macro_export]
+macro_rules! bool {
+    ($a:expr) => {
+        match $a {
+            "0" | "0.0" | "false" => false,
+            _ => true
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! lerp {
     ($a:expr, $b:expr, $t:expr) => {
         $a + ($b - $a) * $t

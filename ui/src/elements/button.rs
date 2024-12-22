@@ -5,6 +5,7 @@ use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, E
 #[derive(Default)]
 pub struct Button
 {
+    id: String,
     transform: Interpolatable<Transform>,
     raw_transform: Transform,
     fill: Interpolatable<Color>,
@@ -20,6 +21,10 @@ pub struct Button
 impl UiElement for Button {
     fn get_identity(&self) -> crate::core::ElementType {
         ElementType::Button    
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
     }
 
     fn get_mut_events(&mut self) -> &mut Events {
@@ -53,6 +58,13 @@ impl UiElement for Button {
 
     fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
         &mut self.children
+    }
+
+    fn get_element_by_id(&mut self, id: &str) -> Option<(usize, &mut Box<dyn UiElement>)> {
+        self.children
+            .iter_mut()
+            .enumerate()
+            .find(|(_, child)| child.get_id() == id)
     }
 
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>) {
@@ -215,6 +227,11 @@ impl Button {
 impl Button {
     pub fn new() -> Button {
         Button::default()
+    }
+
+    pub fn with_id(mut self, id: &str) -> Button {
+        self.id = id.to_string();
+        self
     }
 
     pub fn with_transform(mut self, transform: Transform) -> Button {

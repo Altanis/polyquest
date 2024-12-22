@@ -5,6 +5,7 @@ use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, E
 
 #[derive(Default)]
 pub struct Body {
+    id: String,
     transform: Transform,
     fill: Color,
     events: Events,
@@ -15,6 +16,10 @@ pub struct Body {
 impl UiElement for Body {
     fn get_identity(&self) -> crate::core::ElementType {
         ElementType::Body    
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
     }
 
     fn get_mut_events(&mut self) -> &mut Events {
@@ -42,6 +47,13 @@ impl UiElement for Body {
     fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
         self.children.sort_by_key(|child| child.get_z_index());
         &mut self.children
+    }
+
+    fn get_element_by_id(&mut self, id: &str) -> Option<(usize, &mut Box<dyn UiElement>)> {
+        self.children
+            .iter_mut()
+            .enumerate()
+            .find(|(_, child)| child.get_id() == id)
     }
 
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>) {
@@ -93,6 +105,11 @@ impl Body {
         for deletion in deletions {
             self.children.remove(deletion);
         }
+    }
+
+    pub fn with_id(mut self, id: &str) -> Body {
+        self.id = id.to_string();
+        self
     }
 
     pub fn with_fill(mut self, fill: Color) -> Body {

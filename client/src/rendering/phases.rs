@@ -1,13 +1,13 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::{rand, utils::vec2::Vector2D};
+use shared::{bool, rand, utils::vec2::Vector2D};
 use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal}, get_debug_window_props, translate, utils::{color::Color, sound::Sound}};
 use rand::Rng;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement};
-use crate::{storage_get, storage_set, world::{get_world, World}};
+use crate::{connection::socket::ConnectionState, storage_get, storage_set, world::{get_world, World}};
 
 #[derive(Debug, Clone)]
 pub enum GamePhase {
@@ -19,18 +19,11 @@ pub enum GamePhase {
 
 impl Default for GamePhase {
     fn default() -> Self {
-        let lore_played = storage_get!("lore_done");
+        let lore_played = bool!(storage_get!("lore_done").unwrap_or("0".to_string()).as_str());
 
-        if lore_played.is_none() {
+        if !lore_played {
             GamePhase::Lore(0)
         } else {
-            document().get_element_by_id("text_input_container")
-                .unwrap()
-                .dyn_into::<HtmlDivElement>()
-                .unwrap()
-                .style()
-                .set_property("display", "block");
-
             GamePhase::Home(Box::default())
         }
     }
@@ -106,24 +99,17 @@ impl GamePhase {
             11 => "Trade with allies for weapons and gear.",
             12 => "Good luck.",
             _ => {
-                world.soundtrack = Sound::new("soundtrack_home", true);
+                world.sounds.get_mut_sound("soundtrack_home").play();
                 world.renderer.phase = GamePhase::Home(Box::default());
 
                 storage_set!("lore_done", "1");
-
-                document().get_element_by_id("text_input_container")
-                    .unwrap()
-                    .dyn_into::<HtmlDivElement>()
-                    .unwrap()
-                    .style()
-                    .set_property("display", "block");
 
                 return vec![];
             }
         };
 
         if phase == 9 {
-            world.soundtrack.stop(0.0);
+            world.sounds.get_mut_sound("soundtrack_lore").stop();
         }
 
         let sound_name = if phase == 9 { "dialogue_unsettling" } else { "dialogue_normal" };
@@ -138,10 +124,7 @@ impl GamePhase {
             .with_effects(TextEffects::Typewriter(
                 0, 
                 2,
-                Some(Sound::new(
-                    sound_name,
-                    false
-                ))
+                Some(Sound::new(sound_name, false))
             ));
 
         let continue_text = Label::new()
@@ -165,7 +148,8 @@ impl GamePhase {
                 ])
                 .with_on_click(Box::new(|| {
                     spawn_local(async {
-                        Sound::new(sound_name, false).stop(0.0);
+                        Sound::new(sound_name, false).restart();
+                        Sound::new(sound_name, false).stop();
 
                         let mut world = get_world();
                         let GamePhase::Lore(phase) = &mut world.renderer.phase else { return; };
@@ -189,8 +173,8 @@ impl GamePhase {
             .with_font(72.0)
             .with_stroke(Color::BLACK)
             .with_transform(translate!(0.0, -80.0))
-            .with_events(Events::default().with_hoverable(false))
-            .with_effects(TextEffects::Typewriter(0, 2, Some(Sound::new("dialogue_normal", false))));
+            .with_events(Events::default().with_hoverable(false));
+            // .with_effects(TextEffects::Typewriter(0, 2, Some(Sound::new("dialogue_normal", false))));
 
         let start = Button::new()
             .with_fill(Color::GREEN)
@@ -209,9 +193,8 @@ impl GamePhase {
                     
                         if !name.is_empty() {
                             let mut world = get_world();
-                            world.soundtrack.stop(0.0);
-
-                            Sound::new("button_click", false).play();
+                            world.sounds.get_mut_sound("soundtrack_home").stop();
+                            world.sounds.get_mut_sound("button_click").play();
                         }
                     });
                 }))
@@ -230,13 +213,70 @@ impl GamePhase {
 
         let buttons: [(Vector2D<f32>, Color, &str, Box<OnClickScript>); 2] = [
             (
-                Vector2D::new(0.0, 0.0),
+                Vector2D::ZERO,
                 Color::GRAY, "{icon}\u{f013}",
                 Box::new(|| {
                     spawn_local(async {
+                        let mut children: Vec<Box<dyn UiElement>> = vec![
+                            Box::new(Label::new()
+                                .with_text("Settings".to_string())
+                                .with_fill(Color::WHITE)
+                                .with_font(48.0)
+                                .with_stroke(Color::BLACK)
+                                .with_transform(translate!(125.0, 75.0))
+                                .with_events(Events::default().with_hoverable(false)))
+                        ];
+
+                        let settings: [(&str, &str, bool); 2] = [
+                            (
+                                "Soundtrack", "soundtrack", true
+                            ),
+                            (
+                                "Sound Effects", "sfx", true
+                            )
+                        ];
+
+                        for (i, (display_name, storage_name, default)) in settings.into_iter().enumerate() {
+                            let checked = storage_get!(storage_name)
+                                .map(|value| bool!(value.as_str()))
+                                .unwrap_or(default);
+                            let value = Arc::new(AtomicBool::new(checked));
+
+                            let checkbox = Checkbox::new()
+                                .with_accent(Color::GREEN)
+                                .with_box_stroke((7.0, Color::BLACK))
+                                .with_dimensions(Vector2D::new(50.0, 50.0))
+                                .with_fill(Color::WHITE)
+                                .with_transform(translate!(350.0, 180.0 + (i as f64 * 75.0)))
+                                .with_value(checked)
+                                .with_events(Events::default()
+                                    .with_on_click(Box::new(move || {
+                                        let value = value.clone();
+                                        spawn_local(async move {
+                                            let new = !value.load(Ordering::Relaxed);
+                                            value.store(new, Ordering::Relaxed);
+                                            
+                                            storage_set!(storage_name, &(new as u8).to_string());
+                                        });
+                                    }))
+                                );
+
+                            let text = Label::new()
+                                .with_text(display_name.to_string())
+                                .with_fill(Color::WHITE)
+                                .with_font(36.0)
+                                .with_stroke(Color::BLACK)
+                                .with_transform(translate!(550.0, 191.0 + (i as f64 * 75.0)))
+                                .with_events(Events::default().with_hoverable(false));
+
+                            children.push(Box::new(checkbox));
+                            children.push(Box::new(text));
+                        }
+
                         let mut modal = Modal::new()
                             .with_fill(Color::ORANGE)
-                            .with_dimensions(Vector2D::new(1000.0, 750.0))
+                            .with_dimensions(Vector2D::new(1000.0, 350.0))
+                            .with_children(children)
                             .with_close_button(Box::new(|| {
                                 spawn_local(async {
                                     let mut world = get_world();
@@ -250,7 +290,6 @@ impl GamePhase {
                                 });
                             }));
                         
-                        modal.set_transform(translate!(2000.0, 0.0));
                         get_world().renderer.body.get_mut_children().push(Box::new(modal));
                     });
                 })
@@ -295,7 +334,10 @@ impl GamePhase {
         }
 
         elements.push(Box::new(title));
-        elements.push(Box::new(start));
+
+        if world.connection.state == ConnectionState::Connected {
+            elements.push(Box::new(start));
+        }
 
         elements
     }
@@ -327,5 +369,13 @@ impl GamePhase {
 
             world.renderer.canvas2d.restore();
         }
+    }
+
+    pub fn generate_game_elements(world: &World) -> Vec<Box<dyn UiElement>> {
+        vec![]
+    }
+
+    pub fn render_game(world: &mut World) {
+
     }
 }

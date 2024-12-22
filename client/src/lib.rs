@@ -1,4 +1,5 @@
 #![feature(mapped_lock_guards)]
+#![feature(const_vec_string_slice)]
 #![allow(unused)]
 
 extern crate console_error_panic_hook;
