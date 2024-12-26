@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 use axum::Router;
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::{Mutex as AsyncMutex, MutexGuard};
 use crate::{connection::wss::WebSocketServer, game::state::{GameServer, GameState}};
 
 pub type WrappedServer = Arc<AsyncMutex<Server>>;
@@ -14,6 +14,8 @@ pub struct Server {
     pub game_server: GameServer,
     pub ws_server: WebSocketServer
 }
+
+pub type ServerGuard<'a> = MutexGuard<'a, Server>;
 
 impl Server {
     /// Initializes the server.

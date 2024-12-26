@@ -96,8 +96,10 @@ impl UiElement for Body {
 impl Body {
     pub fn render_children(&mut self, context: &mut Canvas2d) {
         let mut deletions = vec![];
-        for (i, child) in self.children.iter_mut().enumerate() {
-            if child.render(context, self.dimensions) {
+        let dimensions = self.dimensions;
+
+        for (i, child) in self.get_mut_children().iter_mut().enumerate() {
+            if child.render(context, dimensions) {
                 deletions.push(i);
             }
         }

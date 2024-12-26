@@ -22,6 +22,17 @@ macro_rules! storage_set {
     };
 }
 
+#[macro_export]
+macro_rules! get_element_by_id_and_cast {
+    ($id:expr, $type:ty) => {{
+        document()
+            .get_element_by_id($id)
+            .expect("element with given ID should exist")
+            .dyn_into::<$type>()
+            .expect("element should be of the expected type")
+    }};
+}
+
 pub fn get_debug_window_props() -> Result<(JsValue, JsValue), JsValue> {
     let window = window();
     let starlight = Reflect::get(&window, &JsValue::from_str("starlight"))?;

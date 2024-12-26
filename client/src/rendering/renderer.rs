@@ -3,7 +3,7 @@ use std::{collections::VecDeque};
 use gloo::console::console;
 use gloo_utils::{document, window};
 use shared::utils::vec2::Vector2D;
-use ui::{canvas2d::{Canvas2d, Transform}, core::{ElementType, Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, gl::webgl::WebGl, translate, utils::{color::Color, sound::Sound}};
+use ui::{canvas2d::{Canvas2d, Transform}, core::{ElementType, Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, get_element_by_id_and_cast, gl::webgl::WebGl, translate, utils::{color::Color, sound::Sound}};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, HtmlDivElement, Performance};
 
 use crate::{connection::socket::ConnectionState, world::{self, get_world, World}};
@@ -55,9 +55,21 @@ impl Renderer {
             world.sounds.can_play = true;
 
             match world.renderer.phase {
-                GamePhase::Lore(_) => world.sounds.get_mut_sound("soundtrack_lore").play(),
-                GamePhase::Home(_) => world.sounds.get_mut_sound("soundtrack_home").play(),
-                GamePhase::Game => world.sounds.get_mut_sound("soundtrack_game").play(),
+                GamePhase::Lore(_) => {
+                    world.sounds.get_mut_sound("soundtrack_lore").play();
+                    world.sounds.get_mut_sound("soundtrack_home").stop();
+                    world.sounds.get_mut_sound("soundtrack_game").stop();
+                },
+                GamePhase::Home(_) => {
+                    world.sounds.get_mut_sound("soundtrack_lore").stop();
+                    world.sounds.get_mut_sound("soundtrack_home").play();
+                    world.sounds.get_mut_sound("soundtrack_game").stop();
+                },
+                GamePhase::Game => {
+                    world.sounds.get_mut_sound("soundtrack_lore").stop();
+                    world.sounds.get_mut_sound("soundtrack_home").stop();
+                    world.sounds.get_mut_sound("soundtrack_game").play();
+                },
                 _ => ()
             }
         }
@@ -110,10 +122,7 @@ impl Renderer {
     }
 
     pub fn render_lore(world: &mut World, delta_average: f64) {        
-        document().get_element_by_id("text_input_container")
-            .unwrap()
-            .dyn_into::<HtmlDivElement>()
-            .unwrap()
+        get_element_by_id_and_cast!("text_input_container", HtmlDivElement)
             .style()
             .set_property("display", "none");
 
@@ -137,12 +146,9 @@ impl Renderer {
         let modal_exists = world.renderer.body.get_mut_children()
             .iter_mut()
             .any(|child| child.get_identity() == ElementType::Modal);
-        let should_display_textbox = modal_exists && world.connection.state == ConnectionState::Connected;
+        let should_display_textbox = !modal_exists && world.connection.state == ConnectionState::Connected;
         
-        document().get_element_by_id("text_input_container")
-            .unwrap()
-            .dyn_into::<HtmlDivElement>()
-            .unwrap()
+        get_element_by_id_and_cast!("text_input_container", HtmlDivElement)
             .style()
             .set_property("display", if should_display_textbox { "block" } else { "none" });
 
@@ -171,7 +177,7 @@ impl Renderer {
 
             world.renderer.body.get_mut_children().push(Box::new(state));
         } else if let Some((idx, _)) = world.renderer.body.get_element_by_id("connecting_text") {
-            world.renderer.body.get_mut_children().remove(idx);
+            world.renderer.body.set_children(vec![]);
         }
 
         let dimensions = world.renderer.body.get_bounding_rect().dimensions;
@@ -187,10 +193,7 @@ impl Renderer {
     }
 
     pub fn render_game(world: &mut World, delta_average: f64) {
-        document().get_element_by_id("text_input_container")
-            .unwrap()
-            .dyn_into::<HtmlDivElement>()
-            .unwrap()
+        get_element_by_id_and_cast!("text_input_container", HtmlDivElement)
             .style()
             .set_property("display", "none");
 

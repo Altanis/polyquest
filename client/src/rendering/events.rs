@@ -1,9 +1,9 @@
 use gloo::console::console;
 use gloo_utils::{body, document, window};
 use shared::utils::vec2::Vector2D;
-use ui::core::{ElementType, UiElement};
-use web_sys::{wasm_bindgen::JsCast, BeforeUnloadEvent, KeyboardEvent, MouseEvent};
-use crate::world::World;
+use ui::{core::{ElementType, UiElement}, get_element_by_id_and_cast};
+use web_sys::{wasm_bindgen::JsCast, BeforeUnloadEvent, HtmlInputElement, KeyboardEvent, MouseEvent};
+use crate::{connection::packets, world::World};
 
 use super::phases::GamePhase;
 #[derive(Debug)]
@@ -20,6 +20,7 @@ pub enum EventType {
 }
 
 pub enum KeyCode {
+    Enter,
     Escape
 }
 
@@ -28,6 +29,7 @@ impl TryInto<KeyCode> for u32 {
 
     fn try_into(self) -> Result<KeyCode, Self::Error> {
         match self {
+            13 => Ok(KeyCode::Enter),
             27 => Ok(KeyCode::Escape),
             _ => Err(())
         }
@@ -135,7 +137,8 @@ pub fn on_mousemove(world: &mut World, event: MouseEvent) {
         }
     }
 
-    let context = &mut world.renderer.gl;
+    let context = &mut world.renderer.canvas2d;
+    is_hovering = true;
     context.set_cursor(if is_hovering { "pointer" } else { "default" });
 }
 
@@ -154,6 +157,15 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
             for index in deletion_indices {
                 world.renderer.body.get_mut_children()[index]
                     .destroy();
+            }
+        },
+        Ok(KeyCode::Enter) => {
+            let name = get_element_by_id_and_cast!("text_input", HtmlInputElement)
+                .value();
+
+            if let GamePhase::Home(_) = world.renderer.phase && !name.is_empty() {
+                world.sounds.get_mut_sound("button_click").play();
+                world.connection.send_message(packets::form_spawn_packet(name));
             }
         },
         _ => ()

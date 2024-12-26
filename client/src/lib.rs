@@ -1,3 +1,4 @@
+#![feature(let_chains)]
 #![feature(mapped_lock_guards)]
 #![feature(const_vec_string_slice)]
 #![allow(unused)]
@@ -8,12 +9,14 @@ mod connection;
 mod rendering;
 mod simulation;
 mod world;
+mod game;
 
 use std::panic;
 use gloo::console::console;
 use gloo_utils::window;
 use web_sys::{js_sys::Reflect, wasm_bindgen::{self, prelude::*}};
 use world::{get_world, init_world, World};
+use web_sys::js_sys;
 
 #[macro_export]
 macro_rules! storage_get {

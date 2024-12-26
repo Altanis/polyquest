@@ -1,14 +1,13 @@
-use std::{collections::HashMap, net::SocketAddr};
+use std::{collections::HashMap, net::SocketAddr, time::Instant};
 
 use axum::{
     extract::{ws::{Message, WebSocket, WebSocketUpgrade}, ConnectInfo, State},
     response::IntoResponse
 };
 use futures::{stream::SplitSink, SinkExt, StreamExt};
-use shared::{connection::packets::ServerboundPackets, utils::codec::BinaryCodec};
-use tokio::sync::MutexGuard;
+use shared::{connection::packets::ServerboundPackets, game::{body::get_body_base_identity, entity::{EntityType, InputFlags, BASE_TANK_RADIUS}, turret::get_turret_mono_identity}, utils::{codec::BinaryCodec, vec2::Vector2D}};
 
-use crate::server::{Server, WrappedServer};
+use crate::{game::entity::{ConnectionComponent, DisplayComponent, Entity, PhysicsComponent, TimeComponent}, server::{Server, ServerGuard, WrappedServer}};
 
 use super::packets;
 
@@ -34,7 +33,6 @@ impl WebSocketServer {
        ConnectInfo(addr): ConnectInfo<SocketAddr>,
        State(server): State<WrappedServer>
     ) -> impl IntoResponse {
-        println!("bro");
         socket.on_upgrade(move |socket| {
             WebSocketServer::accept_client(socket, server.clone())
         })
@@ -46,7 +44,41 @@ impl WebSocketServer {
             let id = full_server.game_server.get_server().get_next_id();
     
             let (sender, receiver) = socket.split();
+
             full_server.ws_server.clients.insert(id, WebSocketClient { sender });
+            full_server.game_server.get_server().insert_entity(Entity {
+                id,
+                physics: PhysicsComponent {
+                    position: Vector2D::ZERO,
+                    velocity: Vector2D::ZERO,
+                    mouse: Vector2D::ZERO,
+                    inputs: InputFlags::new(0)
+                },
+                display: DisplayComponent {
+                    name: "".to_string(),
+                    level: 0,
+                    score: 0,
+                    health: 0.0, max_health: 0.0, alive: false,
+                    regen_per_tick: 0.0,
+                    energy: 0.0, max_energy: 0.0,
+                    stat_investments: [0; _],
+                    available_stat_points: 0,
+                    opacity: 1.0,
+                    fov: 1.0,
+                    surroundings: vec![],
+                    entity_type: EntityType::Player,
+                    body_identity: get_body_base_identity(),
+                    turret_identity: get_turret_mono_identity(),
+                    radius: BASE_TANK_RADIUS
+                },
+                time: TimeComponent {
+                    ticks: 0,
+                    last_tick: Instant::now()
+                },
+                connection: ConnectionComponent {
+                    outgoing_packets: vec![]
+                }
+            });
 
             (receiver, id)
         };
@@ -54,12 +86,12 @@ impl WebSocketServer {
         while let Some(Ok(message)) = receiver.next().await {
             let mut full_server = server.lock().await;
             if let Err(ban) = WebSocketServer::handle_message(&mut full_server, message, id) {
-                full_server.ws_server.close_client(id, ban);
+                WebSocketServer::close_client(&mut full_server, id, ban);
             }
         }
     }
 
-    pub fn handle_message(full_server: &mut MutexGuard<'_, Server>, message: Message, id: u32) -> Result<(), bool> {
+    pub fn handle_message(full_server: &mut ServerGuard, message: Message, id: u32) -> Result<(), bool> {
         match message {
             Message::Binary(data) => {
                 let mut codec = BinaryCodec::from_bytes(data);
@@ -76,7 +108,12 @@ impl WebSocketServer {
     }
 
     /// Closes the client.
-    pub fn close_client(&mut self, id: u32, ban: bool) {}
+    pub fn close_client(full_server: &mut ServerGuard, id: u32, ban: bool) {
+        println!("Client # {} is being {}.", id, if ban { "banned" } else { "closed forcefully" });
+
+        full_server.game_server.get_server().delete_entity(id);
+        full_server.ws_server.clients.remove(&id);
+    }
 
     pub async fn tick(full_server: &mut Server) {
         full_server.ws_server.ticks += 1;

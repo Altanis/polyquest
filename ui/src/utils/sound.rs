@@ -25,8 +25,8 @@ impl SoundHolder {
     }
 
     pub fn tick(&mut self) {
-        let soundtrack_disabled = !bool!(storage_get!("soundtrack").unwrap_or("0".to_string()).as_str());
-        let sfx_disabled = !bool!(storage_get!("sfx").unwrap_or("0".to_string()).as_str());
+        let soundtrack_disabled = !bool!(storage_get!("soundtrack").unwrap_or("1".to_string()).as_str());
+        let sfx_disabled = !bool!(storage_get!("sfx").unwrap_or("1".to_string()).as_str());
 
         for (_, sound) in self.sounds.iter_mut() {
             let soundtrack = sound.r#loop;
@@ -69,10 +69,11 @@ impl Sound {
             let _ = file.dataset().set("playing", "0");
             let _ = file.dataset().set("stopping", "0");
 
-            let soundtrack_disabled = !bool!(storage_get!("soundtrack").unwrap_or("0".to_string()).as_str());
-            let sfx_disabled = !bool!(storage_get!("sfx").unwrap_or("0".to_string()).as_str());
-            let disabled = (soundtrack_disabled && r#loop) || (sfx_disabled && !r#loop);
+            let soundtrack_disabled = !bool!(storage_get!("soundtrack").unwrap_or("1".to_string()).as_str());
+            let sfx_disabled = !bool!(storage_get!("sfx").unwrap_or("1".to_string()).as_str());
 
+
+            let disabled = (soundtrack_disabled && r#loop) || (sfx_disabled && !r#loop);
             let _ = file.dataset().set("disabled", if disabled { "1" } else { "0" });
 
             body().append_child(&file).expect("couldnt add audio");

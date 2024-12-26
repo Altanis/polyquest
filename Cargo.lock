@@ -203,6 +203,7 @@ name = "client"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
+ "derive-new",
  "gloo",
  "gloo-utils",
  "rand",
@@ -210,6 +211,8 @@ dependencies = [
  "send_wrapper",
  "serde_json",
  "shared",
+ "strum",
+ "strum_macros",
  "ui",
  "wasm-bindgen-futures",
  "web-sys",
@@ -1490,6 +1493,7 @@ dependencies = [
 name = "shared"
 version = "0.1.0"
 dependencies = [
+ "derive-new",
  "rand",
  "strum",
  "strum_macros",

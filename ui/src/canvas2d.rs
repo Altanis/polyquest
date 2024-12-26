@@ -198,10 +198,7 @@ impl Canvas2d {
                 .dyn_into::<HtmlCanvasElement>()
                 .unwrap()
         } else {
-            document().get_element_by_id(id)
-                .unwrap()
-                .dyn_into::<HtmlCanvasElement>()
-                .unwrap()
+            get_element_by_id_and_cast!(id, HtmlCanvasElement)
         };
 
         let ctx = canvas

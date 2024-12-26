@@ -28,6 +28,10 @@ impl Color {
         colors[rand!(0, colors.len() - 1)]
     }
 
+    pub fn from_numeric(hex: u32) -> Color {
+        Color::from_rgb(((hex >> 16) & 0xFF) as u8, ((hex >> 8) & 0xFF) as u8, (hex & 0xFF) as u8)
+    }
+
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Color {
         Color(r, g, b)
     }

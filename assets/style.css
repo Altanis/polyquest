@@ -3,6 +3,10 @@
 /* @import url('https://fonts.cdnfonts.com/css/minecraft-4'); */
 /* @import url('https://fonts.googleapis.com/css2?family=Tiny5&display=swap'); */
 
+:root {
+    --textbox_alpha: 1.00;
+}
+
 body {
     margin: 0;
     width: 100%;
@@ -16,7 +20,7 @@ canvas {
     width: 100%;
 }
 
-#offscreen_canvas {
+#webgl_canvas {
     display: none;
     z-index: -9999;
 }
@@ -24,7 +28,7 @@ canvas {
 #text_input_container {
     display: none;
     position: absolute;
-    border: 5px solid rgba(255, 255, 255, 0.75);
+    border: 5px solid rgba(255, 255, 255, var(--textbox_alpha));
     z-index: 100;
     top: 50%;
     left: 50%;
@@ -40,7 +44,7 @@ canvas {
     font-size: 40px;
     padding-left: 5px;
     padding-right: 5px;
-    color: rgba(255, 255, 255, 0.75);
+    color: rgba(255, 255, 255, var(--textbox_alpha));
     background-color: rgba(0, 0, 0, 0.9);
     font-family: "Ubuntu";
     padding: 5px;

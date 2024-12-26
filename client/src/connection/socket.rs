@@ -1,9 +1,11 @@
 use gloo::console::console;
-use shared::utils::codec::BinaryCodec;
+use shared::{connection::packets::ClientboundPackets, utils::codec::BinaryCodec};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{js_sys::{ArrayBuffer, Uint8Array}, wasm_bindgen::{prelude::Closure, JsCast}, BinaryType, Event, MessageEvent, Performance, WebSocket};
 
 use crate::world::{get_world, World};
+
+use super::packets::handle_update_packet;
 
 const IS_PROD: bool = false;
 const URL: &str = if IS_PROD {
@@ -123,11 +125,15 @@ impl Connection {
 
     }
 
-    fn on_message(world: &mut World, codec: BinaryCodec) {
+    fn on_message(world: &mut World, mut codec: BinaryCodec) {
         // web_sys::console::log_1(&format!("Received binary message: {:?}", data).into());
+        let header: ClientboundPackets = (codec.decode_varuint().unwrap() as u8).try_into().unwrap();
+        match header {
+            ClientboundPackets::Update => handle_update_packet(world, codec),
+        }
     }
 
-    pub fn send_message(&self, data: Vec<u8>) {
-        let _ = self.socket.send_with_u8_array(data.as_slice());
+    pub fn send_message(&self, data: BinaryCodec) {
+        let _ = self.socket.send_with_u8_array(data.out().as_slice());
     }
 }

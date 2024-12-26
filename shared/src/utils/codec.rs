@@ -1,5 +1,5 @@
 /// A binary encoder/decoder.
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct BinaryCodec {
     data: Vec<u8>,
     index: usize
@@ -105,11 +105,14 @@ impl BinaryCodec {
     }
 
     pub fn decode_f32(&mut self) -> Option<f32> {
-        if self.index + 3 > self.data.len() {
+        if self.index + 4 > self.data.len() {
             return None;
         }
-
-        Some(f32::from_le_bytes(self.data[self.index..self.index + 3].try_into().unwrap()))
+    
+        let value = f32::from_le_bytes(self.data[self.index..self.index + 4].try_into().ok()?);
+        self.index += 4;
+    
+        Some(value)
     }
 
     pub fn encode_f64(&mut self, v: f64) {
@@ -118,14 +121,17 @@ impl BinaryCodec {
     }
 
     pub fn decode_f64(&mut self) -> Option<f64> {
-        if self.index + 7 > self.data.len() {
+        if self.index + 8 > self.data.len() {
             return None;
         }
-
-        Some(f64::from_le_bytes(self.data[self.index..self.index + 7].try_into().unwrap()))
+    
+        let value = f64::from_le_bytes(self.data[self.index..self.index + 8].try_into().ok()?);
+        self.index += 8;
+    
+        Some(value)
     }
 
-    pub fn encode_string(&mut self, v: &str) {
+    pub fn encode_string(&mut self, v: String) {
         self.encode_varuint(v.len() as u64);
         self.data.extend_from_slice(v.as_bytes());
         self.index += v.len();
@@ -144,7 +150,11 @@ impl BinaryCodec {
         self.index -= 1;
     }
 
-    pub fn out(self) -> Vec<u8> {
+    pub fn out(&self) -> Vec<u8> {
         self.data[0..self.index].to_vec()
+    }
+
+    pub fn dump_buffer(&self) -> Vec<u8> {
+        self.data[self.index..self.data.len()].to_vec()
     }
 }

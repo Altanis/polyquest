@@ -1,8 +1,8 @@
 use gloo::{console::console, utils::window};
-use shared::{fuzzy_compare, lerp, utils::vec2::Vector2D};
+use shared::{fuzzy_compare, lerp, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
 
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, Interpolatable, UiElement}, translate, utils::color::Color};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, translate, utils::color::Color};
 
 use super::{button::Button, label::Label};
 

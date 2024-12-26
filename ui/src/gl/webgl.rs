@@ -62,10 +62,7 @@ fn link_program(
 
 impl WebGl {
     pub fn new() -> WebGl {
-        let canvas = document().get_element_by_id("webgl_canvas")
-            .unwrap()
-            .dyn_into::<HtmlCanvasElement>()
-            .unwrap();
+        let canvas = get_element_by_id_and_cast!("webgl_canvas", HtmlCanvasElement);
 
         let ctx = canvas
             .get_context("webgl")

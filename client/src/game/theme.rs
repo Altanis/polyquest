@@ -1,0 +1,1 @@
+pub const OUTBOUNDS_FILL: &str = "rgb(";

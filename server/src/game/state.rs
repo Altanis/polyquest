@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, cell::{RefCell, RefMut}, collections::HashMap, time::Instant};
+use std::{cell::{RefCell, RefMut}, collections::HashMap, time::Instant};
 
 use crate::server::MSPT;
 
@@ -47,6 +47,10 @@ impl GameState {
 
     pub fn get_entity(&mut self, id: u32) -> Option<RefMut<'_, Entity>> {
         self.entities.get(&id).map(|entity_ref| entity_ref.borrow_mut())
+    }
+
+    pub fn delete_entity(&mut self, id: u32) {
+        self.entities.remove(&id);
     }
 
     pub fn tick(&mut self) {

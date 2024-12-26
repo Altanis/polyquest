@@ -4,9 +4,7 @@ use gloo_utils::window;
 use ui::utils::sound::{Sound, SoundHolder};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast, JsValue}, BeforeUnloadEvent, Event, KeyboardEvent, MouseEvent};
 
-use crate::{connection::socket::Connection, register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, storage_get};
-
-pub type LockedWorld = MutexGuard<'static, Box<World>>;
+use crate::{connection::socket::Connection, game::entity::{Entity, Game}, register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, storage_get};
 
 pub static WORLD: Mutex<Option<Box<SendWrapper<World>>>> = Mutex::new(None);
 
@@ -24,7 +22,8 @@ pub fn get_world() -> MappedMutexGuard<'static, Box<SendWrapper<World>>> {
 pub struct World {
     pub renderer: Renderer,
     pub sounds: SoundHolder,
-    pub connection: Connection
+    pub connection: Connection,
+    pub game: Game
 }
 
 impl World {
@@ -41,7 +40,8 @@ impl World {
         World {
             renderer: Renderer::new(),
             sounds,
-            connection: Connection::new()
+            connection: Connection::new(),
+            game: Game::default()
         }
     }
 

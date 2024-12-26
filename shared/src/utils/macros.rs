@@ -49,3 +49,16 @@ macro_rules! rand {
         rand::thread_rng().gen_range($min..=$max)
     };
 }
+
+#[macro_export]
+macro_rules! constrain {
+    ($min:expr, $value:expr, $max:expr) => {
+        if $value < $min {
+            $min
+        } else if $value > $max {
+            $max
+        } else {
+            $value
+        }
+    };
+}

@@ -1,29 +1,31 @@
 use std::cell::RefMut;
-
-use shared::{connection::packets::{ClientboundPackets, ServerboundPackets}, utils::{codec::BinaryCodec, vec2::Vector2D}};
-use tokio::sync::MutexGuard;
-
-use crate::{game::{entity::{Entity, InputFlags}, state::EntityDataStructure}, server::Server};
+use shared::{connection::packets::ClientboundPackets, game::{body::get_body_base_identity, entity::InputFlags, turret::get_turret_mono_identity}, utils::{codec::BinaryCodec, vec2::Vector2D}};
+use crate::{game::{entity::Entity, state::EntityDataStructure}, server::ServerGuard};
 
 pub fn handle_spawn_packet(
-    full_server: &mut MutexGuard<'_, Server>, id: u32, mut codec: BinaryCodec
+    full_server: &mut ServerGuard, 
+    id: u32, 
+    mut codec: BinaryCodec
 ) -> Result<(), bool> {
     let game_server = full_server.game_server.get_server();
 
     let name = codec.decode_string().ok_or(true)?;
 
-    if game_server.get_entity(id).is_none() {
-        let mut entity = Entity::default();
-        entity.nametag.name = name;
-
-        game_server.insert_entity(entity);
+    if let Some(mut entity) = game_server.get_entity(id) && !entity.display.alive {
+        entity.display.name = name;
+        entity.display.alive = true;
+    
+        entity.display.body_identity = get_body_base_identity();
+        entity.display.turret_identity = get_turret_mono_identity();
+        entity.display.health = entity.display.body_identity.max_health;
+        entity.display.max_health = entity.display.body_identity.max_health;
     }
 
     Ok(())
 }
 
 pub fn handle_input_packet(
-    full_server: &mut MutexGuard<'_, Server>, 
+    full_server: &mut ServerGuard, 
     id: u32, 
     mut codec: BinaryCodec
 ) -> Result<(), bool> {
@@ -48,10 +50,9 @@ pub fn form_update_packet(
     entities: &EntityDataStructure
 ) -> BinaryCodec {
     let mut codec = BinaryCodec::new();
-
     codec.encode_varuint(ClientboundPackets::Update as u64);
 
-    self_entity.take_census(&mut codec, false);
+    self_entity.take_census(&mut codec, true);
 
     codec.encode_varuint((entities.len() - 1) as u64);
     for (id, entity) in entities.iter() {

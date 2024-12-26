@@ -1,7 +1,7 @@
 use gloo::utils::window;
-use shared::{fuzzy_compare, lerp, lerp_angle, utils::vec2::Vector2D};
+use shared::{fuzzy_compare, lerp, lerp_angle, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, Interpolatable, UiElement}, utils::{color::Color, sound::Sound}, DEBUG};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, utils::{color::Color, sound::Sound}, DEBUG};
 
 pub enum TextEffects {
     Typewriter(usize, u64, Option<Sound>) // Typewriter(char_index, tick_interval)

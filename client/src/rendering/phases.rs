@@ -3,11 +3,11 @@ use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 use gloo::console::console;
 use gloo_utils::{document, window};
 use shared::{bool, rand, utils::vec2::Vector2D};
-use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal}, get_debug_window_props, translate, utils::{color::Color, sound::Sound}};
+use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::{color::Color, sound::Sound}};
 use rand::Rng;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement};
-use crate::{connection::socket::ConnectionState, storage_get, storage_set, world::{get_world, World}};
+use crate::{connection::{packets, socket::ConnectionState}, storage_get, storage_set, world::{get_world, World}};
 
 #[derive(Debug, Clone)]
 pub enum GamePhase {
@@ -174,7 +174,6 @@ impl GamePhase {
             .with_stroke(Color::BLACK)
             .with_transform(translate!(0.0, -80.0))
             .with_events(Events::default().with_hoverable(false));
-            // .with_effects(TextEffects::Typewriter(0, 2, Some(Sound::new("dialogue_normal", false))));
 
         let start = Button::new()
             .with_fill(Color::GREEN)
@@ -187,14 +186,14 @@ impl GamePhase {
                 ])
                 .with_on_click(Box::new(|| {
                     spawn_local(async {
-                        let name = document().get_element_by_id("text_input").unwrap()
-                            .dyn_into::<HtmlInputElement>().unwrap()
+                        let name = get_element_by_id_and_cast!("text_input", HtmlInputElement)
                             .value();
                     
                         if !name.is_empty() {
                             let mut world = get_world();
-                            world.sounds.get_mut_sound("soundtrack_home").stop();
+
                             world.sounds.get_mut_sound("button_click").play();
+                            world.connection.send_message(packets::form_spawn_packet(name));
                         }
                     });
                 }))
@@ -372,7 +371,14 @@ impl GamePhase {
     }
 
     pub fn generate_game_elements(world: &World) -> Vec<Box<dyn UiElement>> {
-        vec![]
+        vec![Box::new(
+            Label::new()
+                .with_text("Game start!".to_string())
+                .with_fill(Color::WHITE)
+                .with_font(32.0)
+                .with_transform(translate!(0.0, 10.0))
+            )
+        ]
     }
 
     pub fn render_game(world: &mut World) {

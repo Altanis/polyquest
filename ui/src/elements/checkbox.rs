@@ -1,8 +1,8 @@
 use gloo::console::console;
-use shared::utils::vec2::Vector2D;
+use shared::utils::{interpolatable::Interpolatable, vec2::Vector2D};
 use web_sys::MouseEvent;
 
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, Interpolatable, UiElement}, utils::color::Color, DEBUG};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, UiElement}, utils::color::Color, DEBUG};
 
 #[derive(Default)]
 pub struct Checkbox {
