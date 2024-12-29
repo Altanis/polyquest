@@ -6,7 +6,7 @@ use shared::utils::vec2::Vector2D;
 use ui::{canvas2d::{Canvas2d, Transform}, core::{ElementType, Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, get_element_by_id_and_cast, gl::webgl::WebGl, translate, utils::{color::Color, sound::Sound}};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, HtmlDivElement, Performance};
 
-use crate::{connection::socket::ConnectionState, world::{self, get_world, World}};
+use crate::{connection::socket::ConnectionState, world::{self, get_world, World}, SHADERS_ENABLED};
 
 use super::phases::GamePhase;
 
@@ -24,6 +24,7 @@ pub struct Renderer {
     pub mouse: Vector2D<f32>,
     pub time: TimeInformation,
     pub phase: GamePhase,
+    previous_phase: GamePhase,
     pub body: Body,
     pub fps_counter: Label
 }
@@ -36,6 +37,7 @@ impl Renderer {
             mouse: Vector2D::ZERO,
             time: TimeInformation::default(),
             phase: GamePhase::default(),
+            previous_phase: GamePhase::default(),
             body: Body::default()
                 .with_fill(Color(14, 14, 14)),
             fps_counter: Label::new()
@@ -50,6 +52,11 @@ impl Renderer {
 
     pub fn tick(world: &mut World, timestamp: f64) {
         world.sounds.tick();
+
+        if !world.renderer.phase.same_phase(&world.renderer.previous_phase) {
+            world.renderer.body.set_children(vec![]);
+        }
+        world.renderer.previous_phase = world.renderer.phase.clone();
 
         if !world.sounds.can_play && window().navigator().user_activation().has_been_active() {
             world.sounds.can_play = true;
@@ -98,18 +105,51 @@ impl Renderer {
         world.renderer.canvas2d.save();
         world.renderer.canvas2d.set_line_join("round");
 
+        let elements = match world.renderer.phase {
+            GamePhase::Lore(_) => GamePhase::generate_lore_elements(world),
+            GamePhase::Home(_) => GamePhase::generate_homescreen_elements(world),
+            GamePhase::Game => GamePhase::generate_game_elements(world),
+            GamePhase::Death => vec![],
+        };
+        
+        let mut element_ids: Vec<String> = elements.iter().map(|e| e.get_id()).collect();
+        
+        elements.into_iter().for_each(|element| {
+            match world.renderer.body.get_element_by_id(&element.get_id()) {
+                Some((_, el)) if !el.has_animation_state() => {
+                    world.renderer.body.delete_element_by_id(&element.get_id(), false);
+                    world.renderer.body.get_mut_children().push(element);
+                },
+                None => world.renderer.body.get_mut_children().push(element),
+                _ => {}
+            }
+        });
+        
+        let stale_ids: Vec<String> = world.renderer.body.get_mut_children()
+            .iter()
+            .filter(|e| !element_ids.contains(&e.get_id()))
+            .map(|e| e.get_id())
+            .collect();
+        
+        stale_ids.into_iter().for_each(|id| {
+            world.renderer.body.delete_element_by_id(&id, true);
+        });
+        
         match world.renderer.phase {
             GamePhase::Lore(_) => Renderer::render_lore(world, delta_average),
             GamePhase::Home(_) => Renderer::render_homescreen(world, delta_average),
             GamePhase::Game => Renderer::render_game(world, delta_average),
-            _ => ()
+            GamePhase::Death => ()
         }
 
         world.renderer.canvas2d.restore();
-        world.renderer.gl.render(
-            &world.renderer.canvas2d, 
-            (timestamp - world.renderer.time.start_time) / 1000.0
-        );
+
+        if SHADERS_ENABLED {
+            world.renderer.gl.render(
+                &world.renderer.canvas2d, 
+                (timestamp - world.renderer.time.start_time) / 1000.0
+            );
+        }
 
         let closure = Closure::once(move |ts: f64| {
             Renderer::tick(&mut get_world(), ts);
@@ -125,11 +165,6 @@ impl Renderer {
         get_element_by_id_and_cast!("text_input_container", HtmlDivElement)
             .style()
             .set_property("display", "none");
-
-        if world.renderer.body.get_mut_children().is_empty() {
-            let lore = GamePhase::generate_lore_elements(world);
-            world.renderer.body.set_children(lore);
-        }
 
         let dimensions = world.renderer.body.get_bounding_rect().dimensions;
 
@@ -152,34 +187,6 @@ impl Renderer {
             .style()
             .set_property("display", if should_display_textbox { "block" } else { "none" });
 
-        if world.renderer.body.get_mut_children().is_empty() {
-            world.renderer.body.set_children(GamePhase::generate_homescreen_elements(world));
-        }
-
-        let connection_text = match world.connection.state {
-            ConnectionState::Connected => "",
-            ConnectionState::Connecting => "Connecting...",
-            ConnectionState::Failed => "Could not connect."
-        };
-
-        if !connection_text.is_empty() {
-            let state = Label::new()
-                .with_id("connecting_text")
-                .with_text(connection_text.to_string())
-                .with_fill(Color::WHITE)
-                .with_font(40.0)
-                .with_stroke(Color::BLACK)
-                .with_events(Events::default().with_hoverable(false));
-
-            if let Some((idx, _)) = world.renderer.body.get_element_by_id("connecting_text") {
-                world.renderer.body.get_mut_children().remove(idx);
-            }
-
-            world.renderer.body.get_mut_children().push(Box::new(state));
-        } else if let Some((idx, _)) = world.renderer.body.get_element_by_id("connecting_text") {
-            world.renderer.body.set_children(vec![]);
-        }
-
         let dimensions = world.renderer.body.get_bounding_rect().dimensions;
 
         world.renderer.canvas2d.save();
@@ -196,17 +203,21 @@ impl Renderer {
         get_element_by_id_and_cast!("text_input_container", HtmlDivElement)
             .style()
             .set_property("display", "none");
-
-        if world.renderer.body.get_mut_children().is_empty() {
-            world.renderer.body.set_children(GamePhase::generate_game_elements(world));
-        }
-
+        
         let dimensions = world.renderer.body.get_bounding_rect().dimensions;
 
         world.renderer.canvas2d.save();
         world.renderer.body.render(&mut world.renderer.canvas2d, dimensions);
-        GamePhase::render_game(world);
+        
+        world.renderer.canvas2d.save();
+        world.renderer.canvas2d.reset_transform();
+        GamePhase::render_game(world, delta_average);
+        world.renderer.canvas2d.restore();
+
         world.renderer.body.render_children(&mut world.renderer.canvas2d);
+        world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
+        world.renderer.fps_counter.render(&mut world.renderer.canvas2d, dimensions);
+        
         world.renderer.canvas2d.restore();
     }
 }

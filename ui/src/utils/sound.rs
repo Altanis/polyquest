@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use gloo::{console::console, utils::{body, document, window}};
+use gloo::utils::{body, document, window};
 use shared::bool;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlAudioElement;

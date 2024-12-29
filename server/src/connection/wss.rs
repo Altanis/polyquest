@@ -7,7 +7,7 @@ use axum::{
 use futures::{stream::SplitSink, SinkExt, StreamExt};
 use shared::{connection::packets::ServerboundPackets, game::{body::get_body_base_identity, entity::{EntityType, InputFlags, BASE_TANK_RADIUS}, turret::get_turret_mono_identity}, utils::{codec::BinaryCodec, vec2::Vector2D}};
 
-use crate::{game::entity::{ConnectionComponent, DisplayComponent, Entity, PhysicsComponent, TimeComponent}, server::{Server, ServerGuard, WrappedServer}};
+use crate::{game::entity::{ConnectionComponent, DisplayComponent, Entity, PhysicsComponent, StatsComponent, TimeComponent}, server::{Server, ServerGuard, WrappedServer}};
 
 use super::packets;
 
@@ -30,7 +30,7 @@ impl WebSocketServer {
 
     pub async fn handle_incoming_connection(
        socket: WebSocketUpgrade,
-       ConnectInfo(addr): ConnectInfo<SocketAddr>,
+       ConnectInfo(_): ConnectInfo<SocketAddr>,
        State(server): State<WrappedServer>
     ) -> impl IntoResponse {
         socket.on_upgrade(move |socket| {
@@ -56,20 +56,25 @@ impl WebSocketServer {
                 },
                 display: DisplayComponent {
                     name: "".to_string(),
-                    level: 0,
+                    level: 1,
                     score: 0,
-                    health: 0.0, max_health: 0.0, alive: false,
-                    regen_per_tick: 0.0,
-                    energy: 0.0, max_energy: 0.0,
                     stat_investments: [0; _],
                     available_stat_points: 0,
                     opacity: 1.0,
-                    fov: 1.0,
+                    fov: 0.0,
                     surroundings: vec![],
                     entity_type: EntityType::Player,
                     body_identity: get_body_base_identity(),
                     turret_identity: get_turret_mono_identity(),
                     radius: BASE_TANK_RADIUS
+                },
+                stats: StatsComponent {
+                    health: 0.0, max_health: 0.0, alive: false,
+                    regen_per_tick: 0.0,
+                    damage_per_tick: 0.0,
+                    reload: 0.0,
+                    speed: 0.0,
+                    energy: 0.0, max_energy: 0.0,
                 },
                 time: TimeComponent {
                     ticks: 0,
@@ -99,7 +104,8 @@ impl WebSocketServer {
 
                 match header {
                     ServerboundPackets::Spawn => packets::handle_spawn_packet(full_server, id, codec),
-                    ServerboundPackets::Input => packets::handle_input_packet(full_server, id, codec)
+                    ServerboundPackets::Input => packets::handle_input_packet(full_server, id, codec),
+                    ServerboundPackets::Stats => packets::handle_stats_packet(full_server, id, codec)
                 }
             },
             Message::Close(_) => Err(false),

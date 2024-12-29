@@ -8,7 +8,6 @@ pub type WrappedServer = Arc<AsyncMutex<Server>>;
 pub const PORT: u16 = 8080;
 pub const FPS: u64 = 25;
 pub const MSPT: u64 = 1000 / FPS;
-pub const FRICTION: f32 = 0.1;
 
 pub struct Server {
     pub game_server: GameServer,

@@ -1,4 +1,4 @@
-use shared::rand;
+use shared::{fuzzy_compare, rand};
 use rand::Rng;
 
 #[derive(Default, Debug, Copy, Clone)]
@@ -7,6 +7,15 @@ pub struct Color(pub u8, pub u8, pub u8);
 impl Color {
     pub const BLACK: Color = Color(0, 0, 0);
     pub const WHITE: Color = Color(255, 255, 255);
+    pub const SOFT_RED: Color = Color(200, 100, 100);    
+    pub const SOFT_GREEN: Color = Color(100, 200, 100);  
+    pub const SOFT_BLUE: Color = Color(100, 100, 200);    
+    pub const SOFT_YELLOW: Color = Color(200, 200, 100);  
+    pub const SOFT_CYAN: Color = Color(100, 200, 200);   
+    pub const SOFT_MAGENTA: Color = Color(200, 100, 200); 
+    pub const SOFT_GRAY: Color = Color(160, 160, 160);    
+    pub const SOFT_ORANGE: Color = Color(255, 140, 70);   
+    pub const SOFT_PURPLE: Color = Color(160, 70, 160);
     pub const RED: Color = Color(255, 0, 0);
     pub const GREEN: Color = Color(0, 255, 0);
     pub const BLUE: Color = Color(0, 0, 255);
@@ -28,11 +37,11 @@ impl Color {
         colors[rand!(0, colors.len() - 1)]
     }
 
-    pub fn from_numeric(hex: u32) -> Color {
+    pub const fn from_numeric(hex: u32) -> Color {
         Color::from_rgb(((hex >> 16) & 0xFF) as u8, ((hex >> 8) & 0xFF) as u8, (hex & 0xFF) as u8)
     }
 
-    pub fn from_rgb(r: u8, g: u8, b: u8) -> Color {
+    pub const fn from_rgb(r: u8, g: u8, b: u8) -> Color {
         Color(r, g, b)
     }
 
@@ -49,7 +58,7 @@ impl Color {
         )
     }
 
-    pub fn blend_colors(primary: Color, secondary: Color, factor: f32) -> Color {
+    pub const fn blend_colors(primary: Color, secondary: Color, factor: f32) -> Color {
         let mut c = primary;
         c.blend_with(factor, secondary);
         
@@ -64,7 +73,7 @@ impl Color {
         format!("rgb({}, {}, {})", self.0, self.1, self.2)
     }
 
-    pub fn blend_with(&mut self, factor: f32, color: Color) -> &mut Color {
+    pub const fn blend_with(&mut self, factor: f32, color: Color) -> &mut Color {
         self.0 = (color.0 as f32 * factor + self.0 as f32 * (1.0 - factor)) as u8;
         self.1 = (color.1 as f32 * factor + self.1 as f32 * (1.0 - factor)) as u8;
         self.2 = (color.2 as f32 * factor + self.2 as f32 * (1.0 - factor)) as u8;
@@ -87,5 +96,11 @@ impl Color {
         self.2 = 255 - self.2;
 
         self
+    }
+
+    pub fn partial_eq(&self, other: Color, tolerance: f32) -> bool {
+        fuzzy_compare!(self.0 as f32, other.0 as f32, tolerance) && 
+        fuzzy_compare!(self.1 as f32, other.1 as f32, tolerance) &&
+        fuzzy_compare!(self.2 as f32, other.2 as f32, tolerance)   
     }
 }

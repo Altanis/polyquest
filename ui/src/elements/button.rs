@@ -1,21 +1,47 @@
-use shared::{fuzzy_compare, lerp_angle, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
-use web_sys::MouseEvent;
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, utils::color::Color, DEBUG};
+use std::any::Any;
 
-#[derive(Default)]
-pub struct Button
-{
+use gloo::console::console;
+use shared::{fuzzy_compare, lerp, lerp_angle, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
+use web_sys::MouseEvent;
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, DeletionEffects, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, utils::color::Color, DEBUG};
+
+pub struct Button {
     id: String,
     transform: Interpolatable<Transform>,
     raw_transform: Transform,
     fill: Interpolatable<Color>,
     dimensions: Interpolatable<Vector2D<f32>>,
+    roundness: f32,
     angle: Interpolatable<f32>,
     events: Events,
     children: Vec<Box<dyn UiElement>>,
     z_index: i32,
+    is_animating: bool,
+    opacity: Interpolatable<f32>,
+    destroyed: bool,
 
     ticks: u64
+}
+
+impl Default for Button {
+    fn default() -> Self {
+        Button {
+            id: Default::default(),
+            transform: Default::default(),
+            raw_transform: Default::default(),
+            fill: Default::default(),
+            dimensions: Default::default(),
+            roundness: 5.0,
+            angle: Default::default(),
+            events: Default::default(),
+            children: Default::default(),
+            z_index: Default::default(),
+            is_animating: Default::default(),
+            opacity: Interpolatable::new(1.0),
+            destroyed: Default::default(),
+            ticks: Default::default()
+        }
+    }
 }
 
 impl UiElement for Button {
@@ -49,6 +75,8 @@ impl UiElement for Button {
             child.set_hovering(val, event);
         }
 
+        self.is_animating = true;
+
         val
     }
 
@@ -65,6 +93,20 @@ impl UiElement for Button {
             .iter_mut()
             .enumerate()
             .find(|(_, child)| child.get_id() == id)
+    }
+
+    fn delete_element_by_id(&mut self, id: &str, destroy: bool) {
+        if let Some((i, child)) = self.children
+            .iter_mut()
+            .enumerate()
+            .find(|(_, child)| child.get_id() == id) 
+        {
+            if destroy {
+                child.destroy();
+            } else {
+                self.children.remove(i);
+            }
+        }
     }
 
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>) {
@@ -89,15 +131,24 @@ impl UiElement for Button {
     
     fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
         self.ticks += 1;
+        self.is_animating = false;
 
         let mut shake_lerp_factor = 0.25;
 
         if self.events.is_hovering {
             shake_lerp_factor = self.on_hover();
-        } else {
+        } else if !self.destroyed {
             self.fill.target = self.fill.original;
             self.dimensions.target = self.dimensions.original;
             self.angle.target = self.angle.original;
+            self.opacity.target = self.opacity.original;
+
+            if !self.fill.value.partial_eq(self.fill.target, 5.0)
+                || !self.dimensions.value.partial_eq(self.dimensions.target, 1e-1)
+                || !fuzzy_compare!(self.angle.value, self.angle.target, 1e-1)
+                || !fuzzy_compare!(self.opacity.value, self.opacity.target, 1e-1) {
+                    self.is_animating = true;
+                }
         }
 
         if self.events.is_clicked {
@@ -112,10 +163,12 @@ impl UiElement for Button {
         self.fill.value = *self.fill.value.blend_with(0.2, self.fill.target);
         self.angle.value = lerp_angle!(self.angle.value, self.angle.target, shake_lerp_factor);
         self.transform.value.lerp_towards(&self.transform.target, 0.2);
+        self.opacity.value = lerp!(self.opacity.value, self.opacity.target, 0.2);
 
         context.save();
         context.set_transform(&self.transform.value);
         context.rotate(self.angle.value);
+        context.global_alpha(self.opacity.value as f64);
 
         self.raw_transform = context.get_transform();
 
@@ -140,7 +193,7 @@ impl UiElement for Button {
             position.y,
             self.dimensions.value.x,
             self.dimensions.value.y,
-            5.0
+            self.roundness
         );
 
         context.fill();
@@ -159,17 +212,30 @@ impl UiElement for Button {
             context.restore();
         }
 
-        false
+        self.destroyed && fuzzy_compare!(self.opacity.value, self.opacity.target, 1e-1)
     }
 
-    fn destroy(&mut self) {}
+    fn destroy(&mut self) {
+        self.destroyed = true;
+        if self.events.deletion_effects.contains(&DeletionEffects::Disappear) {
+            self.opacity.target = 0.0;
+        }
+
+        for child in self.children.iter_mut() {
+            child.destroy();
+        }
+    }
+
+    fn has_animation_state(&self) -> bool {
+        self.is_animating
+    }
 }
 
 impl Button {
     fn on_click(&mut self) {
         self.events.is_clicked = false;
         if let Some(click_fn) = &self.events.on_click {
-            (click_fn)();
+            (click_fn)(Box::new(self));
         }
     }
 
@@ -188,6 +254,7 @@ impl Button {
             );
 
             self.fill.target = Color::blend_colors(self.fill.original, blender, 0.3);
+            self.is_animating = true;
         }
 
         if let Some(inflation) = self.events.hover_effects.iter().find_map(
@@ -196,6 +263,7 @@ impl Button {
             _ => None,
         }) {
             self.dimensions.target = self.dimensions.original * inflation;
+            self.is_animating = true;
         }
 
         if let Some((degrees, infinite, lf)) = self.events.hover_effects.iter().find_map(
@@ -208,6 +276,8 @@ impl Button {
                 if self.angle.direction == 1.0 && !infinite {
                     self.angle.target = 0.01;
                 }
+
+                self.is_animating = true;
             }
             
             if self.angle.target != 0.01 {
@@ -217,6 +287,15 @@ impl Button {
             }
 
             slf = lf;
+        }
+
+        if let Some(hover_opacity) = self.events.hover_effects.iter().find_map(
+            |item| match item {
+                HoverEffects::Opacity(a) => Some(*a),
+                _ => None,
+            })
+        {
+            self.opacity.target = hover_opacity;
         }
 
         slf
@@ -259,6 +338,11 @@ impl Button {
         self
     }
 
+    pub fn with_roundness(mut self, roundness: f32) -> Button {
+        self.roundness = roundness;
+        self
+    }
+
     pub fn with_events(mut self, events: Events) -> Button {
         self.events = events;
         self
@@ -271,6 +355,11 @@ impl Button {
 
     pub fn with_z_index(mut self, z_index: i32) -> Button {
         self.z_index = z_index;
+        self
+    }
+
+    pub fn with_opacity(mut self, opacity: f32) -> Button {
+        self.opacity = Interpolatable::new(opacity);
         self
     }
 }

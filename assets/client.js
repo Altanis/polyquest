@@ -219,19 +219,19 @@ function __wbg_adapter_30(arg0, arg1, arg2) {
 function __wbg_adapter_33(arg0, arg1, arg2) {
     _assertNum(arg0);
     _assertNum(arg1);
-    wasm.closure190_externref_shim(arg0, arg1, arg2);
+    wasm.closure232_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_36(arg0, arg1, arg2) {
     _assertNum(arg0);
     _assertNum(arg1);
-    wasm.closure192_externref_shim(arg0, arg1, arg2);
+    wasm.closure234_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_39(arg0, arg1, arg2) {
     _assertNum(arg0);
     _assertNum(arg1);
-    wasm.closure197_externref_shim(arg0, arg1, arg2);
+    wasm.closure239_externref_shim(arg0, arg1, arg2);
 }
 
 export function main() {
@@ -264,20 +264,6 @@ function getArrayJsValueFromWasm0(ptr, len) {
     }
     wasm.__externref_drop_slice(ptr, len);
     return result;
-}
-
-let cachedFloat32ArrayMemory0 = null;
-
-function getFloat32ArrayMemory0() {
-    if (cachedFloat32ArrayMemory0 === null || cachedFloat32ArrayMemory0.byteLength === 0) {
-        cachedFloat32ArrayMemory0 = new Float32Array(wasm.memory.buffer);
-    }
-    return cachedFloat32ArrayMemory0;
-}
-
-function getArrayF32FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getFloat32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
 }
 
 function getArrayU8FromWasm0(ptr, len) {
@@ -496,12 +482,6 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_bufferData_11bf0e7b1bcebb55 = function() { return logError(function (arg0, arg1, arg2, arg3) {
         arg0.bufferData(arg1 >>> 0, arg2, arg3 >>> 0);
     }, arguments) };
-    imports.wbg.__wbg_texImage2D_c177de94949ffbe6 = function() { return handleError(function (arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
-        arg0.texImage2D(arg1 >>> 0, arg2, arg3, arg4 >>> 0, arg5 >>> 0, arg6);
-    }, arguments) };
-    imports.wbg.__wbg_uniform2fv_9a442fc12ac6908d = function() { return logError(function (arg0, arg1, arg2, arg3) {
-        arg0.uniform2fv(arg1, getArrayF32FromWasm0(arg2, arg3));
-    }, arguments) };
     imports.wbg.__wbg_attachShader_4a6cb7b86d7531b8 = function() { return logError(function (arg0, arg1, arg2) {
         arg0.attachShader(arg1, arg2);
     }, arguments) };
@@ -510,12 +490,6 @@ function __wbg_get_imports() {
     }, arguments) };
     imports.wbg.__wbg_bindTexture_578ab0356afb56df = function() { return logError(function (arg0, arg1, arg2) {
         arg0.bindTexture(arg1 >>> 0, arg2);
-    }, arguments) };
-    imports.wbg.__wbg_clear_c5af939d0a44a025 = function() { return logError(function (arg0, arg1) {
-        arg0.clear(arg1 >>> 0);
-    }, arguments) };
-    imports.wbg.__wbg_clearColor_f7a4d2d6a8d8cdf6 = function() { return logError(function (arg0, arg1, arg2, arg3, arg4) {
-        arg0.clearColor(arg1, arg2, arg3, arg4);
     }, arguments) };
     imports.wbg.__wbg_compileShader_48a677cac607634b = function() { return logError(function (arg0, arg1) {
         arg0.compileShader(arg1);
@@ -535,9 +509,6 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_createTexture_01a5bbc5d52164d2 = function() { return logError(function (arg0) {
         const ret = arg0.createTexture();
         return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
-    }, arguments) };
-    imports.wbg.__wbg_drawArrays_bb3d6e0af7dcb469 = function() { return logError(function (arg0, arg1, arg2, arg3) {
-        arg0.drawArrays(arg1 >>> 0, arg2, arg3);
     }, arguments) };
     imports.wbg.__wbg_enableVertexAttribArray_a12ed0a684959868 = function() { return logError(function (arg0, arg1) {
         arg0.enableVertexAttribArray(arg1 >>> 0);
@@ -569,33 +540,14 @@ function __wbg_get_imports() {
         const ret = arg0.getShaderParameter(arg1, arg2 >>> 0);
         return ret;
     }, arguments) };
-    imports.wbg.__wbg_getUniformLocation_f600c2277dd826b4 = function() { return logError(function (arg0, arg1, arg2, arg3) {
-        const ret = arg0.getUniformLocation(arg1, getStringFromWasm0(arg2, arg3));
-        return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
-    }, arguments) };
     imports.wbg.__wbg_linkProgram_b4246295077a3859 = function() { return logError(function (arg0, arg1) {
         arg0.linkProgram(arg1);
     }, arguments) };
     imports.wbg.__wbg_shaderSource_f8f569556926b597 = function() { return logError(function (arg0, arg1, arg2, arg3) {
         arg0.shaderSource(arg1, getStringFromWasm0(arg2, arg3));
     }, arguments) };
-    imports.wbg.__wbg_texParameteri_72793934be86cdcf = function() { return logError(function (arg0, arg1, arg2, arg3) {
-        arg0.texParameteri(arg1 >>> 0, arg2 >>> 0, arg3);
-    }, arguments) };
-    imports.wbg.__wbg_uniform1f_800970b4947e87c4 = function() { return logError(function (arg0, arg1, arg2) {
-        arg0.uniform1f(arg1, arg2);
-    }, arguments) };
-    imports.wbg.__wbg_uniform1i_55c667a20431c589 = function() { return logError(function (arg0, arg1, arg2) {
-        arg0.uniform1i(arg1, arg2);
-    }, arguments) };
-    imports.wbg.__wbg_useProgram_0f0a7b123a5eba79 = function() { return logError(function (arg0, arg1) {
-        arg0.useProgram(arg1);
-    }, arguments) };
     imports.wbg.__wbg_vertexAttribPointer_6e1de5dfe082f820 = function() { return logError(function (arg0, arg1, arg2, arg3, arg4, arg5, arg6) {
         arg0.vertexAttribPointer(arg1 >>> 0, arg2, arg3 >>> 0, arg4 !== 0, arg5, arg6);
-    }, arguments) };
-    imports.wbg.__wbg_viewport_567a7a444dd3650b = function() { return logError(function (arg0, arg1, arg2, arg3, arg4) {
-        arg0.viewport(arg1, arg2, arg3, arg4);
     }, arguments) };
     imports.wbg.__wbg_dataset_e8e36b265ce09deb = function() { return logError(function (arg0) {
         const ret = arg0.dataset;
@@ -869,6 +821,9 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_setlineWidth_267c5e81c3c67348 = function() { return logError(function (arg0, arg1) {
         arg0.lineWidth = arg1;
     }, arguments) };
+    imports.wbg.__wbg_setlineCap_46e48efce673b5bc = function() { return logError(function (arg0, arg1, arg2) {
+        arg0.lineCap = getStringFromWasm0(arg1, arg2);
+    }, arguments) };
     imports.wbg.__wbg_setlineJoin_a17a487f4008f18f = function() { return logError(function (arg0, arg1, arg2) {
         arg0.lineJoin = getStringFromWasm0(arg1, arg2);
     }, arguments) };
@@ -1085,20 +1040,20 @@ function __wbg_get_imports() {
         const ret = wasm.memory;
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper224 = function() { return logError(function (arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 131, __wbg_adapter_30);
+    imports.wbg.__wbindgen_closure_wrapper238 = function() { return logError(function (arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 169, __wbg_adapter_30);
         return ret;
     }, arguments) };
-    imports.wbg.__wbindgen_closure_wrapper1586 = function() { return logError(function (arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 191, __wbg_adapter_33);
+    imports.wbg.__wbindgen_closure_wrapper1946 = function() { return logError(function (arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 233, __wbg_adapter_33);
         return ret;
     }, arguments) };
-    imports.wbg.__wbindgen_closure_wrapper1588 = function() { return logError(function (arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 193, __wbg_adapter_36);
+    imports.wbg.__wbindgen_closure_wrapper1948 = function() { return logError(function (arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 235, __wbg_adapter_36);
         return ret;
     }, arguments) };
-    imports.wbg.__wbindgen_closure_wrapper1645 = function() { return logError(function (arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 198, __wbg_adapter_39);
+    imports.wbg.__wbindgen_closure_wrapper2006 = function() { return logError(function (arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 240, __wbg_adapter_39);
         return ret;
     }, arguments) };
     imports.wbg.__wbindgen_init_externref_table = function() {
@@ -1123,7 +1078,6 @@ function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     __wbg_init.__wbindgen_wasm_module = module;
     cachedDataViewMemory0 = null;
-    cachedFloat32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
 
 

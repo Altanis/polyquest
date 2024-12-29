@@ -1,10 +1,11 @@
 use std::{borrow::BorrowMut, cell::RefCell, ops::DerefMut, rc::Rc, sync::{LazyLock, MappedMutexGuard, Mutex, MutexGuard}};
 use send_wrapper::SendWrapper;
 use gloo_utils::window;
+use shared::utils::interpolatable::Interpolatable;
 use ui::utils::sound::{Sound, SoundHolder};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast, JsValue}, BeforeUnloadEvent, Event, KeyboardEvent, MouseEvent};
 
-use crate::{connection::socket::Connection, game::entity::{Entity, Game}, register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, storage_get};
+use crate::{connection::socket::Connection, game::entity::{DisplayComponent, Entity, Game}, register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, storage_get};
 
 pub static WORLD: Mutex<Option<Box<SendWrapper<World>>>> = Mutex::new(None);
 

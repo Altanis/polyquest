@@ -1,11 +1,13 @@
-use std::time::Instant;
+use std::fmt::{Debug, Display};
+
 use derive_new::new as New;
-use crate::{connection::packets::Inputs, utils::{codec::BinaryCodec, interpolatable::Interpolatable, vec2::Vector2D}};
+use strum::IntoEnumIterator;
+use crate::{connection::packets::Inputs, utils::consts::MAX_LEVEL};
 
 pub const BASE_TANK_RADIUS: f32 = 50.0;
 pub const MAX_STAT_INVESTMENT: usize = 7;
 
-#[derive(Debug, Default, Clone, New)]
+#[derive(Default, Clone, Copy, New)]
 pub struct InputFlags(u32);
 impl InputFlags {
     pub fn is_set(&self, flag: Inputs) -> bool {
@@ -22,6 +24,18 @@ impl InputFlags {
 
     pub fn get_value(&self) -> u32 {
         self.0
+    }
+}
+
+impl Debug for InputFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for flag in Inputs::iter() {
+            if self.is_set(flag) {
+                write!(f, "{:?}, ", flag)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -48,11 +62,56 @@ impl TryInto<EntityType> for u8 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, strum_macros::EnumCount)]
+#[derive(Debug, Clone, Copy, PartialEq, strum_macros::EnumCount, strum_macros::EnumIter)]
 pub enum UpgradeStats {
     HealthRegen,
     MaxHealth,
     BodyDamage,
     ProjectileSpeed,
-    Projectile
+    ProjectilePenetration,
+    ProjectileDamage,
+    Reload,
+    MovementSpeed
+}
+
+impl std::fmt::Display for UpgradeStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let stat_str = match self {
+            UpgradeStats::HealthRegen => "Health Regen",
+            UpgradeStats::MaxHealth => "Max Health",
+            UpgradeStats::BodyDamage => "Body Damage",
+            UpgradeStats::ProjectileSpeed => "Projectile Speed",
+            UpgradeStats::ProjectilePenetration => "Projectile Penetration",
+            UpgradeStats::ProjectileDamage => "Projectile Damage",
+            UpgradeStats::Reload => "Reload",
+            UpgradeStats::MovementSpeed => "Movement Speed",
+        };
+        
+        write!(f, "{}", stat_str)
+    }
+}
+
+pub const LEVEL_TO_SCORE_TABLE: [usize; MAX_LEVEL] = [
+    0, 4, 14, 29, 50, 78, 114, 158, 211, 275, 350, 438, 539, 655, 
+    788, 939, 1109, 1301, 1516, 1758, 2026, 2326, 2658, 3027, 3434, 3884, 
+    4380, 4926, 5526, 6185, 6907, 7698, 8537, 9426, 10369, 11368, 12427, 
+    13549, 14739, 16001, 17337, 18755, 20257, 21849, 23537
+];
+
+pub fn get_min_score_from_level(level: usize) -> usize {
+    if level > LEVEL_TO_SCORE_TABLE.len() {
+        return LEVEL_TO_SCORE_TABLE[MAX_LEVEL - 1];
+    }
+
+    LEVEL_TO_SCORE_TABLE[level - 1]
+}
+
+pub fn get_level_from_score(score: usize) -> usize {
+    for (level, &level_score) in LEVEL_TO_SCORE_TABLE.iter().enumerate() {
+        if score < level_score {
+            return level;
+        }
+    }
+    
+    MAX_LEVEL
 }

@@ -1,13 +1,12 @@
 use gloo::utils::window;
 use shared::{fuzzy_compare, lerp, lerp_angle, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, utils::{color::Color, sound::Sound}, DEBUG};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, DeletionEffects, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, utils::{color::Color, sound::Sound}, DEBUG};
 
 pub enum TextEffects {
     Typewriter(usize, u64, Option<Sound>) // Typewriter(char_index, tick_interval)
 }
 
-#[derive(Default)]
 pub struct Label {
     id: String,
     transform: Transform,
@@ -21,8 +20,34 @@ pub struct Label {
     effects: Option<TextEffects>,
     children: Vec<Box<dyn UiElement>>,
     events: Events,
+    is_animating: bool,
+    opacity: Interpolatable<f32>,
+    destroyed: bool,
 
     ticks: u64,
+}
+
+impl Default for Label {
+    fn default() -> Self {
+        Self {
+            id: String::default(),
+            transform: Default::default(),
+            font: Interpolatable::default(),
+            angle: Interpolatable::default(), 
+            fill: Color::default(),
+            stroke: None,
+            text: String::default(),
+            dimensions: Default::default(),
+            z_index: Default::default(),
+            effects: None,
+            children: Default::default(),
+            events: Default::default(),
+            is_animating: Default::default(),
+            opacity: Interpolatable::new(1.0),
+            destroyed: Default::default(),
+            ticks: Default::default(),
+        }
+    }
 }
 
 impl UiElement for Label {
@@ -52,6 +77,8 @@ impl UiElement for Label {
 
     fn set_hovering(&mut self, val: bool, _: &MouseEvent) -> bool {
         self.events.is_hovering = val;
+        self.is_animating = true;
+
         val
     }
 
@@ -70,6 +97,20 @@ impl UiElement for Label {
             .enumerate()
             .find(|(_, child)| child.get_id() == id)
     }
+
+    fn delete_element_by_id(&mut self, id: &str, destroy: bool) {
+        if let Some((i, child)) = self.children
+            .iter_mut()
+            .enumerate()
+            .find(|(_, child)| child.get_id() == id) 
+        {
+            if destroy {
+                child.destroy();
+            } else {
+                self.children.remove(i);
+            }
+        }
+    } 
 
     fn set_children(&mut self, _: Vec<Box<dyn UiElement>>) {}
 
@@ -91,6 +132,7 @@ impl UiElement for Label {
 
     fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
         self.ticks += 1;
+        self.is_animating = false;
 
         let mut char_index: isize = isize::MAX;
         if let Some(TextEffects::Typewriter(idx, interval, sound)) = &mut self.effects {
@@ -113,9 +155,16 @@ impl UiElement for Label {
 
         if self.events.is_hovering {
             shake_lerp_factor = self.on_hover();
-        } else {
+        } else if !self.destroyed {
             self.font.target = self.font.original;
             self.angle.target = self.angle.original;
+            self.opacity.target = self.opacity.original;
+
+            if !fuzzy_compare!(self.font.target, self.font.value, 1e-1)
+                || !fuzzy_compare!(self.angle.value, self.angle.target, 1e-1)
+                || !fuzzy_compare!(self.opacity.value, self.opacity.target, 1e-1) {
+                self.is_animating = true;
+            }
         }
 
         if let Some(t) = (self.transform.generate_translation)(dimensions) {
@@ -124,9 +173,10 @@ impl UiElement for Label {
 
         self.font.value = lerp!(self.font.value, self.font.target, 0.2);
         self.angle.value = lerp_angle!(self.angle.value, self.angle.target, shake_lerp_factor);
+        self.opacity.value = lerp!(self.opacity.value, self.opacity.target, 0.2);
 
         let text: Vec<_> = self.text.split("\n").collect();
-        let stroke_size = self.stroke.map_or(0.0, |_| self.font.value / 5.0);
+        let stroke_size = self.stroke.map_or(0.0, |_| self.font.value / 4.5);
         let margin = self.font.value + stroke_size;
 
         let text_len = text.len();
@@ -141,6 +191,7 @@ impl UiElement for Label {
 
             context.save();
             context.set_transform(&self.transform);
+            context.global_alpha(self.opacity.value as f64);
 
             if text_len != 1 {
                 context.translate(
@@ -203,10 +254,23 @@ impl UiElement for Label {
             context.restore();
         }
 
-        false
+        self.destroyed && fuzzy_compare!(self.opacity.value, self.opacity.target, 1e-1)
     }
 
-    fn destroy(&mut self) {}
+    fn destroy(&mut self) {
+        self.destroyed = true;
+        if self.events.deletion_effects.contains(&DeletionEffects::Disappear) {
+            self.opacity.target = 0.0;
+        }
+
+        for child in self.children.iter_mut() {
+            child.destroy();
+        }
+    }
+
+    fn has_animation_state(&self) -> bool {
+        self.is_animating
+    }
 }
 
 impl Label {
@@ -219,6 +283,7 @@ impl Label {
             _ => None,
         }) {
             self.font.target = self.font.original * inflation;
+            self.is_animating = true;
         }
 
         if let Some((degrees, infinite, lf)) = self.events.hover_effects.iter().find_map(
@@ -231,6 +296,8 @@ impl Label {
                 if self.angle.direction == 1.0 && !infinite {
                     self.angle.target = 0.01;
                 }
+
+                self.is_animating = true;
             }
             
             if self.angle.target != 0.01 {
@@ -240,6 +307,15 @@ impl Label {
             }
 
             slf = lf;
+        }
+
+        if let Some(hover_opacity) = self.events.hover_effects.iter().find_map(
+            |item| match item {
+                HoverEffects::Opacity(a) => Some(*a),
+                _ => None,
+            })
+        {
+            self.opacity.target = hover_opacity;
         }
 
         slf
@@ -312,6 +388,11 @@ impl Label {
 
     pub fn with_z_index(mut self, z_index: i32) -> Label {
         self.z_index = z_index;
+        self
+    }
+
+    pub fn with_opacity(mut self, opacity: f32) -> Label {
+        self.opacity = Interpolatable::new(opacity);
         self
     }
 }

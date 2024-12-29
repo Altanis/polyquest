@@ -62,3 +62,30 @@ macro_rules! constrain {
         }
     };
 }
+
+#[macro_export]
+macro_rules! to_locale {
+    ($n:expr) => {{
+        let mut s = $n.to_string();
+        let mut pos = s.len() as isize - 3;
+        while pos > 0 {
+            s.insert(pos as usize, ',');
+            pos -= 3;
+        }
+
+        s
+    }};
+}
+
+#[macro_export]
+macro_rules! prettify_score {
+    ($score:expr) => {
+        if $score >= 1e6 {
+            format!("{:.1}m", $score / 1e6)
+        } else if $score >= 1e3 {
+            format!("{:.1}k", $score / 1e3)
+        } else {
+            format!("{:.3}", $score)
+        }
+    };
+}

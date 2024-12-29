@@ -17,7 +17,9 @@ pub struct BodyIdentity {
     /// The knockback the body receives upon collision.
     pub knockback: f32,
     /// The (base) maximum health of the body.
-    pub max_health: f32
+    pub max_health: f32,
+    /// The multiplier for body damage.
+    pub body_damage: f32
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -57,6 +59,7 @@ pub fn get_body_base_identity() -> BodyIdentity {
         fov: 1.0,
         speed: 1.0,
         knockback: 1.0,
-        max_health: 50.0
+        max_health: 50.0,
+        body_damage: 1.0
     }
 }

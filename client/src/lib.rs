@@ -40,6 +40,8 @@ pub fn get_debug_window_props() -> Result<(JsValue, JsValue), JsValue> {
     Ok((starlight, moonshine))
 }
 
+pub const SHADERS_ENABLED: bool = false;
+
 #[wasm_bindgen(start)]
 fn main() {
     panic::set_hook(Box::new(console_error_panic_hook::hook));

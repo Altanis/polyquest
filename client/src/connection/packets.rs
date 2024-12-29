@@ -1,5 +1,5 @@
 use gloo::console::console;
-use shared::{connection::packets::ServerboundPackets, game::entity::InputFlags, utils::{codec::BinaryCodec, vec2::Vector2D}};
+use shared::{connection::packets::ServerboundPackets, game::entity::InputFlags, utils::{codec::BinaryCodec, consts::ARENA_SIZE, vec2::Vector2D}};
 
 use crate::{game::entity::Entity, world::{get_world, World}};
 
@@ -28,10 +28,21 @@ pub fn form_input_packet(
     codec
 }
 
+pub fn form_stats_packet(stat: usize) -> BinaryCodec {
+    let mut codec = BinaryCodec::new();
+    codec.encode_varuint(ServerboundPackets::Stats as u64);
+    codec.encode_varuint(stat as u64);
+
+    codec
+}
+
 pub fn handle_update_packet(
     world: &mut World,
     mut codec: BinaryCodec
 ) {
+    // parse world information later
+    world.game.arena_size = ARENA_SIZE;
+
     Entity::parse_census(world, &mut codec, true);
 
     let entities = codec.decode_varuint().unwrap();

@@ -152,4 +152,25 @@ impl Vector2D<f32> {
     pub fn min(&self) -> f32 {
         self.x.min(self.y)
     }
+
+    /// Normalizes the vector to have a magnitude of 1 (unit vector).
+    /// If the vector's magnitude is 0, it does nothing.
+    pub fn normalize(&mut self) {
+        let mag = self.magnitude();
+        if mag > 0.0 {
+            *self *= 1.0 / mag;
+        }
+    }
+
+    /// Sets the vector's magnitude to the specified value.
+    pub fn set_magnitude(&mut self, magnitude: f32) {
+        self.normalize();
+        *self *= magnitude;
+    }
+
+    /// Constrains the components of the vector.
+    pub fn constrain(&mut self, min: f32, max: f32) {
+        self.x = self.x.min(max).max(min);
+        self.y = self.y.min(max).max(min);
+    }
 }

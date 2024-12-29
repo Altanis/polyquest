@@ -56,6 +56,20 @@ impl UiElement for Body {
             .find(|(_, child)| child.get_id() == id)
     }
 
+    fn delete_element_by_id(&mut self, id: &str, destroy: bool) {
+        if let Some((i, child)) = self.children
+            .iter_mut()
+            .enumerate()
+            .find(|(_, child)| child.get_id() == id) 
+        {
+            if destroy {
+                child.destroy();
+            } else {
+                self.children.remove(i);
+            }
+        }
+    }
+
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>) {
         self.children = children;
     }
@@ -91,21 +105,28 @@ impl UiElement for Body {
     }
 
     fn destroy(&mut self) {}
+
+    fn has_animation_state(&self) -> bool {
+        false
+    }
 }
 
 impl Body {
     pub fn render_children(&mut self, context: &mut Canvas2d) {
         let mut deletions = vec![];
         let dimensions = self.dimensions;
+        let children = self.get_mut_children();
 
-        for (i, child) in self.get_mut_children().iter_mut().enumerate() {
+        for (i, child) in children.iter_mut().enumerate() {
             if child.render(context, dimensions) {
                 deletions.push(i);
             }
         }
 
+        deletions.sort_by_key(|&e| std::cmp::Reverse(e));
+
         for deletion in deletions {
-            self.children.remove(deletion);
+            children.remove(deletion);
         }
     }
 

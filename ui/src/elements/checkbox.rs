@@ -1,10 +1,8 @@
-use gloo::console::console;
-use shared::utils::{interpolatable::Interpolatable, vec2::Vector2D};
+use shared::{fuzzy_compare, lerp, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
 
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, UiElement}, utils::color::Color, DEBUG};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, DeletionEffects, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, utils::color::Color, DEBUG};
 
-#[derive(Default)]
 pub struct Checkbox {
     id: String,
 
@@ -22,7 +20,33 @@ pub struct Checkbox {
     children: Vec<Box<dyn UiElement>>,
     events: Events,
 
+    is_animating: bool,
+    opacity: Interpolatable<f32>,
+    destroyed: bool,
+
     ticks: u64,
+}
+
+impl Default for Checkbox {
+    fn default() -> Self {
+        Checkbox {
+            id: Default::default(),
+            transform: Default::default(),
+            raw_transform: Default::default(),
+            fill: Default::default(),
+            accent: Default::default(),
+            box_stroke: Default::default(),
+            dimensions: Default::default(),
+            z_index: Default::default(),
+            value: Default::default(),
+            children: Default::default(),
+            events: Default::default(),
+            is_animating: Default::default(),
+            opacity: Interpolatable::new(1.0),
+            destroyed: Default::default(),
+            ticks: Default::default()
+        }
+    }
 }
 
 impl UiElement for Checkbox {
@@ -52,6 +76,8 @@ impl UiElement for Checkbox {
 
     fn set_hovering(&mut self, val: bool, _: &MouseEvent) -> bool {
         self.events.is_hovering = val;
+        self.is_animating = true;
+
         val
     }
 
@@ -69,6 +95,20 @@ impl UiElement for Checkbox {
             .iter_mut()
             .enumerate()
             .find(|(_, child)| child.get_id() == id)
+    }
+
+    fn delete_element_by_id(&mut self, id: &str, destroy: bool) {
+        if let Some((i, child)) = self.children
+            .iter_mut()
+            .enumerate()
+            .find(|(_, child)| child.get_id() == id) 
+        {
+            if destroy {
+                child.destroy();
+            } else {
+                self.children.remove(i);
+            }
+        }
     }
 
     fn set_children(&mut self, _: Vec<Box<dyn UiElement>>) {}
@@ -91,12 +131,21 @@ impl UiElement for Checkbox {
 
     fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
         self.ticks += 1;
+        self.is_animating = false;
 
         if self.events.is_hovering {
             self.on_hover();
-        } else {
+        } else if !self.destroyed {
             self.fill.target = self.fill.original;
             self.dimensions.target = self.dimensions.original;
+            self.opacity.target = self.opacity.original;
+
+            if !self.fill.value.partial_eq(self.fill.target, 5.0)
+                || !self.dimensions.value.partial_eq(self.dimensions.target, 1e-1)
+                || !fuzzy_compare!(self.opacity.value, self.opacity.target, 1e-1)
+            {
+                self.is_animating = true;
+            }
         }
 
         if self.events.is_clicked {
@@ -109,10 +158,12 @@ impl UiElement for Checkbox {
 
         self.dimensions.value.lerp_towards(self.dimensions.target, 0.2);
         self.fill.value = *self.fill.value.blend_with(0.2, self.fill.target);
+        self.opacity.value = lerp!(self.opacity.value, self.opacity.target, 0.2);
 
         context.save();
         context.set_transform(&self.transform);
         self.raw_transform = context.get_transform();
+        context.global_alpha(self.opacity.value as f64);
 
         context.fill_style(self.fill.value);
         context.set_stroke_size(self.box_stroke.0);
@@ -155,16 +206,39 @@ impl UiElement for Checkbox {
             context.restore();
         }
 
-        false
+        self.destroyed && fuzzy_compare!(self.opacity.value, self.opacity.target, 1e-1)
     }
 
-    fn destroy(&mut self) {}
+    fn destroy(&mut self) {
+        self.destroyed = true;
+        if self.events.deletion_effects.contains(&DeletionEffects::Disappear) {
+            self.opacity.target = 0.0;
+        }
+
+        for child in self.children.iter_mut() {
+            child.destroy();
+        }
+    }
+
+    fn has_animation_state(&self) -> bool {
+        self.is_animating
+    }
 }
 
 impl Checkbox {
     pub fn on_hover(&mut self) {
         self.fill.target = Color::blend_colors(self.fill.original, Color::BLACK, 0.3);
         self.dimensions.target = self.dimensions.original * 1.1;
+        self.is_animating = true;
+
+        if let Some(hover_opacity) = self.events.hover_effects.iter().find_map(
+            |item| match item {
+                HoverEffects::Opacity(a) => Some(*a),
+                _ => None,
+            })
+        {
+            self.opacity.target = hover_opacity;
+        }
     }
 
     pub fn on_click(&mut self) {
@@ -172,7 +246,7 @@ impl Checkbox {
         self.events.is_clicked = false;
 
         if let Some(script) = &self.events.on_click {
-            (script)();
+            (script)(Box::new(self));
         }
     }
 }
@@ -229,6 +303,11 @@ impl Checkbox {
 
     pub fn with_z_index(mut self, z_index: i32) -> Checkbox {
         self.z_index = z_index;
+        self
+    }
+
+    pub fn with_opacity(mut self, opacity: f32) -> Checkbox {
+        self.opacity = Interpolatable::new(opacity);
         self
     }
 }

@@ -2,12 +2,15 @@ use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::{bool, rand, utils::vec2::Vector2D};
-use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::{color::Color, sound::Sound}};
+use shared::{bool, constrain, game::entity::{get_level_from_score, get_min_score_from_level, UpgradeStats, MAX_STAT_INVESTMENT}, rand, to_locale, utils::vec2::Vector2D};
+use strum::{EnumCount, IntoEnumIterator};
+use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::{color::Color, sound::Sound}};
 use rand::Rng;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement};
-use crate::{connection::{packets, socket::ConnectionState}, storage_get, storage_set, world::{get_world, World}};
+use crate::{connection::{packets, socket::ConnectionState}, game::{entity::Entity, theme::{BAR_BACKGROUND, GRID_ALPHA, GRID_COLOR, GRID_SIZE, INBOUNDS_FILL, LEVEL_BAR_FOREGROUND, OUTBOUNDS_FILL, SCORE_BAR_FOREGROUND, UPGRADE_STAT_COLORS}}, storage_get, storage_set, world::{get_world, World}};
+
+use self::packets::{form_input_packet, form_stats_packet};
 
 #[derive(Debug, Clone)]
 pub enum GamePhase {
@@ -81,6 +84,16 @@ impl Default for HomescreenElements {
 }
 
 impl GamePhase {
+    pub fn same_phase(&self, other: &GamePhase) -> bool {
+        match (self, other) {
+            (GamePhase::Lore(a), GamePhase::Lore(b)) => true,
+            (GamePhase::Home(a), GamePhase::Home(b)) => true,
+            (GamePhase::Game, GamePhase::Game) => true,
+            (GamePhase::Death, GamePhase::Death) => true,
+            _ => false,
+        }
+    }
+
     pub fn generate_lore_elements(world: &mut World) -> Vec<Box<dyn UiElement>> {
         let GamePhase::Lore(phase) = world.renderer.phase else { return vec![]; };
 
@@ -115,6 +128,7 @@ impl GamePhase {
         let sound_name = if phase == 9 { "dialogue_unsettling" } else { "dialogue_normal" };
 
         let dialogue = Label::new()
+            .with_id("dialogue_entry")
             .with_text(text.to_string())
             .with_fill(Color::WHITE)
             .with_font(36.0)
@@ -128,6 +142,7 @@ impl GamePhase {
             ));
 
         let continue_text = Label::new()
+            .with_id("continue_text")
             .with_text("Continue".to_string())
             .with_fill(Color::WHITE)
             .with_font(32.0)
@@ -137,7 +152,8 @@ impl GamePhase {
                 .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
             );
 
-        let start = Button::new()
+        let continue_button = Button::new()
+            .with_id("continue_button")
             .with_fill(Color::GREEN)
             .with_dimensions(Vector2D::new(200.0, 75.0))
             .with_transform(translate!(0.0, 100.0))
@@ -146,7 +162,7 @@ impl GamePhase {
                     HoverEffects::Inflation(1.1),
                     HoverEffects::AdjustBrightness(0.0)
                 ])
-                .with_on_click(Box::new(|| {
+                .with_on_click(Box::new(|_| {
                     spawn_local(async {
                         Sound::new(sound_name, false).restart();
                         Sound::new(sound_name, false).stop();
@@ -155,19 +171,19 @@ impl GamePhase {
                         let GamePhase::Lore(phase) = &mut world.renderer.phase else { return; };
 
                         *phase += 1;
-                        world.renderer.body.set_children(vec![]);
                     });
                 }))
             )
             .with_children(vec![Box::new(continue_text)]);
 
-        vec![Box::new(dialogue), Box::new(start)]
+        vec![Box::new(dialogue), Box::new(continue_button)]
     }
 
     pub fn generate_homescreen_elements(world: &World) -> Vec<Box<dyn UiElement>> {
         let mut elements: Vec<Box<dyn UiElement>> = vec![];
 
         let title = Label::new()
+            .with_id("title")
             .with_text("PolyQuest".to_string())
             .with_fill(Color::WHITE)
             .with_font(72.0)
@@ -176,6 +192,7 @@ impl GamePhase {
             .with_events(Events::default().with_hoverable(false));
 
         let start = Button::new()
+            .with_id("play_button")
             .with_fill(Color::GREEN)
             .with_dimensions(Vector2D::new(200.0, 75.0))
             .with_transform(translate!(0.0, 100.0))
@@ -184,7 +201,7 @@ impl GamePhase {
                     HoverEffects::Inflation(1.1),
                     HoverEffects::AdjustBrightness(0.0)
                 ])
-                .with_on_click(Box::new(|| {
+                .with_on_click(Box::new(|_| {
                     spawn_local(async {
                         let name = get_element_by_id_and_cast!("text_input", HtmlInputElement)
                             .value();
@@ -200,6 +217,7 @@ impl GamePhase {
             )
             .with_children(vec![Box::new(
                 Label::new()
+                    .with_id("start_text")
                     .with_text("Start".to_string())
                     .with_fill(Color::WHITE)
                     .with_font(32.0)
@@ -214,10 +232,11 @@ impl GamePhase {
             (
                 Vector2D::ZERO,
                 Color::GRAY, "{icon}\u{f013}",
-                Box::new(|| {
+                Box::new(|_| {
                     spawn_local(async {
                         let mut children: Vec<Box<dyn UiElement>> = vec![
                             Box::new(Label::new()
+                                .with_id("settings")
                                 .with_text("Settings".to_string())
                                 .with_fill(Color::WHITE)
                                 .with_font(48.0)
@@ -242,6 +261,7 @@ impl GamePhase {
                             let value = Arc::new(AtomicBool::new(checked));
 
                             let checkbox = Checkbox::new()
+                                .with_id(&format!("checkbox-{}", i))
                                 .with_accent(Color::GREEN)
                                 .with_box_stroke((7.0, Color::BLACK))
                                 .with_dimensions(Vector2D::new(50.0, 50.0))
@@ -249,7 +269,7 @@ impl GamePhase {
                                 .with_transform(translate!(350.0, 180.0 + (i as f64 * 75.0)))
                                 .with_value(checked)
                                 .with_events(Events::default()
-                                    .with_on_click(Box::new(move || {
+                                    .with_on_click(Box::new(move |_| {
                                         let value = value.clone();
                                         spawn_local(async move {
                                             let new = !value.load(Ordering::Relaxed);
@@ -261,6 +281,7 @@ impl GamePhase {
                                 );
 
                             let text = Label::new()
+                                .with_id(&format!("label-{}", i))
                                 .with_text(display_name.to_string())
                                 .with_fill(Color::WHITE)
                                 .with_font(36.0)
@@ -273,10 +294,11 @@ impl GamePhase {
                         }
 
                         let mut modal = Modal::new()
+                            .with_id("modal-settings")
                             .with_fill(Color::ORANGE)
                             .with_dimensions(Vector2D::new(1000.0, 350.0))
                             .with_children(children)
-                            .with_close_button(Box::new(|| {
+                            .with_close_button(Box::new(|_| {
                                 spawn_local(async {
                                     let mut world = get_world();
                 
@@ -296,7 +318,7 @@ impl GamePhase {
             (
                 Vector2D::new(-100.0, 0.0), 
                 Color::BLUE, "{brand}\u{f392}",
-                Box::new(|| {
+                Box::new(|_| {
                     spawn_local(async {
                         let _ = window().open_with_url("https://discord.gg/UTvaAAgku3");
                     });
@@ -304,8 +326,9 @@ impl GamePhase {
             )
         ];
 
-        for (translation, color, text, cb) in buttons {
+        for (i, (translation, color, text, cb)) in buttons.into_iter().enumerate() {
             let button = Button::new()
+                .with_id(&format!("menu-item-{}", i))
                 .with_fill(color)
                 .with_dimensions(Vector2D::new(60.0, 60.0))
                 .with_translation(Box::new(move |dimensions| {
@@ -320,6 +343,7 @@ impl GamePhase {
                 )
                 .with_children(vec![Box::new(
                     Label::new()
+                        .with_id(&format!("menu-item-symbol-{}", i))
                         .with_text(text.to_string())
                         .with_fill(Color::WHITE)
                         .with_font(32.0)
@@ -334,6 +358,22 @@ impl GamePhase {
 
         elements.push(Box::new(title));
 
+        let connection_text = match world.connection.state {
+            ConnectionState::Connected => "",
+            ConnectionState::Connecting => "Connecting...",
+            ConnectionState::Failed => "Could not connect."
+        };
+
+        let state = Label::new()
+            .with_id("connecting_text")
+            .with_text(connection_text.to_string())
+            .with_fill(Color::WHITE)
+            .with_font(40.0)
+            .with_stroke(Color::BLACK)
+            .with_events(Events::default().with_hoverable(false));
+
+        elements.push(Box::new(state));
+
         if world.connection.state == ConnectionState::Connected {
             elements.push(Box::new(start));
         }
@@ -343,6 +383,7 @@ impl GamePhase {
 
     pub fn render_homescreen(world: &mut World) {
         let GamePhase::Home(ref mut elements) = world.renderer.phase else { return; };
+        let context = &mut world.renderer.canvas2d;
 
         for shape in elements.shapes.iter_mut() {
             shape.position.y -= shape.speed;
@@ -352,36 +393,327 @@ impl GamePhase {
                 shape.position.y = 1920.0 / 2.0;
             }
 
-            world.renderer.canvas2d.save();
-            world.renderer.canvas2d.translate(shape.position.x, shape.position.y);
-            world.renderer.canvas2d.rotate(shape.angle);
+            context.save();
+            context.translate(shape.position.x, shape.position.y);
+            context.rotate(shape.angle);
 
-            world.renderer.canvas2d.stroke_style(shape.color);
-            world.renderer.canvas2d.set_stroke_size(5.0);
-            // world.renderer.canvas2d.shadow_blur(2.0);
-            // world.renderer.canvas2d.shadow_color(shape.color);
+            context.stroke_style(shape.color);
+            context.set_stroke_size(5.0);
+            // context.shadow_blur(2.0);
+            // context.shadow_color(shape.color);
 
-            shape.shape.render(&world.renderer.canvas2d, shape.radius, false, true);
-            world.renderer.canvas2d.fill_style(shape.color);
-            world.renderer.canvas2d.global_alpha(0.2);
-            world.renderer.canvas2d.fill();
+            shape.shape.render(context, shape.radius, false, true);
+            context.fill_style(shape.color);
+            context.global_alpha(0.2);
+            context.fill();
 
-            world.renderer.canvas2d.restore();
+            context.restore();
         }
     }
 
     pub fn generate_game_elements(world: &World) -> Vec<Box<dyn UiElement>> {
-        vec![Box::new(
+        let mut elements: Vec<Box<dyn UiElement>> = vec![];
+        let dimensions = world.renderer.canvas2d.get_dimensions();
+
+        let score = world.game.self_entity.display.score.value as usize;
+        let level = get_level_from_score(world.game.self_entity.display.score.target as usize);
+
+        elements.push(Box::new(
             Label::new()
-                .with_text("Game start!".to_string())
+                .with_id("nametag")
+                .with_text(world.game.self_entity.display.name.clone())
                 .with_fill(Color::WHITE)
-                .with_font(32.0)
-                .with_transform(translate!(0.0, 10.0))
-            )
-        ]
+                .with_font(72.0)
+                .with_stroke(Color::BLACK)
+                .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 - 145.0))
+                .with_events(Events::default().with_hoverable(false))
+        ));
+
+        elements.push(Box::new(
+            ProgressBar::new()
+                .with_id("score_bar")
+                .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 - 100.0))
+                .with_fill(BAR_BACKGROUND)
+                .with_accent(SCORE_BAR_FOREGROUND)
+                .with_dimensions(Vector2D::new(600.0, 40.0))
+                .with_value(5.0)
+                .with_max(10.0)
+                .with_children(vec![Box::new(
+                    Label::new()
+                        .with_id("score_bar_text")
+                        .with_text(format!("Score: {}", to_locale!(score)))
+                        .with_fill(Color::WHITE)
+                        .with_font(32.0)
+                        .with_stroke(Color::BLACK)
+                        .with_events(Events::default().with_hoverable(false))
+                    )
+                ])
+        ));
+
+        elements.push(Box::new(
+            ProgressBar::new()
+                .with_id("level_bar")
+                .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 - 50.0))
+                .with_fill(BAR_BACKGROUND)
+                .with_accent(LEVEL_BAR_FOREGROUND)
+                .with_dimensions(Vector2D::new(850.0, 50.0))
+                .with_value(score as f32)
+                .with_max(get_min_score_from_level(level + 1) as f32)
+                .with_children(vec![Box::new(
+                    Label::new()
+                        .with_id("level_bar_text")
+                        .with_text(format!("Level {} Enes Banushi", get_level_from_score(world.game.self_entity.display.score.target as usize)))
+                        .with_fill(Color::WHITE)
+                        .with_font(38.0)
+                        .with_stroke(Color::BLACK)
+                        .with_events(Events::default().with_hoverable(false))
+                    )
+                ])
+        ));
+
+        let (stat_width, stat_height) = (400.0_f64, 40.0_f64);
+        let upgrades_center = Vector2D::new(
+            dimensions.x as f64 / 13.0 + (stat_width / 2.0 + dimensions.x as f64 / 100.0) / 10.0,
+            (dimensions.y as f64 - (UpgradeStats::COUNT as f64 * 50.0) - 70.0)
+        );
+
+        let available_stat_points = world.game.self_entity.display.available_stat_points;
+        let should_display_stats = available_stat_points > 0 || world.game.self_entity.display.should_display_stats;
+
+        if should_display_stats {
+            elements.push(Box::new(
+                Label::new()
+                    .with_id("upgrades_text")
+                    .with_text(format!("Upgrades (x{})", available_stat_points))
+                    .with_fill(Color::WHITE)
+                    .with_font(36.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(upgrades_center.x, upgrades_center.y))
+                    .with_events(Events::default()
+                        .with_deletion_effects(vec![DeletionEffects::Disappear])
+                    )
+            ));
+    
+            for (i, stat) in UpgradeStats::iter().enumerate() {
+                let color = UPGRADE_STAT_COLORS[i];
+    
+                elements.push(Box::new(
+                    ProgressBar::new()
+                        .with_id(&format!("upgrade_stat-{}", i))
+                        .with_transform(translate!(
+                            dimensions.x as f64 / 13.0,
+                            (upgrades_center.y + 40.0) + (i as f64 * 50.0)
+                        ))
+                        .with_fill(BAR_BACKGROUND)
+                        .with_accent(color)
+                        .with_dimensions(Vector2D::new(stat_width as f32, stat_height as f32))
+                        .with_value(world.game.self_entity.display.stat_investments[i] as f32)
+                        .with_max(MAX_STAT_INVESTMENT as f32)
+                        .with_children(vec![Box::new(
+                            Label::new()
+                                .with_id(&format!("upgrade_stat_text-{}", i))
+                                .with_text(format!("{}", stat))
+                                .with_fill(Color::WHITE)
+                                .with_font(26.0)
+                                .with_stroke(Color::BLACK)
+                                .with_events(Events::default()
+                                    .with_hoverable(false)
+                                    .with_deletion_effects(vec![DeletionEffects::Disappear])
+                                )
+                            ), 
+                            Box::new(
+                                Label::new()
+                                    .with_id(&format!("upgrade_stat_number-{}", i))
+                                    .with_text(format!("[{}]", i + 1))
+                                    .with_fill(Color::WHITE)
+                                    .with_font(18.0)
+                                    .with_stroke(Color::BLACK)
+                                    .with_transform(translate!(stat_width / 2.0 - 40.0, -2.0))
+                                    .with_events(Events::default()
+                                        .with_hoverable(false)
+                                        .with_deletion_effects(vec![DeletionEffects::Disappear]))
+                            )
+                        ])
+                        .with_events(Events::default()
+                            .with_hoverable(false)
+                            .with_deletion_effects(vec![DeletionEffects::Disappear])
+                        )
+                ));
+    
+                elements.push(Box::new(
+                    Button::new()
+                        .with_id(&format!("upgrade-button-{}", i))
+                        .with_fill(if available_stat_points > 0 { color } else { Color::GRAY })
+                        .with_dimensions(Vector2D::new(45.0, 45.0))
+                        .with_transform(translate!(
+                            dimensions.x as f64 / 13.0 + stat_width / 2.0 + dimensions.x as f64 / 100.0,
+                            (upgrades_center.y + 40.0) + (i as f64 * 50.0)
+                        ))
+                        .with_roundness(100.0)
+                        .with_events(Events::default()
+                            .with_hoverable(available_stat_points > 0)
+                            .with_hover_effects(vec![
+                                HoverEffects::Inflation(1.1),
+                                HoverEffects::AdjustBrightness(0.0)
+                            ])
+                            .with_deletion_effects(vec![DeletionEffects::Disappear])
+                            .with_on_click(Box::new(|button| {
+                                let i = button.get_id()
+                                    .split('-')
+                                    .last()
+                                    .and_then(|s| s.parse::<usize>().ok())
+                                    .unwrap();
+    
+                                spawn_local(async move {
+                                    let world = get_world();
+                                    world.connection.send_message(form_stats_packet(i));
+                                });
+                            }))
+                        )
+                        .with_children(vec![Box::new(
+                            Label::new()
+                                .with_id(&format!("upgrade-button-text-{}", i))
+                                .with_text("+".to_string())
+                                .with_fill(Color::WHITE)
+                                .with_stroke(Color::BLACK)
+                                .with_font(32.0)
+                                .with_transform(translate!(0.0, 10.0))
+                                .with_events(Events::default()
+                                    .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                    .with_deletion_effects(vec![DeletionEffects::Disappear])
+                                )
+                        )])
+                ));
+            }    
+        }
+
+        let padding = 10.0;
+        elements.push(Box::new(
+            Button::new()
+                .with_id("toggle-upgrade-stats")
+                .with_fill(if should_display_stats { Color::SOFT_RED } else { Color::SOFT_GREEN })
+                .with_dimensions(Vector2D::new(50.0, 40.0 + (UpgradeStats::COUNT as f32 * 50.0)))
+                .with_transform(translate!(
+                    -10.0,
+                    upgrades_center.y + 200.0
+                ))
+                .with_events(Events::default()
+                    .with_hover_effects(vec![
+                        HoverEffects::Inflation(1.1),
+                        HoverEffects::AdjustBrightness(0.0)
+                    ])
+                    .with_on_click(Box::new(|button| {
+                        spawn_local(async {
+                            let mut world = get_world();
+                            world.game.self_entity.display.should_display_stats =
+                                !world.game.self_entity.display.should_display_stats;
+                        });
+                    }))
+                )
+                .with_roundness(10.0)
+                // .with_children(vec![Box::new(
+                //     Label::new()
+                //         .with_id("open-upgrade-stats-text")
+                //         .with_text((if should_display_stats { "{icon}\u{f060}" } else { "{icon}\u{f061}" }).to_string())
+                //         .with_fill(Color::WHITE)
+                //         .with_stroke(Color::BLACK)
+                //         .with_font(32.0)
+                //         .with_transform(translate!(0.0, 10.0))
+                //         .with_events(Events::default()
+                //             .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                //             .with_deletion_effects(vec![DeletionEffects::Disappear])
+                //         )
+                // )])
+        )); 
+
+        elements
     }
 
-    pub fn render_game(world: &mut World) {
+    pub fn render_game(world: &mut World, delta_average: f64) {
+        world.renderer.canvas2d.fill_style(OUTBOUNDS_FILL);
+        world.renderer.canvas2d.fill_rect(0, 0, world.renderer.canvas2d.get_width(), world.renderer.canvas2d.get_height());
 
+        world.renderer.canvas2d.save();
+
+        let dt = constrain!(0.0, delta_average / 16.66, 1.0) as f32;
+        world.game.self_entity.lerp_all(dt, true);
+
+        GamePhase::render_minimap(&mut world.renderer.canvas2d);
+
+        world.renderer.canvas2d.save();
+
+        let factor = (world.renderer.canvas2d.get_width() as f32 / 1920.0).min(world.renderer.canvas2d.get_height() as f32 / 1080.0);
+        let (screen_width, screen_height) = (world.renderer.canvas2d.get_width() as f32 / factor, world.renderer.canvas2d.get_height() as f32 / factor);
+
+        world.renderer.canvas2d.translate(world.renderer.canvas2d.get_width() as f32 / 2.0, world.renderer.canvas2d.get_height() as f32 / 2.0);
+        world.renderer.canvas2d.scale(factor * world.game.self_entity.display.fov.value, factor * world.game.self_entity.display.fov.value);
+        world.renderer.canvas2d.translate(
+            -world.game.self_entity.physics.position.value.x, 
+            -world.game.self_entity.physics.position.value.y
+        );
+
+        world.renderer.canvas2d.fill_style(INBOUNDS_FILL);
+        world.renderer.canvas2d.fill_rect(0.0, 0.0, world.game.arena_size, world.game.arena_size);
+
+        GamePhase::render_grid(&mut world.renderer.canvas2d, world.game.self_entity.display.fov.value, world.game.arena_size);
+
+        let mut entities: Vec<u32> = world.game.surroundings.iter_mut().map(|(k, v)| *k).collect();
+        entities.push(world.game.self_entity.id);
+        entities.sort_by(|a, b| {
+            let a_index = world.game.get_mut_entity(*a).display.z_index;
+            a_index
+                .cmp(&world.game.get_mut_entity(*b).display.z_index)
+        });
+
+        for id in entities.iter_mut() {
+            let is_self = *id == world.game.self_entity.id;
+            if !is_self {
+                world.game.get_mut_entity(*id).lerp_all(dt, false);
+            }
+
+            Entity::render(world, *id, dt);
+        }
+
+        entities.iter().for_each(|id| Entity::render_health_bar(world, *id, dt));
+        entities.iter().for_each(|id| Entity::render_nametag(world, *id, dt));
+
+        world.renderer.canvas2d.restore();
+
+        // only if the thing is alive
+        GamePhase::send_packets(world);
+    }
+
+    fn send_packets(world: &mut World) {
+        world.connection.send_message(form_input_packet(
+            world.game.self_entity.physics.inputs, 
+            world.game.self_entity.physics.mouse
+        ));
+    }
+
+    fn render_minimap(context: &mut Canvas2d) {
+
+    }
+
+    fn render_grid(context: &mut Canvas2d, fov: f32, arena_size: f32) {
+        context.save();
+
+        context.global_alpha(GRID_ALPHA as f64);
+        context.stroke_style(GRID_COLOR);
+        context.set_stroke_size(1.0 / fov);
+
+        for x in (0..(arena_size as usize)).step_by(GRID_SIZE as usize) {
+            context.begin_path();
+            context.move_to(x as f32, 0.0);
+            context.line_to(x as f32, arena_size);
+            context.stroke();
+        }
+
+        for y in (0..(arena_size as usize)).step_by(GRID_SIZE as usize) {
+            context.begin_path();
+            context.move_to(0.0, y as f32);
+            context.line_to(arena_size, y as f32);
+            context.stroke();
+        }
+        context.restore();
     }
 }

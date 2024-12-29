@@ -1,4 +1,4 @@
-use gloo::{console::console, utils::{document, window}};
+use gloo::utils::{document, window};
 use shared::{rand, utils::vec2::Vector2D};
 use web_sys::{wasm_bindgen::JsCast, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
 use rand::Rng;
@@ -267,6 +267,18 @@ impl Canvas2d {
         self.ctx.stroke();
     }
 
+    pub fn begin_path(&self) {
+        self.ctx.begin_path();
+    }
+
+    pub fn move_to(&self, x: f32, y: f32) {
+        self.ctx.move_to(x as f64, y as f64);
+    }
+
+    pub fn line_to(&self, x: f32, y: f32) {
+        self.ctx.line_to(x as f64, y as f64);
+    }
+
     pub fn fill_style(&self, color: Color) {
         self.ctx.set_fill_style_str(&color.css());
     }
@@ -393,5 +405,9 @@ impl Canvas2d {
 
     pub fn set_transform(&self, transform: &Transform) {
        let _ = self.ctx.transform(transform.a(), transform.b(), transform.c(), transform.d(), transform.e(), transform.f());
+    }
+
+    pub fn set_line_cap(&self, cap: &str) {
+        self.ctx.set_line_cap(cap);
     }
 }

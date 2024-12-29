@@ -1,8 +1,8 @@
-use gloo::{console::console, utils::window};
-use shared::{fuzzy_compare, lerp, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
+use gloo::utils::window;
+use shared::{lerp, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
 
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, translate, utils::color::Color};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, OnClickScript, UiElement}, translate, utils::color::Color};
 
 use super::{button::Button, label::Label};
 
@@ -16,7 +16,7 @@ pub struct Modal {
     dimensions: Interpolatable<Vector2D<f32>>,
     children: Vec<Box<dyn UiElement>>,
     deletion: bool,
-    opacity: Interpolatable<f32>
+    opacity: Interpolatable<f32>,
 }
 
 impl UiElement for Modal {
@@ -86,6 +86,20 @@ impl UiElement for Modal {
             .iter_mut()
             .enumerate()
             .find(|(_, child)| child.get_id() == id)
+    }
+
+    fn delete_element_by_id(&mut self, id: &str, destroy: bool) {
+        if let Some((i, child)) = self.children
+            .iter_mut()
+            .enumerate()
+            .find(|(_, child)| child.get_id() == id) 
+        {
+            if destroy {
+                child.destroy();
+            } else {
+                self.children.remove(i);
+            }
+        }
     }
 
     fn set_children(&mut self, children: Vec<Box<dyn UiElement>>) {
@@ -175,6 +189,10 @@ impl UiElement for Modal {
 
         self.children.clear();
     }
+
+    fn has_animation_state(&self) -> bool {
+        false
+    }
 }
 
 impl Modal {
@@ -225,7 +243,7 @@ impl Modal {
         self
     }
 
-    pub fn with_close_button(mut self, cb: Box<dyn Fn()>) -> Modal {
+    pub fn with_close_button(mut self, cb: Box<OnClickScript>) -> Modal {
         let text = Label::new()
             .with_text("X".to_string())
             .with_fill(Color::WHITE)
