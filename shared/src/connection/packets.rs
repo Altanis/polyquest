@@ -2,7 +2,8 @@
 pub enum ServerboundPackets {
     Spawn,
     Input,
-    Stats
+    Stats,
+    Upgrade
 }
 
 impl TryInto<ServerboundPackets> for u8 {
@@ -13,6 +14,7 @@ impl TryInto<ServerboundPackets> for u8 {
             0x0 => Ok(ServerboundPackets::Spawn),
             0x1 => Ok(ServerboundPackets::Input),
             0x2 => Ok(ServerboundPackets::Stats),
+            0x3 => Ok(ServerboundPackets::Upgrade),
             _ => Err(true)
         }
     }
@@ -56,6 +58,7 @@ pub enum CensusProperties {
     Energy,
     MaxEnergy,
     Stats,
+    Upgrades,
     Opacity,
     Fov,
     Radius,
@@ -77,10 +80,11 @@ impl TryInto<CensusProperties> for u8 {
             7 => Ok(CensusProperties::Energy),
             8 => Ok(CensusProperties::MaxEnergy),
             9 => Ok(CensusProperties::Stats),
-            10 => Ok(CensusProperties::Opacity),
-            11 => Ok(CensusProperties::Fov),
-            12 => Ok(CensusProperties::Radius),
-            13 => Ok(CensusProperties::Identity),
+            10 => Ok(CensusProperties::Upgrades),
+            11 => Ok(CensusProperties::Opacity),
+            12 => Ok(CensusProperties::Fov),
+            13 => Ok(CensusProperties::Radius),
+            14 => Ok(CensusProperties::Identity),
             _ => Err(true),
         }
     }

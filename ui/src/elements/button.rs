@@ -10,6 +10,7 @@ pub struct Button {
     transform: Interpolatable<Transform>,
     raw_transform: Transform,
     fill: Interpolatable<Color>,
+    stroke: (f32, Option<Color>),
     dimensions: Interpolatable<Vector2D<f32>>,
     roundness: f32,
     angle: Interpolatable<f32>,
@@ -30,6 +31,7 @@ impl Default for Button {
             transform: Default::default(),
             raw_transform: Default::default(),
             fill: Default::default(),
+            stroke: (-1.0, None),
             dimensions: Default::default(),
             roundness: 5.0,
             angle: Default::default(),
@@ -174,13 +176,17 @@ impl UiElement for Button {
 
         context.fill_style(self.fill.value);
 
-        let stroke = self.dimensions.value.min() / 10.0;
+        let stroke = if self.stroke.0 < 0.0 { self.dimensions.value.min().max(1.0).ln() * 2.0 } else { self.stroke.0 };
         if stroke != 0.0 {
-            let color = Color::blend_colors(
-                self.fill.value, 
-                Color::BLACK, 
-                0.25
-            );
+            let color = if let Some(color) = self.stroke.1 {
+                color
+            } else {
+                Color::blend_colors(
+                    self.fill.value, 
+                    Color::BLACK, 
+                    0.25
+                )
+            };
 
             context.set_stroke_size(stroke);
             context.stroke_style(color);
@@ -330,6 +336,11 @@ impl Button {
 
     pub fn with_fill(mut self, fill: Color) -> Button {
         self.fill = Interpolatable::new(fill);
+        self
+    }
+
+    pub fn with_stroke(mut self, stroke: (f32, Option<Color>)) -> Button {
+        self.stroke = stroke;
         self
     }
 

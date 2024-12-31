@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use derive_new::new as New;
-use shared::{connection::packets::{CensusProperties, Inputs}, constrain, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{get_min_score_from_level, EntityType, InputFlags, UpgradeStats, BASE_TANK_RADIUS, LEVEL_TO_SCORE_TABLE}, turret::{TurretIdentityIds, TurretStructure}}, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION, MAX_LEVEL}, vec2::Vector2D}};
+use shared::{connection::packets::{CensusProperties, Inputs}, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{get_min_score_from_level, EntityType, InputFlags, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS, LEVEL_TO_SCORE_TABLE}, turret::{TurretIdentity, TurretIdentityIds, TurretStructure}}, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION, MAX_LEVEL}, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 
 use crate::connection::packets;
@@ -25,6 +25,7 @@ pub struct DisplayComponent {
 
     pub stat_investments: [usize; UpgradeStats::COUNT],
     pub available_stat_points: usize,
+    pub upgrades: TankUpgrades,
 
     pub opacity: f32,
     pub fov: f32,
@@ -92,7 +93,7 @@ impl Entity {
 
         // TODO(Altanis): This census leaks unwanted information
         // of other players. Give them privacy.
-        codec.encode_varuint(14);
+        codec.encode_varuint(15);
         for property in CensusProperties::iter() {
             codec.encode_varuint(property.clone() as u64);
 
@@ -118,6 +119,17 @@ impl Entity {
                         codec.encode_varuint(self.display.stat_investments[i] as u64);
                     }
                 },
+                CensusProperties::Upgrades => {
+                    codec.encode_varuint(self.display.upgrades.body.len() as u64);
+                    for &upgrade in self.display.upgrades.body.iter() {
+                        codec.encode_varuint(upgrade as u64);
+                    }
+
+                    codec.encode_varuint(self.display.upgrades.turret.len() as u64);
+                    for &upgrade in self.display.upgrades.turret.iter() {
+                        codec.encode_varuint(upgrade as u64);
+                    }
+                },
                 CensusProperties::Opacity => codec.encode_f32(self.display.opacity),
                 CensusProperties::Fov => codec.encode_f32(self.display.fov),
                 CensusProperties::Radius => codec.encode_f32(self.display.radius),
@@ -126,6 +138,26 @@ impl Entity {
                     codec.encode_varuint(self.display.turret_identity.id as u64);
                 }
                 _ => codec.backspace(),
+            }
+        }
+    }
+
+    fn check_for_upgrades(&mut self) {
+        for &upgrade in self.display.body_identity.upgrades.iter() {
+            let upgrade_identity: BodyIdentity = upgrade.try_into().unwrap();
+            if self.display.level >= upgrade_identity.level_requirement
+                && !self.display.upgrades.body.contains(&upgrade)
+            {
+                self.display.upgrades.body.push(upgrade);
+            }
+        }
+
+        for &upgrade in self.display.turret_identity.upgrades.iter() {
+            let upgrade_identity: TurretStructure = upgrade.try_into().unwrap();
+            if self.display.level >= upgrade_identity.level_requirement
+                && !self.display.upgrades.turret.contains(&upgrade)
+            {
+                self.display.upgrades.turret.push(upgrade);
             }
         }
     }
@@ -145,7 +177,6 @@ impl Entity {
 
     pub fn tick(dt: f32, entities: &EntityDataStructure, id: u32) {
         let mut self_entity = entities.get(&id).unwrap().borrow_mut();
-
         self_entity.time.ticks += 1;
 
         if self_entity.stats.health <= 0.0 {
@@ -198,11 +229,11 @@ impl Entity {
         if self.physics.velocity.is_zero(3.0) && !is_shooting {
             if self.display.body_identity.invisibility_rate != -1.0 && self.display.opacity > 0.0 {
                 self.display.opacity -= self.display.body_identity.invisibility_rate;
-                self.display.opacity = constrain!(0.0, self.display.opacity, 1.0);
+                self.display.opacity = self.display.opacity.clamp(0.0, 1.0);
             }
         } else if self.display.body_identity.invisibility_rate != -1.0 && self.display.opacity < 1.0 {
             self.display.opacity += self.display.body_identity.invisibility_rate;
-            self.display.opacity = constrain!(0.0, self.display.opacity, 1.0);
+            self.display.opacity = self.display.opacity.clamp(0.0, 1.0);
         }
 
         // Upgrade Level
@@ -211,6 +242,7 @@ impl Entity {
             new_level += 1;
         }
         self.update_level(new_level);
+        self.check_for_upgrades();
 
         // Health Regen
         self.stats.regen_per_tick = (self.stats.max_health 

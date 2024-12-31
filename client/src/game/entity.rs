@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use derive_new::new as New;
 use gloo::console::console;
-use shared::{connection::packets::CensusProperties, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{EntityType, InputFlags, UpgradeStats}, turret::{TurretIdentity, TurretIdentityIds, TurretStructure}}, lerp, lerp_angle, utils::{codec::BinaryCodec, interpolatable::Interpolatable, vec2::Vector2D}};
+use shared::{connection::packets::CensusProperties, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, utils::{codec::BinaryCodec, interpolatable::Interpolatable, vec2::Vector2D}};
 use strum::EnumCount;
 use ui::{canvas2d::Canvas2d, core::UiElement, utils::color::Color};
 
 use crate::{rendering::phases::GamePhase, world::World};
 
-use super::theme::{ENEMY_FILL, ENEMY_STROKE, PLAYER_FILL, PLAYER_STROKE, STROKE_SIZE};
+use super::theme::{ENEMY_FILL, ENEMY_STROKE, PLAYER_FILL, PLAYER_STROKE, SMASHER_GUARD_FILL, SMASHER_GUARD_STROKE, STROKE_SIZE, TURRET_FILL, TURRET_STROKE};
 
 #[derive(Debug, Default)]
 pub struct Game {
@@ -44,6 +44,7 @@ pub struct DisplayComponent {
     pub stat_investments: [usize; UpgradeStats::COUNT],
     pub available_stat_points: usize,
     pub should_display_stats: bool,
+    pub upgrades: TankUpgrades,
 
     pub opacity: Interpolatable<f32>,
     pub fov: Interpolatable<f32>,
@@ -168,6 +169,20 @@ impl Entity {
                         entity.display.stat_investments[i] = codec.decode_varuint().unwrap() as usize;
                     }
                 },
+                CensusProperties::Upgrades => {
+                    entity.display.upgrades.body.clear();
+                    entity.display.upgrades.turret.clear();
+
+                    let body_length = codec.decode_varuint().unwrap() as usize;
+                    for _ in 0..body_length {
+                        entity.display.upgrades.body.push((codec.decode_varuint().unwrap() as usize).try_into().unwrap());
+                    }
+
+                    let turret_length = codec.decode_varuint().unwrap() as usize;
+                    for _ in 0..turret_length {
+                        entity.display.upgrades.turret.push((codec.decode_varuint().unwrap() as usize).try_into().unwrap());
+                    }
+                },
                 CensusProperties::Opacity => entity.display.opacity.target = codec.decode_f32().unwrap(),
                 CensusProperties::Fov => entity.display.fov.target = codec.decode_f32().unwrap(),
                 CensusProperties::Radius => entity.display.radius.target = codec.decode_f32().unwrap(),
@@ -182,22 +197,83 @@ impl Entity {
         }
     }
 
-    /// Renders a taken given its identities.
-    fn render_tank(&self, context: &mut Canvas2d, radius: f32, is_self: bool) {
+    fn compute_body_fill(&self, is_self: bool ) -> (Color, Color) {
         let fill = if is_self { PLAYER_FILL } else { ENEMY_FILL };
         let stroke = if is_self { PLAYER_STROKE } else { ENEMY_STROKE };
+
+        (fill, stroke)
+    }
+
+    fn render_turrets(&self, context: &mut Canvas2d, is_self: bool) {
+        // let (body_fill, body_stroke) = self.compute_body_fill(is_self);
+        // let fill = Color::blend_colors(TURRET_FILL, body_fill, 0.1);
+        // let stroke = Color::blend_colors(TURRET_STROKE, body_stroke, 0.3);
+
+        context.fill_style(TURRET_FILL);
+        context.stroke_style(TURRET_STROKE);
+        context.set_stroke_size(STROKE_SIZE);
+
+        let size_factor = self.display.radius.value / 30.0;
+
+        for turret in self.display.turret_identity.turrets.iter() {
+            context.save();
+            context.rotate(turret.angle);
+            context.translate(
+                turret.x_offset * size_factor,
+                turret.y_offset * size_factor,
+            );
+
+            let (length, width) = (turret.length * size_factor, turret.width * size_factor);
+
+            if turret.rendering_hints.is_empty() {
+                context.fill_rect(0.0, -width / 2.0, length, width);
+                context.stroke_rect(0.0, -width / 2.0, length, width);
+            } else {
+                for &hint in turret.rendering_hints.iter() {
+                    match hint {
+                        TurretRenderingHints::Trapezoidal(angle) => {
+        
+                        }
+                    }
+                }
+            }
+
+            context.restore();
+        }
+    }
+
+    /// Renders a body given its identities.
+    fn render_body(&self, context: &mut Canvas2d, is_self: bool) {
+        for &hint in self.display.body_identity.render_hints.iter() {
+            match hint {
+                BodyRenderingHints::SmasherGuard { thickness, sides } => {
+                    let radius = thickness * self.display.radius.value;
+
+                    context.save();
+                    context.fill_style(SMASHER_GUARD_FILL);
+                    context.stroke_style(SMASHER_GUARD_STROKE);
+
+                    context.begin_path();
+                    context.move_to(self.display.radius.value, 0.0);
+                    for i in 0..=sides {
+                        let (x_angle, y_angle) = (std::f32::consts::TAU * i as f32 / sides as f32).sin_cos();
+                        context.line_to(radius * x_angle, radius * y_angle);
+                    }
+                    context.fill();
+                    context.stroke();
+
+                    context.restore();
+                }
+            }
+        }
+
+        let (fill, stroke) = self.compute_body_fill(is_self);
 
         context.fill_style(fill);
         context.stroke_style(stroke);
         
-        context.begin_arc(0.0, 0.0, radius as f64, std::f64::consts::TAU);
+        context.begin_arc(0.0, 0.0, self.display.radius.value as f64, std::f64::consts::TAU);
         context.fill();
-        context.stroke();
-
-        context.stroke_style(Color::GREEN);
-        context.begin_path();
-        context.move_to(0.0, 0.0);
-        context.line_to(radius, 0.0);
         context.stroke();
     }
 
@@ -236,8 +312,8 @@ impl Entity {
         context.global_alpha(entity.display.opacity.value as f64);
         context.set_stroke_size(STROKE_SIZE);
 
-        // entity.render_turrets(context);
-        entity.render_tank(context, entity.display.radius.value, is_self);
+        entity.render_turrets(context, is_self);
+        entity.render_body(context, is_self);
 
         context.restore();
     }
@@ -282,10 +358,10 @@ impl Entity {
         }
 
         self.display.score.value = lerp!(
-            self.display.score.value as f32, 
-            self.display.score.target as f32, 
+            self.display.score.value, 
+            self.display.score.target, 
             0.2 * dt
-        ) as f32;
+        );
         
         self.stats.health.value = lerp!(
             self.stats.health.value, 

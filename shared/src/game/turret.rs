@@ -1,6 +1,13 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ProjectileType {
     Bullet
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TurretRenderingHints {
+    Trapezoidal(f32) // Trapezoidal(angle)
 }
 
 #[derive(Debug, Clone)]
@@ -16,11 +23,6 @@ pub struct ProjectileIdentity {
     pub scatter_rate: f32,
     /// The lifetime of the projectile.
     pub lifetime: f32
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TurretRenderingType {
-    None
 }
 
 #[derive(Debug, Clone)]
@@ -41,33 +43,28 @@ pub struct TurretIdentity {
     pub reload: f32,
     pub recoil: f32,
 
-    /// Whether or not the turret is trapezoidal.
-    pub is_trapezoidal: bool,
-    /// The angle the turret has rotated w.r.t the turret's center.
-    pub trapezoidal_angle: f32,
-    /// A specific rendering method for the turret.
-    pub render_type: TurretRenderingType,
+    /// Hints as to how to render the turret.
+    pub rendering_hints: Vec<TurretRenderingHints>,
 
     /// The maximum number of projectiles this turret can spawn.
     pub max_projectiles: isize,
     /// The identity of the projectiles the turret shoots.
-    pub projectile_identity: ProjectileIdentity,
-
-    pub level_requirement: usize,
-    pub upgrades: Vec<TurretStructure>
+    pub projectile_identity: ProjectileIdentity
 }
 
 #[derive(Default, Debug, Clone)]
 pub struct TurretStructure {
-    pub id: usize,
-    pub turrets: Vec<TurretIdentity>
+    pub id: TurretIdentityIds,
+    pub turrets: Vec<TurretIdentity>,
+    pub level_requirement: usize,
+    pub upgrades: Vec<TurretIdentityIds>
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum TurretIdentityIds {
     #[default]
-    Mono       = 0,
-    // Producer   = 1
+    Base       = 0,
+    Mono       = 1    
 }
 
 impl TryInto<TurretIdentityIds> for usize {
@@ -75,7 +72,8 @@ impl TryInto<TurretIdentityIds> for usize {
 
     fn try_into(self) -> Result<TurretIdentityIds, Self::Error> {
         match self {
-            0 => Ok(TurretIdentityIds::Mono),
+            0 => Ok(TurretIdentityIds::Base),
+            1 => Ok(TurretIdentityIds::Mono),
             _ => Err(())
         }
     }
@@ -86,27 +84,44 @@ impl TryInto<TurretStructure> for TurretIdentityIds {
 
     fn try_into(self) -> Result<TurretStructure, Self::Error> {
         match self {
-            TurretIdentityIds::Mono => Ok(get_turret_mono_identity()),
+            TurretIdentityIds::Base => Ok(get_turret_base_identity()),
+            TurretIdentityIds::Mono => Ok(get_turret_mono_identity())
         }
+    }
+}
+
+impl Display for TurretIdentityIds {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Base => write!(f, "Base"),
+            Self::Mono => write!(f, "Mono"),
+        }
+    }
+}
+
+pub fn get_turret_base_identity() -> TurretStructure {
+    TurretStructure {
+        id: TurretIdentityIds::Base,
+        turrets: vec![],
+        level_requirement: 0,
+        upgrades: vec![TurretIdentityIds::Mono]
     }
 }
 
 pub fn get_turret_mono_identity() -> TurretStructure {
     TurretStructure {
-        id: TurretIdentityIds::Mono as usize,
+        id: TurretIdentityIds::Mono,
         turrets: vec![
             TurretIdentity {
                 angle: 0.0,
                 x_offset: 0.0,
                 y_offset: 0.0,
-                width: 24.0,
                 length: 57.0,
+                width: 24.0,
                 delay: 0.0,
                 reload: 1.0,
                 recoil: 1.0,
-                is_trapezoidal: false,
-                trapezoidal_angle: 0.0,
-                render_type: TurretRenderingType::None,
+                rendering_hints: vec![],
                 max_projectiles: -1,
                 projectile_identity: ProjectileIdentity {
                     projectile_type: ProjectileType::Bullet,
@@ -118,9 +133,9 @@ pub fn get_turret_mono_identity() -> TurretStructure {
                     scatter_rate: 1.0,
                     lifetime: 1.0
                 },
-                level_requirement: 0,
-                upgrades: vec![]
             }
-        ]
+        ],
+        level_requirement: 0,
+        upgrades: vec![]
     }
 }

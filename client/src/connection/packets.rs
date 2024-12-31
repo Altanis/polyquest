@@ -36,6 +36,15 @@ pub fn form_stats_packet(stat: usize) -> BinaryCodec {
     codec
 }
 
+pub fn form_upgrade_packet(upgrade_type: usize, stat: usize) -> BinaryCodec {
+    let mut codec = BinaryCodec::new();
+    codec.encode_varuint(ServerboundPackets::Upgrade as u64);
+    codec.encode_varuint(upgrade_type as u64);
+    codec.encode_varuint(stat as u64);
+
+    codec
+}
+
 pub fn handle_update_packet(
     world: &mut World,
     mut codec: BinaryCodec

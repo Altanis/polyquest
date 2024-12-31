@@ -51,19 +51,6 @@ macro_rules! rand {
 }
 
 #[macro_export]
-macro_rules! constrain {
-    ($min:expr, $value:expr, $max:expr) => {
-        if $value < $min {
-            $min
-        } else if $value > $max {
-            $max
-        } else {
-            $value
-        }
-    };
-}
-
-#[macro_export]
 macro_rules! to_locale {
     ($n:expr) => {{
         let mut s = $n.to_string();

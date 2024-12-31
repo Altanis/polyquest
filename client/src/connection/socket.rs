@@ -126,7 +126,6 @@ impl Connection {
     }
 
     fn on_message(world: &mut World, mut codec: BinaryCodec) {
-        // web_sys::console::log_1(&format!("Received binary message: {:?}", data).into());
         let header: ClientboundPackets = (codec.decode_varuint().unwrap() as u8).try_into().unwrap();
         match header {
             ClientboundPackets::Update => handle_update_packet(world, codec),

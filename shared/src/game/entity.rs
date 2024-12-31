@@ -4,6 +4,8 @@ use derive_new::new as New;
 use strum::IntoEnumIterator;
 use crate::{connection::packets::Inputs, utils::consts::MAX_LEVEL};
 
+use super::{body::BodyIdentityIds, turret::TurretIdentityIds};
+
 pub const BASE_TANK_RADIUS: f32 = 50.0;
 pub const MAX_STAT_INVESTMENT: usize = 7;
 
@@ -114,4 +116,21 @@ pub fn get_level_from_score(score: usize) -> usize {
     }
     
     MAX_LEVEL
+}
+
+/// Generates an identity name given identity ids.
+pub fn generate_identity(body: BodyIdentityIds, turret: TurretIdentityIds) -> String {
+    let (body, turret) = (format!("{}", body), format!("{}", turret));
+    if body == turret {
+        turret
+    } else {
+        format!("{}-{}", turret, body)
+    }
+}
+
+/// A struct encapsulating body and turret upgrades.
+#[derive(Debug, Default, Clone)]
+pub struct TankUpgrades {
+    pub body: Vec<BodyIdentityIds>,
+    pub turret: Vec<TurretIdentityIds>
 }

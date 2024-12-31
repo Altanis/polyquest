@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse
 };
 use futures::{stream::SplitSink, SinkExt, StreamExt};
-use shared::{connection::packets::ServerboundPackets, game::{body::get_body_base_identity, entity::{EntityType, InputFlags, BASE_TANK_RADIUS}, turret::get_turret_mono_identity}, utils::{codec::BinaryCodec, vec2::Vector2D}};
+use shared::{connection::packets::ServerboundPackets, game::{body::get_body_base_identity, entity::{EntityType, InputFlags, TankUpgrades, BASE_TANK_RADIUS}, turret::{get_turret_base_identity, get_turret_mono_identity}}, utils::{codec::BinaryCodec, vec2::Vector2D}};
 
 use crate::{game::entity::{ConnectionComponent, DisplayComponent, Entity, PhysicsComponent, StatsComponent, TimeComponent}, server::{Server, ServerGuard, WrappedServer}};
 
@@ -60,12 +60,13 @@ impl WebSocketServer {
                     score: 0,
                     stat_investments: [0; _],
                     available_stat_points: 0,
+                    upgrades: TankUpgrades::default(),
                     opacity: 1.0,
                     fov: 0.0,
                     surroundings: vec![],
                     entity_type: EntityType::Player,
                     body_identity: get_body_base_identity(),
-                    turret_identity: get_turret_mono_identity(),
+                    turret_identity: get_turret_base_identity(),
                     radius: BASE_TANK_RADIUS
                 },
                 stats: StatsComponent {
@@ -105,7 +106,8 @@ impl WebSocketServer {
                 match header {
                     ServerboundPackets::Spawn => packets::handle_spawn_packet(full_server, id, codec),
                     ServerboundPackets::Input => packets::handle_input_packet(full_server, id, codec),
-                    ServerboundPackets::Stats => packets::handle_stats_packet(full_server, id, codec)
+                    ServerboundPackets::Stats => packets::handle_stats_packet(full_server, id, codec),
+                    ServerboundPackets::Upgrade => packets::handle_upgrade_packet(full_server, id, codec)
                 }
             },
             Message::Close(_) => Err(false),

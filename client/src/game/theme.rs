@@ -16,9 +16,15 @@ pub const PLAYER_STROKE: Color = Color::blend_colors(PLAYER_FILL, Color::BLACK, 
 pub const ENEMY_FILL: Color = Color::from_numeric(0xF14E54);
 pub const ENEMY_STROKE: Color = Color::blend_colors(ENEMY_FILL, Color::BLACK, STROKE_INTENSITY);
 
+pub const TURRET_FILL: Color = Color::from_numeric(0x999999);
+pub const TURRET_STROKE: Color = Color::blend_colors(TURRET_FILL, Color::BLACK, STROKE_INTENSITY);
+
 pub const BAR_BACKGROUND: Color = Color::BLACK;
 pub const SCORE_BAR_FOREGROUND: Color = Color::from_numeric(0x58FA96);
 pub const LEVEL_BAR_FOREGROUND: Color = Color::from_numeric(0xF5DA64);
+
+pub const SMASHER_GUARD_FILL: Color = Color::from_numeric(0x4F4F4F);
+pub const SMASHER_GUARD_STROKE: Color = Color::blend_colors(SMASHER_GUARD_FILL, Color::BLACK, STROKE_INTENSITY);
 
 pub const UPGRADE_STAT_COLORS: [Color; UpgradeStats::COUNT] = [
     Color::from_numeric(0xE69F6C), 

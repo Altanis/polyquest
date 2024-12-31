@@ -11,7 +11,9 @@ pub enum ElementType {
     Checkbox,
     Label,
     Modal,
-    ProgressBar
+    ProgressBar,
+    Rect,
+    Tank
 }
 
 pub trait UiElement {
