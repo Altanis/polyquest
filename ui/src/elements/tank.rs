@@ -1,15 +1,13 @@
-use gloo::console::console;
-use shared::{fuzzy_compare, lerp, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
-use web_sys::{MouseEvent, UiEvent};
+use shared::{fuzzy_compare, game::{body::{get_body_base_identity, BodyIdentity, BodyRenderingHints}, entity::FICTITIOUS_TANK_RADIUS, theme::{PLAYER_FILL, PLAYER_STROKE, SMASHER_GUARD_FILL, SMASHER_GUARD_STROKE, STROKE_SIZE, TURRET_FILL, TURRET_STROKE}, turret::{get_turret_base_identity, TurretRenderingHints, TurretStructure}}, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use web_sys::MouseEvent;
 
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, DeletionEffects, ElementType, Events, HoverEffects, UiElement}, utils::color::Color, DEBUG};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, DeletionEffects, ElementType, Events, HoverEffects, UiElement}, DEBUG};
 
 /// This element is used to render tanks with specific bodies and weaponry.
 pub struct Tank {
     id: String,
     transform: Transform,
     raw_transform: Transform,
-    fill: Color,
     radius: f32,
     z_index: i32,
     children: Vec<Box<dyn UiElement>>,
@@ -17,6 +15,8 @@ pub struct Tank {
     is_animating: bool,
     opacity: Interpolatable<f32>,
     destroyed: bool,
+    body_identity: BodyIdentity,
+    turret_structure: TurretStructure,
     ticks: u64
 }
 
@@ -26,7 +26,6 @@ impl Default for Tank {
             id: String::default(),
             transform: Default::default(),
             raw_transform: Default::default(),
-            fill: Color::default(),
             radius: Default::default(),
             z_index: Default::default(),
             children: Default::default(),
@@ -34,6 +33,8 @@ impl Default for Tank {
             is_animating: Default::default(),
             opacity: Interpolatable::new(1.0),
             destroyed: Default::default(),
+            body_identity: get_body_base_identity(),
+            turret_structure: get_turret_base_identity(),
             ticks: Default::default(),
         }
     }
@@ -73,7 +74,7 @@ impl UiElement for Tank {
         val
     }
 
-    fn set_clicked(&mut self, val: bool, event: &MouseEvent) {
+    fn set_clicked(&mut self, val: bool, _: &MouseEvent) {
         self.events.is_clicked = val;
     }
 
@@ -144,6 +145,9 @@ impl UiElement for Tank {
         context.set_transform(&self.transform);
         self.raw_transform = context.get_transform();
         context.global_alpha(self.opacity.value as f64);
+
+        Tank::render_turrets(context, self.radius, &self.turret_structure);
+        Tank::render_body(context, &self.body_identity, self.radius, PLAYER_FILL, PLAYER_STROKE);
         
         if DEBUG {
             context.save();
@@ -189,6 +193,81 @@ impl Tank {
         }
     }
 
+    pub fn render_turrets(context: &mut Canvas2d, radius: f32, turret_structure: &TurretStructure) {
+        context.save();
+        context.fill_style(TURRET_FILL);
+        context.stroke_style(TURRET_STROKE);
+        context.set_stroke_size(STROKE_SIZE);
+
+        let size_factor = radius / FICTITIOUS_TANK_RADIUS;
+
+        for turret in turret_structure.turrets.iter() {
+            context.save();
+            context.rotate(turret.angle);
+            context.translate(
+                turret.x_offset * size_factor,
+                turret.y_offset * size_factor,
+            );
+
+            let (length, width) = (turret.length * size_factor, turret.width * size_factor);
+
+            if turret.rendering_hints.is_empty() {
+                context.fill_rect(0.0, -width / 2.0, length, width);
+                context.stroke_rect(0.0, -width / 2.0, length, width);
+            } else {
+                for &hint in turret.rendering_hints.iter() {
+                    match hint {
+                        TurretRenderingHints::Trapezoidal(_) => {
+        
+                        }
+                    }
+                }
+            }
+
+            context.restore();
+        }
+        context.restore();
+    }
+
+    pub fn render_body(context: &mut Canvas2d, body_identity: &BodyIdentity, radius: f32, fill: Color, stroke: Color) {
+        context.save();
+
+        for &hint in body_identity.render_hints.iter() {
+            match hint {
+                BodyRenderingHints::SmasherGuard { thickness, sides } => {
+                    let radius = thickness * radius;
+
+                    context.save();
+                    
+                    context.fill_style(SMASHER_GUARD_FILL);
+                    context.stroke_style(SMASHER_GUARD_STROKE);
+
+                    context.begin_path();
+                    context.move_to(radius, 0.0);
+                    for i in 0..=sides {
+                        let (x_angle, y_angle) = (std::f32::consts::TAU * i as f32 / sides as f32).sin_cos();
+                        context.line_to(radius * y_angle, radius * x_angle);
+                    }
+                    context.close_path();
+                    context.fill();
+                    context.stroke();
+
+                    context.restore();
+                }
+            }
+        }
+
+        context.fill_style(fill);
+        context.stroke_style(stroke);
+        context.set_stroke_size(STROKE_SIZE);
+        
+        context.begin_arc(0.0, 0.0, radius as f64, std::f64::consts::TAU);
+        context.fill();
+        context.stroke();
+
+        context.restore();
+    }
+
     pub fn with_id(mut self, id: &str) -> Tank {
         self.id = id.to_string();
         self
@@ -201,11 +280,6 @@ impl Tank {
 
     pub fn with_raw_transform(mut self, raw_transform: Transform) -> Tank {
         self.raw_transform = raw_transform;
-        self
-    }
-
-    pub fn with_fill(mut self, fill: Color) -> Tank {
-        self.fill = fill;
         self
     }
 
@@ -231,6 +305,16 @@ impl Tank {
 
     pub fn with_opacity(mut self, opacity: f32) -> Tank {
         self.opacity = Interpolatable::new(opacity);
+        self
+    }
+
+    pub fn with_body_identity(mut self, identity: BodyIdentity) -> Tank {
+        self.body_identity = identity;
+        self
+    }
+
+    pub fn with_turret_structure(mut self, identity: TurretStructure) -> Tank {
+        self.turret_structure = identity;
         self
     }
 }

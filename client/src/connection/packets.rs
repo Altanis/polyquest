@@ -1,7 +1,7 @@
 use gloo::console::console;
 use shared::{connection::packets::ServerboundPackets, game::entity::InputFlags, utils::{codec::BinaryCodec, consts::ARENA_SIZE, vec2::Vector2D}};
 
-use crate::{game::entity::Entity, world::{get_world, World}};
+use crate::{game::entity::base::{Entity, HealthState}, world::{get_world, World}};
 
 pub fn form_spawn_packet(
     name: String
@@ -55,7 +55,19 @@ pub fn handle_update_packet(
     Entity::parse_census(world, &mut codec, true);
 
     let entities = codec.decode_varuint().unwrap();
+    let mut entity_ids = Vec::with_capacity(entities as usize);
+
     for _ in 0..entities {
-        Entity::parse_census(world, &mut codec, false);
+        entity_ids.push(Entity::parse_census(world, &mut codec, false));
     }
+
+    let mut deletion_ids = vec![];
+    for (&id, entity) in world.game.surroundings.iter_mut().filter(|(id, _)| !entity_ids.contains(id)) {
+        match entity.stats.health_state {
+            HealthState::Dead => deletion_ids.push(id),
+            _ => entity.stats.health_state = HealthState::Dying
+        }
+    }
+
+    world.game.surroundings.retain(|id, _| !deletion_ids.contains(id));
 }

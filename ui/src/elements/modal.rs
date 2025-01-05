@@ -1,8 +1,8 @@
 use gloo::utils::window;
-use shared::{lerp, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
+use shared::{lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
 
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, OnClickScript, UiElement}, translate, utils::color::Color};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, OnClickScript, UiElement}, translate};
 
 use super::{button::Button, label::Label};
 

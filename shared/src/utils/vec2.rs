@@ -173,4 +173,10 @@ impl Vector2D<f32> {
         self.x = self.x.min(max).max(min);
         self.y = self.y.min(max).max(min);
     }
+
+    /// Swaps the vectors components.
+    pub fn swap(&mut self) -> &mut Self {
+        std::mem::swap(&mut self.x, &mut self.y);
+        self
+    }
 }

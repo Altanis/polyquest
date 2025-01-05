@@ -62,7 +62,8 @@ pub enum CensusProperties {
     Opacity,
     Fov,
     Radius,
-    Identity
+    Identity,
+    Owners
 }
 
 impl TryInto<CensusProperties> for u8 {
@@ -85,6 +86,7 @@ impl TryInto<CensusProperties> for u8 {
             12 => Ok(CensusProperties::Fov),
             13 => Ok(CensusProperties::Radius),
             14 => Ok(CensusProperties::Identity),
+            15 => Ok(CensusProperties::Owners),
             _ => Err(true),
         }
     }

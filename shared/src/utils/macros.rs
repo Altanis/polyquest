@@ -72,7 +72,15 @@ macro_rules! prettify_score {
         } else if $score >= 1e3 {
             format!("{:.1}k", $score / 1e3)
         } else {
-            format!("{:.3}", $score)
+            format!("{:.0}", $score)
         }
+    };
+}
+
+/// Normalizes an angle.
+#[macro_export]
+macro_rules! normalize_angle {
+    ($a:expr) => {
+        (($a % std::f32::consts::TAU) + std::f32::consts::TAU) % std::f32::consts::TAU
     };
 }

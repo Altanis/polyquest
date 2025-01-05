@@ -2,17 +2,18 @@ use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::{bool, game::entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, MAX_STAT_INVESTMENT}, rand, to_locale, utils::vec2::Vector2D};
+use shared::{bool, connection::packets::Inputs, fuzzy_compare, game::{body::BodyIdentity, entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, MAX_STAT_INVESTMENT}, theme::{STROKE_INTENSITY, STROKE_SIZE}, turret::TurretStructure}, lerp, rand, to_locale, utils::{color::Color, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
-use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::{color::Color, sound::Sound}};
+use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect, tank::Tank}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::sound::Sound};
 use rand::Rng;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement};
-use crate::{connection::{packets, socket::ConnectionState}, game::{entity::Entity, theme::{BAR_BACKGROUND, GRID_ALPHA, GRID_COLOR, GRID_SIZE, INBOUNDS_FILL, LEVEL_BAR_FOREGROUND, OUTBOUNDS_FILL, SCORE_BAR_FOREGROUND, UPGRADE_STAT_COLORS}}, storage_get, storage_set, world::{get_world, World}};
+use crate::{connection::{packets, socket::ConnectionState}, game::entity::base::{Entity, HealthState}, storage_get, storage_set, world::{get_world, World}};
+use shared::game::theme::{BAR_BACKGROUND, GRID_ALPHA, GRID_COLOR, GRID_SIZE, INBOUNDS_FILL, LEVEL_BAR_FOREGROUND, OUTBOUNDS_FILL, SCORE_BAR_FOREGROUND, UPGRADE_STAT_COLORS};
 
 use self::packets::{form_input_packet, form_stats_packet, form_upgrade_packet};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum GamePhase {
     Lore(u8),
     Home(Box<HomescreenElements>),
@@ -32,7 +33,7 @@ impl Default for GamePhase {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct Shape {
     position: Vector2D<f32>,
     color: Color,
@@ -42,7 +43,7 @@ struct Shape {
     shape: ShapeType
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HomescreenElements {
     shapes: [Shape; 50]
 }
@@ -85,13 +86,12 @@ impl Default for HomescreenElements {
 
 impl GamePhase {
     pub fn same_phase(&self, other: &GamePhase) -> bool {
-        match (self, other) {
-            (GamePhase::Lore(a), GamePhase::Lore(b)) => true,
-            (GamePhase::Home(a), GamePhase::Home(b)) => true,
-            (GamePhase::Game, GamePhase::Game) => true,
-            (GamePhase::Death, GamePhase::Death) => true,
-            _ => false,
-        }
+        matches!((self, other), 
+            (GamePhase::Lore(_), GamePhase::Lore(_)) |
+            (GamePhase::Home(_), GamePhase::Home(_)) |
+            (GamePhase::Game, GamePhase::Game) |
+            (GamePhase::Death, GamePhase::Death)
+        )    
     }
 
     pub fn generate_lore_elements(world: &mut World) -> Vec<Box<dyn UiElement>> {
@@ -411,7 +411,7 @@ impl GamePhase {
         }
     }
 
-    pub fn generate_game_elements(world: &World) -> Vec<Box<dyn UiElement>> {
+    pub fn generate_game_elements(world: &mut World) -> Vec<Box<dyn UiElement>> {
         let mut elements: Vec<Box<dyn UiElement>> = vec![];
         let dimensions = world.renderer.canvas2d.get_dimensions();
 
@@ -672,6 +672,7 @@ impl GamePhase {
                 ));
 
                 if has_body_upgrades {
+                    let turret_structure = world.game.self_entity.display.turret_identity.clone();
                     for (i, &upgrade) in world.game.self_entity.display.upgrades.body.iter().enumerate() {
                         let color = UPGRADE_STAT_COLORS[i % UpgradeStats::COUNT];
 
@@ -711,19 +712,33 @@ impl GamePhase {
                                         });
                                     }))
                                 )
-                                .with_children(vec![Box::new(
-                                    Label::new()
-                                        .with_id(&format!("body-button-text-{}", i))
-                                        .with_text(format!("{}", upgrade))
-                                        .with_fill(Color::WHITE)
-                                        .with_stroke(Color::BLACK)
-                                        .with_font(32.0)
-                                        .with_transform(translate!(0.0, 80.0))
-                                        .with_events(Events::default()
-                                            .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
-                                            .with_deletion_effects(vec![DeletionEffects::Disappear])
-                                        )
-                                )])
+                                .with_children(vec![
+                                    Box::new(
+                                        Tank::new()
+                                            .with_id(&format!("body-button-tank-icon-{}", i))
+                                            .with_transform(translate!(0.0, -5.0))
+                                            .with_radius(40.0)
+                                            .with_body_identity(std::convert::TryInto::<BodyIdentity>::try_into(upgrade).unwrap())
+                                            .with_turret_structure(turret_structure.clone())
+                                            .with_events(Events::default()
+                                                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                                .with_deletion_effects(vec![DeletionEffects::Disappear])
+                                            )                                        
+                                    ),
+                                    Box::new(
+                                        Label::new()
+                                            .with_id(&format!("body-button-text-{}", i))
+                                            .with_text(format!("{}", upgrade))
+                                            .with_fill(Color::WHITE)
+                                            .with_stroke(Color::BLACK)
+                                            .with_font(32.0)
+                                            .with_transform(translate!(0.0, 80.0))
+                                            .with_events(Events::default()
+                                                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                                .with_deletion_effects(vec![DeletionEffects::Disappear])
+                                            )
+                                    )
+                                ])
                         ));
 
                         let context = &world.renderer.canvas2d;
@@ -733,6 +748,7 @@ impl GamePhase {
                         context.restore();
                     }
                 } else if has_turret_upgrades {
+                    let body_identity = world.game.self_entity.display.body_identity.clone();
                     for (i, &upgrade) in world.game.self_entity.display.upgrades.turret.iter().enumerate() {
                         let color = UPGRADE_STAT_COLORS[i % UpgradeStats::COUNT];
 
@@ -772,19 +788,33 @@ impl GamePhase {
                                         });
                                     }))
                                 )
-                                .with_children(vec![Box::new(
-                                    Label::new()
-                                        .with_id(&format!("weapon-button-text-{}", i))
-                                        .with_text(format!("{}", upgrade))
-                                        .with_fill(Color::WHITE)
-                                        .with_stroke(Color::BLACK)
-                                        .with_font(32.0)
-                                        .with_transform(translate!(0.0, 80.0))
-                                        .with_events(Events::default()
-                                            .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
-                                            .with_deletion_effects(vec![DeletionEffects::Disappear])
-                                        )
-                                )])
+                                .with_children(vec![
+                                    Box::new(
+                                        Tank::new()
+                                            .with_id(&format!("weapon-button-tank-icon-{}", i))
+                                            .with_transform(translate!(0.0, -5.0))
+                                            .with_radius(40.0)
+                                            .with_body_identity(body_identity.clone())
+                                            .with_turret_structure(std::convert::TryInto::<TurretStructure>::try_into(upgrade).unwrap())
+                                            .with_events(Events::default()
+                                                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                                .with_deletion_effects(vec![DeletionEffects::Disappear])
+                                            )                                        
+                                    ),
+                                    Box::new(
+                                        Label::new()
+                                            .with_id(&format!("weapon-button-text-{}", i))
+                                            .with_text(format!("{}", upgrade))
+                                            .with_fill(Color::WHITE)
+                                            .with_stroke(Color::BLACK)
+                                            .with_font(32.0)
+                                            .with_transform(translate!(0.0, 80.0))
+                                            .with_events(Events::default()
+                                                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                                .with_deletion_effects(vec![DeletionEffects::Disappear])
+                                            )
+                                    )
+                                ])
                         ));
                     }
                 }
@@ -824,6 +854,7 @@ impl GamePhase {
 
         let mut entities: Vec<u32> = world.game.surroundings.iter_mut().map(|(k, v)| *k).collect();
         entities.push(world.game.self_entity.id);
+
         entities.sort_by(|a, b| {
             let a_index = world.game.get_mut_entity(*a).display.z_index;
             a_index
@@ -839,16 +870,23 @@ impl GamePhase {
             Entity::render(world, *id, dt);
         }
 
-        entities.iter().for_each(|id| Entity::render_health_bar(world, *id, dt));
-        entities.iter().for_each(|id| Entity::render_nametag(world, *id, dt));
+        entities.iter().for_each(|&id| Entity::render_health_bar(world, id, dt));
+        entities.iter().for_each(|&id| if id != world.game.self_entity.id { Entity::render_nametag(world, id, dt) });
 
         world.renderer.canvas2d.restore();
 
-        // only if the thing is alive
-        GamePhase::send_packets(world);
+        GamePhase::render_notifications(world);
+
+        if world.game.self_entity.stats.health_state == HealthState::Alive {
+            GamePhase::send_packets(world);
+        }
     }
 
     fn send_packets(world: &mut World) {
+        if world.game.self_entity.physics.auto_fire {
+            world.game.self_entity.physics.inputs.set_flag(Inputs::Shoot);
+        }
+
         world.connection.send_message(form_input_packet(
             world.game.self_entity.physics.inputs, 
             world.game.self_entity.physics.mouse
@@ -880,5 +918,89 @@ impl GamePhase {
             context.stroke();
         }
         context.restore();
+    }
+
+    fn render_notifications(world: &mut World) {
+        let length = world.game.self_entity.display.notifications.len();
+        let mut deletions = vec![];
+
+        for (i, notif) in world.game.self_entity.display.notifications.iter_mut().rev().enumerate() {
+            if notif.position.direction == 1.0 {
+                notif.position.value = Vector2D::new(
+                    world.renderer.canvas2d.get_width() as f32 / 2.0,
+                    50.0 + (i as f32 * 75.0)
+                );
+
+                notif.position.direction = -1.0;
+            }
+
+            notif.position.target = Vector2D::new(
+                world.renderer.canvas2d.get_width() as f32 / 2.0,
+                50.0 + (i as f32 * 75.0)
+            );
+
+            notif.opacity.target = if notif.lifetime > 0 { 1.0 } else { 0.0 };
+            if fuzzy_compare!(notif.opacity.value, notif.opacity.target, 1e-1) {
+                if notif.opacity.target == 1.0 {
+                    notif.lifetime -= 1;
+                    if notif.lifetime == 0 {
+                        notif.opacity.target = 0.0;
+                    }
+                } else {
+                    deletions.push(length - i - 1);
+                }
+            }
+
+            notif.opacity.value = lerp!(notif.opacity.value, notif.opacity.target, 0.2);
+            notif.position.value.lerp_towards(notif.position.target, 0.2);
+
+            let context = &mut world.renderer.canvas2d;
+            
+            context.save();
+            
+            let font = 40.0;
+            context.set_miter_limit(2.0);
+            context.fill_style(Color::WHITE);
+            context.stroke_style(Color::BLACK);
+            context.set_text_align("center");
+            context.set_font(&format!("bold {}px Ubuntu", font));
+            context.set_stroke_size(font / 5.0);
+
+            let width = context.measure_text(&notif.message).width();
+            let height = font + (font / 5.0);
+
+            context.save();
+            context.global_alpha(0.6 * notif.opacity.value as f64);
+            context.fill_style(notif.color);
+            context.stroke_style(Color::blend_colors(notif.color, Color::BLACK, STROKE_INTENSITY));
+            context.set_stroke_size(STROKE_SIZE);
+            context.fill_rect(
+                notif.position.value.x - width as f32 / 2.0 - 25.0, 
+                notif.position.value.y - height / 2.0,
+                width as f32 + 50.0,
+                height
+            );
+            context.stroke_rect(
+                notif.position.value.x - width as f32 / 2.0 - 25.0, 
+                notif.position.value.y - height / 2.0,
+                width as f32 + 50.0,
+                height
+            );
+            context.restore();
+
+            context.save();
+            context.global_alpha(notif.opacity.value as f64);
+            context.translate(notif.position.value.x, notif.position.value.y + height / 4.0);
+            context.stroke_text(&notif.message);
+            context.fill_text(&notif.message);
+            context.restore();
+
+            context.restore();
+        }
+
+        deletions.sort_by_key(|&e| std::cmp::Reverse(e));
+        for deletion in deletions {
+            world.game.self_entity.display.notifications.remove(deletion);
+        }
     }
 }

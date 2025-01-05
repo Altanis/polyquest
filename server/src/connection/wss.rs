@@ -5,9 +5,9 @@ use axum::{
     response::IntoResponse
 };
 use futures::{stream::SplitSink, SinkExt, StreamExt};
-use shared::{connection::packets::ServerboundPackets, game::{body::get_body_base_identity, entity::{EntityType, InputFlags, TankUpgrades, BASE_TANK_RADIUS}, turret::{get_turret_base_identity, get_turret_mono_identity}}, utils::{codec::BinaryCodec, vec2::Vector2D}};
+use shared::{connection::packets::ServerboundPackets, game::{body::get_body_base_identity, entity::{EntityType, InputFlags, Ownership, TankUpgrades, BASE_TANK_RADIUS}, turret::get_turret_base_identity}, utils::{codec::BinaryCodec, vec2::Vector2D}};
 
-use crate::{game::entity::{ConnectionComponent, DisplayComponent, Entity, PhysicsComponent, StatsComponent, TimeComponent}, server::{Server, ServerGuard, WrappedServer}};
+use crate::{game::entity::base::{AliveState, ConnectionComponent, DisplayComponent, Entity, PhysicsComponent, StatsComponent, TimeComponent}, server::{Server, ServerGuard, WrappedServer}};
 
 use super::packets;
 
@@ -51,6 +51,8 @@ impl WebSocketServer {
                 physics: PhysicsComponent {
                     position: Vector2D::ZERO,
                     velocity: Vector2D::ZERO,
+                    additional_velocity: Vector2D::ZERO,
+                    angle: 0.0,
                     mouse: Vector2D::ZERO,
                     inputs: InputFlags::new(0)
                 },
@@ -67,14 +69,16 @@ impl WebSocketServer {
                     entity_type: EntityType::Player,
                     body_identity: get_body_base_identity(),
                     turret_identity: get_turret_base_identity(),
+                    owners: Ownership::from_single_owner(0),
                     radius: BASE_TANK_RADIUS
                 },
                 stats: StatsComponent {
-                    health: 0.0, max_health: 0.0, alive: false,
+                    health: 0.0, max_health: 0.0, alive: AliveState::Uninitialized,
                     regen_per_tick: 0.0,
                     damage_per_tick: 0.0,
                     reload: 0.0,
                     speed: 0.0,
+                    lifetime: -1,
                     energy: 0.0, max_energy: 0.0,
                 },
                 time: TimeComponent {

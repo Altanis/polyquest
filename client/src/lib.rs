@@ -2,6 +2,7 @@
 #![feature(mapped_lock_guards)]
 #![feature(const_vec_string_slice)]
 #![allow(unused)]
+#![allow(clippy::neg_cmp_op_on_partial_ord)]
 
 extern crate console_error_panic_hook;
 

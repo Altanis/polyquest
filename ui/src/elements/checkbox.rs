@@ -1,7 +1,7 @@
-use shared::{fuzzy_compare, lerp, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
+use shared::{fuzzy_compare, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
 
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, DeletionEffects, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, utils::color::Color, DEBUG};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, DeletionEffects, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, DEBUG};
 
 pub struct Checkbox {
     id: String,

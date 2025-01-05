@@ -1,5 +1,6 @@
 #![allow(clippy::inherent_to_string)]
 #![allow(clippy::new_without_default)]
+#![allow(clippy::neg_cmp_op_on_partial_ord)]
 #![feature(let_chains)]
 
 use gloo::utils::window;

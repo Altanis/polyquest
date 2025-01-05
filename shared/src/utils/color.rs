@@ -1,7 +1,8 @@
-use shared::{fuzzy_compare, rand};
 use rand::Rng;
 
-#[derive(Default, Debug, Copy, Clone)]
+use crate::{fuzzy_compare, rand};
+
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
 pub struct Color(pub u8, pub u8, pub u8);
 
 impl Color {

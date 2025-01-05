@@ -1,6 +1,6 @@
 use gloo::console::console;
 use gloo_utils::{body, document, window};
-use shared::{connection::packets::Inputs, game::entity::MAX_STAT_INVESTMENT, utils::vec2::Vector2D};
+use shared::{connection::packets::Inputs, game::entity::{Notification, MAX_STAT_INVESTMENT}, utils::{color::Color, vec2::Vector2D}};
 use ui::{core::{ElementType, UiElement}, get_element_by_id_and_cast};
 use web_sys::{wasm_bindgen::JsCast, BeforeUnloadEvent, HtmlInputElement, KeyboardEvent, MouseEvent};
 use crate::{connection::packets, world::World};
@@ -24,6 +24,8 @@ pub enum EventType {
 pub enum KeyCode {
     Enter,
     Escape,
+    Space,
+    KeyE,
     KeyW, ArrowUp,
     KeyA, ArrowLeft,
     KeyS, ArrowDown,
@@ -38,7 +40,9 @@ impl TryInto<KeyCode> for u32 {
     fn try_into(self) -> Result<KeyCode, Self::Error> {
         match self {
             13 => Ok(KeyCode::Enter),      // Enter
+            32 => Ok(KeyCode::Space),      // Space
             27 => Ok(KeyCode::Escape),     // Escape
+            69 => Ok(KeyCode::KeyE),
             87 => Ok(KeyCode::KeyW),       // 'W' key
             65 => Ok(KeyCode::KeyA),       // 'A' key
             83 => Ok(KeyCode::KeyS),       // 'S' key
@@ -120,8 +124,13 @@ pub fn on_resize(world: &mut World) {
     world.renderer.canvas2d.resize(&window());
 }
 
-pub fn on_mousedown(world: &mut World, event: MouseEvent) {}
+pub fn on_mousedown(world: &mut World, event: MouseEvent) {
+    world.game.self_entity.physics.inputs.set_flag(Inputs::Shoot);
+}
+
 pub fn on_mouseup(world: &mut World, event: MouseEvent) {
+    world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot);
+
     let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
     point *= window().device_pixel_ratio() as f32;
 
@@ -177,6 +186,20 @@ pub fn on_keydown(world: &mut World, event: KeyboardEvent) {
         Ok(KeyCode::KeyS) | Ok(KeyCode::ArrowDown) => world.game.self_entity.physics.inputs.set_flag(Inputs::Down),
         Ok(KeyCode::KeyD) | Ok(KeyCode::ArrowRight) => world.game.self_entity.physics.inputs.set_flag(Inputs::Right),
         Ok(KeyCode::KeyK) => world.game.self_entity.physics.inputs.set_flag(Inputs::LevelUp),
+        Ok(KeyCode::Space) => world.game.self_entity.physics.inputs.set_flag(Inputs::Shoot),
+        Ok(KeyCode::KeyE) => {
+            world.game.self_entity.physics.auto_fire = !world.game.self_entity.physics.auto_fire;
+            world.game.self_entity.display.notifications.push(Notification {
+                message: format!("Auto Fire: {}", if world.game.self_entity.physics.auto_fire { "ON" } else { "OFF" }),
+                color: Color::BLUE,
+                lifetime: 150,
+                ..Default::default()
+            });
+            
+            if !world.game.self_entity.physics.auto_fire {
+                world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot);
+            }
+        },
         _ => ()
     }
 }
@@ -210,6 +233,7 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
         Ok(KeyCode::KeyS) | Ok(KeyCode::ArrowDown) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Down),
         Ok(KeyCode::KeyD) | Ok(KeyCode::ArrowRight) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Right),
         Ok(KeyCode::KeyK) => world.game.self_entity.physics.inputs.clear_flag(Inputs::LevelUp),
+        Ok(KeyCode::Space) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot),
         Ok(KeyCode::One) | Ok(KeyCode::Two) | Ok(KeyCode::Three) | Ok(KeyCode::Four) | Ok(KeyCode::Five) | Ok(KeyCode::Six) | Ok(KeyCode::Seven) | Ok(KeyCode::Eight)
         => {
             let i = (event.key_code() as u8 - b'0') as usize - 1;

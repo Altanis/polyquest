@@ -1,7 +1,7 @@
-use shared::utils::vec2::Vector2D;
+use shared::utils::{color::Color, vec2::Vector2D};
 use web_sys::MouseEvent;
 
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, UiElement}, utils::color::Color};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, UiElement}};
 
 #[derive(Default)]
 pub struct Body {

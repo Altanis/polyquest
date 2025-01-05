@@ -1,8 +1,6 @@
-use std::any::Any;
-
-use shared::utils::vec2::Vector2D;
+use shared::utils::{color::Color, vec2::Vector2D};
 use web_sys::MouseEvent;
-use crate::{canvas2d::{Canvas2d, Transform}, utils::color::Color};
+use crate::canvas2d::{Canvas2d, Transform};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ElementType {
@@ -65,8 +63,8 @@ impl BoundingRect {
     pub fn render(&self, context: &mut Canvas2d) {
         context.save();
         context.translate(self.position.x, self.position.y);
-        context.fill_style(Color(255, 0, 0));
-        context.stroke_style(Color(255, 0, 0));
+        context.fill_style(Color::RED);
+        context.stroke_style(Color::RED);
         context.set_stroke_size(5.0);
 
         context.begin_arc(0.0, 0.0, 5.0, std::f64::consts::TAU);

@@ -1,12 +1,13 @@
-use std::fmt::{Debug, Display};
+use std::{fmt::Debug, num::NonZeroU32};
 
 use derive_new::new as New;
 use strum::IntoEnumIterator;
-use crate::{connection::packets::Inputs, utils::consts::MAX_LEVEL};
+use crate::{connection::packets::Inputs, utils::{color::Color, consts::MAX_LEVEL, interpolatable::Interpolatable, vec2::Vector2D}};
 
 use super::{body::BodyIdentityIds, turret::TurretIdentityIds};
 
 pub const BASE_TANK_RADIUS: f32 = 50.0;
+pub const FICTITIOUS_TANK_RADIUS: f32 = 30.0;
 pub const MAX_STAT_INVESTMENT: usize = 7;
 
 #[derive(Default, Clone, Copy, New)]
@@ -41,13 +42,14 @@ impl Debug for InputFlags {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum EntityType {
     #[default]
     Player,
-    Planet,
-    Star,
-    Comet
+    Projectile, // you can add stuff like drone, minion, etc.
+    // Planet,
+    // Star,
+    // Comet
 }
 
 impl TryInto<EntityType> for u8 {
@@ -56,9 +58,10 @@ impl TryInto<EntityType> for u8 {
     fn try_into(self) -> Result<EntityType, Self::Error> {
         match self {
             0 => Ok(EntityType::Player),
-            1 => Ok(EntityType::Planet),
-            2 => Ok(EntityType::Comet),
-            3 => Ok(EntityType::Star),
+            1 => Ok(EntityType::Projectile),
+            // 2 => Ok(EntityType::Planet),
+            // 3 => Ok(EntityType::Comet),
+            // 4 => Ok(EntityType::Star),
             _ => Err(true)
         }
     }
@@ -133,4 +136,46 @@ pub fn generate_identity(body: BodyIdentityIds, turret: TurretIdentityIds) -> St
 pub struct TankUpgrades {
     pub body: Vec<BodyIdentityIds>,
     pub turret: Vec<TurretIdentityIds>
+}
+
+/// A struct encapsulating ownership.
+/// The shallow and deep owners may be identical.
+#[derive(Debug, Default, Clone, derive_new::new)]
+pub struct Ownership {
+    /// The immediate cause of creation.
+    pub shallow: Option<NonZeroU32>,
+    /// The ultimate cause of creation
+    pub deep: Option<NonZeroU32>
+}
+
+impl Ownership {
+    pub fn from_single_owner(owner: u32) -> Ownership {
+        Ownership::new(NonZeroU32::new(owner), NonZeroU32::new(owner))
+    }
+
+    pub fn to_tuple(&self) -> (u32, u32) {
+        (match self.shallow {
+            None => 0,
+            Some(n) => n.into()
+        },
+        match self.shallow {
+            None => 0,
+            Some(n) => n.into()
+        })
+    }
+
+    pub fn has_owner(&self, owner: u32) -> bool {
+        self.shallow.is_some() && self.deep.is_some() &&
+        (self.shallow == NonZeroU32::new(owner) ||
+         self.deep == NonZeroU32::new(owner))
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct Notification {
+    pub message: String,
+    pub color: Color,
+    pub lifetime: u64,
+    pub opacity: Interpolatable<f32>,
+    pub position: Interpolatable<Vector2D<f32>>
 }

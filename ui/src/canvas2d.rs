@@ -1,9 +1,9 @@
 use gloo::utils::{document, window};
-use shared::{rand, utils::vec2::Vector2D};
+use shared::{rand, utils::{color::Color, vec2::Vector2D}};
 use web_sys::{wasm_bindgen::JsCast, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
 use rand::Rng;
 
-use crate::{core::GenerateTranslationScript, utils::color::Color};
+use crate::core::GenerateTranslationScript;
 
 #[macro_export]
 macro_rules! translate {
@@ -269,6 +269,10 @@ impl Canvas2d {
 
     pub fn begin_path(&self) {
         self.ctx.begin_path();
+    }
+
+    pub fn close_path(&self) {
+        self.ctx.close_path();
     }
 
     pub fn move_to(&self, x: f32, y: f32) {

@@ -1,6 +1,8 @@
-use shared::game::entity::UpgradeStats;
 use strum::EnumCount;
-use ui::utils::color::Color;
+
+use crate::utils::color::Color;
+
+use super::entity::UpgradeStats;
 
 pub const OUTBOUNDS_FILL: Color = Color::from_numeric(0xCDCDCD);
 pub const INBOUNDS_FILL: Color = Color::from_numeric(0xD9D9D9);

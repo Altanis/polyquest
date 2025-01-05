@@ -1,8 +1,7 @@
-use gloo::console::console;
-use shared::{fuzzy_compare, lerp, utils::{interpolatable::Interpolatable, vec2::Vector2D}};
-use web_sys::{MouseEvent, UiEvent};
+use shared::{fuzzy_compare, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use web_sys::MouseEvent;
 
-use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, DeletionEffects, ElementType, Events, HoverEffects, UiElement}, utils::color::Color, DEBUG};
+use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, DeletionEffects, ElementType, Events, HoverEffects, UiElement}, DEBUG};
 
 pub struct ProgressBar {
     id: String,
@@ -78,7 +77,7 @@ impl UiElement for ProgressBar {
         val
     }
 
-    fn set_clicked(&mut self, val: bool, event: &MouseEvent) {
+    fn set_clicked(&mut self, val: bool, _: &MouseEvent) {
         self.events.is_clicked = val;
     }
 

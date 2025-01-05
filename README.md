@@ -12,3 +12,7 @@ planets act as bases where players are invincible, but leaving a planet leaves i
 planets: resembles earth. glows red if its not yours, glows green if it is yours.
 stars: according to hr diagram (blue, cyan, green, yellow, orange, red, where blue is highest energy and red is lowest)
 comets: polygonal shape with cometary ectoplasmic thing around it
+
+--- 
+Features:
+- on death, make spectate button which clears ui and allows u to roam

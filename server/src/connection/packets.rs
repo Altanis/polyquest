@@ -1,6 +1,5 @@
-use std::cell::RefMut;
-use shared::{connection::packets::ClientboundPackets, game::{body::{get_body_base_identity, BodyIdentity}, entity::{InputFlags, BASE_TANK_RADIUS, MAX_STAT_INVESTMENT}, turret::{get_turret_base_identity, TurretIdentity, TurretStructure}}, utils::{codec::BinaryCodec, vec2::Vector2D}};
-use crate::{game::{entity::Entity, state::EntityDataStructure}, server::ServerGuard};
+use shared::{connection::packets::ClientboundPackets, game::{body::{get_body_base_identity, BodyIdentity}, entity::{InputFlags, BASE_TANK_RADIUS, MAX_STAT_INVESTMENT}, turret::{get_turret_base_identity, TurretStructure}}, utils::{codec::BinaryCodec, vec2::Vector2D}};
+use crate::{game::{entity::base::{AliveState, Entity}, state::EntityDataStructure}, server::ServerGuard};
 
 pub fn handle_spawn_packet(
     full_server: &mut ServerGuard, 
@@ -11,9 +10,12 @@ pub fn handle_spawn_packet(
 
     let name = codec.decode_string().ok_or(true)?;
 
-    if let Some(mut entity) = game_server.get_entity(id) && !entity.stats.alive {
+    if let Some(mut entity) = game_server.get_entity(id) && entity.stats.alive != AliveState::Alive {
         entity.display.name = name;
-        entity.stats.alive = true;
+        entity.stats.alive = AliveState::Alive;
+        // TODO(Altanis): Hacky workaround.
+        entity.stats.health = 1.0;
+        entity.stats.max_health = 1.0;
     
         entity.display.radius = BASE_TANK_RADIUS;
         entity.display.body_identity = get_body_base_identity();
@@ -40,9 +42,10 @@ pub fn handle_input_packet(
         codec.decode_f32().ok_or(true)?
     );
 
-    if let Some(mut entity) = game_server.get_entity(id) && entity.stats.alive {
+    if let Some(mut entity) = game_server.get_entity(id) && entity.stats.alive == AliveState::Alive {
         entity.physics.inputs = InputFlags::new(flags);
         entity.physics.mouse = mouse;
+        entity.physics.angle = mouse.angle();
     }
 
     Ok(())
@@ -57,7 +60,7 @@ pub fn handle_stats_packet(
     let stat = codec.decode_varuint().ok_or(true)? as usize;
 
     if let Some(mut entity) = game_server.get_entity(id) 
-        && entity.stats.alive 
+        && entity.stats.alive == AliveState::Alive 
         && entity.display.available_stat_points > 0 
     {
         let stat = entity.display.stat_investments.get_mut(stat).ok_or(true)?;
@@ -84,7 +87,7 @@ pub fn handle_upgrade_packet(
     }
 
     if let Some(mut entity) = game_server.get_entity(id) 
-        && entity.stats.alive
+        && entity.stats.alive == AliveState::Alive
     {
         if upgrade_type == 0 {
             let upgrade: BodyIdentity = (*entity.display.upgrades.body.get(upgrade_idx).ok_or(true)?)
@@ -105,7 +108,7 @@ pub fn handle_upgrade_packet(
 }
 
 pub fn form_update_packet(
-    self_entity: &RefMut<'_, Entity>, 
+    self_entity: &mut Entity, 
     entities: &EntityDataStructure
 ) -> BinaryCodec {
     let mut codec = BinaryCodec::new();

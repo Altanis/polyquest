@@ -5,7 +5,7 @@ use shared::utils::interpolatable::Interpolatable;
 use ui::utils::sound::{Sound, SoundHolder};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast, JsValue}, BeforeUnloadEvent, Event, KeyboardEvent, MouseEvent};
 
-use crate::{connection::socket::Connection, game::entity::{DisplayComponent, Entity, Game}, register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, storage_get};
+use crate::{connection::socket::Connection, game::entity::base::Game, register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, storage_get};
 
 pub static WORLD: Mutex<Option<Box<SendWrapper<World>>>> = Mutex::new(None);
 

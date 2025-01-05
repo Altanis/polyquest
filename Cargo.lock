@@ -1472,6 +1472,7 @@ dependencies = [
  "axum-extra",
  "derive-new",
  "futures",
+ "rand",
  "shared",
  "strum",
  "strum_macros",

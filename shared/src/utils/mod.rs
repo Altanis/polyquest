@@ -3,3 +3,4 @@ pub mod macros;
 pub mod codec;
 pub mod interpolatable;
 pub mod consts;
+pub mod color;

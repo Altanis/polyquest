@@ -1,8 +1,20 @@
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub enum ProjectileType {
+    #[default]
     Bullet
+}
+
+impl TryInto<ProjectileType> for usize {
+    type Error = ();
+
+    fn try_into(self) -> Result<ProjectileType, Self::Error> {
+        match self {
+            0 => Ok(ProjectileType::Bullet),
+            _ => Err(())
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -10,7 +22,7 @@ pub enum TurretRenderingHints {
     Trapezoidal(f32) // Trapezoidal(angle)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct ProjectileIdentity {
     pub projectile_type: ProjectileType,
     /// Multiplier for the size of the projectile relative to the turret width.
@@ -22,7 +34,7 @@ pub struct ProjectileIdentity {
     /// How scattered the projectiles will be when shot.
     pub scatter_rate: f32,
     /// The lifetime of the projectile.
-    pub lifetime: f32
+    pub lifetime: u64
 }
 
 #[derive(Debug, Clone)]
@@ -39,8 +51,11 @@ pub struct TurretIdentity {
     pub length: f32,
     /// The delay of the turret, relative to turrets with 0 delay.
     pub delay: f32,
-
     pub reload: f32,
+    /// The cached reload time of the turret.
+    pub reload_time: f32,
+    /// The position the turret is in the shooting cycle.
+    pub cycle_position: f32,
     pub recoil: f32,
 
     /// Hints as to how to render the turret.
@@ -50,6 +65,37 @@ pub struct TurretIdentity {
     pub max_projectiles: isize,
     /// The identity of the projectiles the turret shoots.
     pub projectile_identity: ProjectileIdentity
+}
+
+impl TurretIdentity {
+    pub fn can_fire(&mut self, reload: f32, shooting: bool) -> bool {
+        if self.reload_time == 0.0 && self.cycle_position == 0.0 {
+            self.reload_time = reload * self.reload;
+            self.cycle_position = self.reload_time;
+        }
+
+        let reload_time = reload * self.reload;
+        if self.reload_time != reload_time {
+            self.cycle_position *= reload_time / self.reload_time;
+            self.reload_time = reload_time;
+        }
+
+        self.cycle_position += 1.0;
+
+        if (self.cycle_position >= reload_time) && !shooting {
+            self.cycle_position = reload_time;
+            return false;
+        }
+
+        if self.cycle_position >= reload_time * (1.0 + self.delay) {
+            self.reload_time = reload_time;
+            self.cycle_position = reload_time * self.delay;
+
+            shooting
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -120,6 +166,8 @@ pub fn get_turret_mono_identity() -> TurretStructure {
                 width: 24.0,
                 delay: 0.0,
                 reload: 1.0,
+                reload_time: 0.0,
+                cycle_position: 0.0,
                 recoil: 1.0,
                 rendering_hints: vec![],
                 max_projectiles: -1,
@@ -131,7 +179,7 @@ pub fn get_turret_mono_identity() -> TurretStructure {
                     penetration: 1.0,
                     speed: 1.0,
                     scatter_rate: 1.0,
-                    lifetime: 1.0
+                    lifetime: 1
                 },
             }
         ],
