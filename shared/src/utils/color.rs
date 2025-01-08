@@ -8,6 +8,7 @@ pub struct Color(pub u8, pub u8, pub u8);
 impl Color {
     pub const BLACK: Color = Color(0, 0, 0);
     pub const WHITE: Color = Color(255, 255, 255);
+    pub const SOFT_BLACK: Color = Color(14, 14, 14);
     pub const SOFT_RED: Color = Color(200, 100, 100);    
     pub const SOFT_GREEN: Color = Color(100, 200, 100);  
     pub const SOFT_BLUE: Color = Color(100, 100, 200);    

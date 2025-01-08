@@ -7,7 +7,7 @@ struct Entry(Vec<u32>);
 struct Map(Vec<(u32, u32)>);
 
 /// An extremely optimized fixed-size hash table implementation.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Table<T: Default + Clone> {
     entries: Vec<T>,
     capacity: usize,
@@ -67,7 +67,7 @@ impl<T: Default + Clone> Table<T> {
 }
 
 /// Spatial hash grid implementation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct SpatialHashGrid {
     grid: Table<Entry>,
     maps: Table<Map>,

@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use derive_new::new as New;
 use gloo::console::console;
-use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, Notification, Ownership, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, prettify_score, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use gloo_utils::window;
+use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, Notification, Ownership, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, theme::{BAR_BACKGROUND, HIGH_HEALTH_BAR, LOW_HEALTH_BAR, MEDIUM_HEALTH_BAR}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, prettify_score, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use strum::EnumCount;
 use ui::{canvas2d::Canvas2d, core::UiElement, elements::tank::Tank};
 
@@ -47,7 +48,8 @@ pub struct DisplayComponent {
     pub should_display_stats: bool,
     pub upgrades: TankUpgrades,
     pub notifications: Vec<Notification>,
-
+    pub kills: usize,
+    
     pub opacity: Interpolatable<f32>,
     pub fov: Interpolatable<f32>,
 
@@ -87,8 +89,11 @@ pub struct ConnectionComponent {
 
 #[derive(Debug, Default, Clone, New)]
 pub struct StatsComponent {
+    pub has_spawned: bool,
+    pub life_timestamps: (f64, f64),
     pub health: Interpolatable<f32>,
     pub max_health: Interpolatable<f32>,
+    pub health_bar_opacity: Interpolatable<f32>,
     pub health_state: HealthState,
     pub energy: Interpolatable<f32>,
     pub max_energy: Interpolatable<f32>
@@ -127,9 +132,18 @@ impl Entity {
         }
 
         if is_self {
-            if entity.stats.health.target > 0.0 && old_state != HealthState::Alive {
+            if entity.stats.health.target > 0.0 {
+                entity.display.score.direction = 1.0;
                 world.renderer.phase = GamePhase::Game;
-            } else if entity.stats.health.value <= 0.0 && old_state == HealthState::Alive {
+            } else if (entity.stats.health.target < 0.0 || fuzzy_compare!(entity.stats.health.target, 0.0, 1e-1))
+                && entity.stats.has_spawned
+            {
+                if entity.display.score.direction == 1.0 {
+                    entity.display.score.direction = -1.0;
+                    entity.display.score.value = 0.0;
+                    entity.stats.life_timestamps.1 = window().performance().unwrap().now();
+                }
+
                 world.renderer.phase = GamePhase::Death;
             }
         }
@@ -161,8 +175,57 @@ impl Entity {
 
 
     pub fn render_health_bar(world: &mut World, id: u32, dt: f32) {
+        let mut entity = if id == world.game.self_entity.id {
+            &mut world.game.self_entity
+        } else {
+            world.game.surroundings.get_mut(&id).unwrap()
+        };
 
+        if matches!(entity.display.entity_type, EntityType::Projectile) { return; }
+        if entity.stats.health_state != HealthState::Alive { return; }
 
+        let ratio = entity.stats.health.value / entity.stats.max_health.value;
+        entity.stats.health_bar_opacity.target = if ratio > 0.99 { 0.0 } else { 1.0 };
+        entity.stats.health_bar_opacity.value = lerp!(entity.stats.health_bar_opacity.value, entity.stats.health_bar_opacity.target, 0.2);
+
+        let color = if ratio > 0.6 {
+            Color::blend_colors(MEDIUM_HEALTH_BAR, HIGH_HEALTH_BAR, (ratio - 0.6) / 0.4)
+        } else if ratio > 0.2 {
+            Color::blend_colors(LOW_HEALTH_BAR, MEDIUM_HEALTH_BAR, (ratio - 0.2) / 0.4)
+        } else {
+            Color::blend_colors(Color::RED, LOW_HEALTH_BAR, ratio / 0.2)
+        };
+
+        let (width, height) = (entity.display.radius.value + 60.0, 14.0);
+        let context = &mut world.renderer.canvas2d;
+
+        context.save();
+        context.global_alpha(entity.stats.health_bar_opacity.value as f64);
+        context.translate(
+            entity.physics.position.value.x + entity.physics.velocity.value.x, 
+            entity.physics.position.value.y + entity.physics.velocity.value.y + entity.display.radius.value + 20.0
+        );
+
+        let true_width = (width - height).max(1.0);
+        let offset = -true_width / 2.0;
+
+        context.set_line_cap("round");
+        context.set_stroke_size(height);
+        context.stroke_style(BAR_BACKGROUND);
+
+        context.begin_path();
+        context.move_to(offset + 0.5, 0.5);
+        context.line_to(offset + 0.5 + true_width, 0.5);
+        context.stroke();
+
+        context.set_stroke_size(height * 0.75);
+        context.stroke_style(color);
+        context.begin_path();
+        context.move_to(offset + 0.5, 0.5);
+        context.line_to(offset + 0.5 + true_width * ratio.clamp(0.0, 1.0), 0.5);
+        context.stroke();
+
+        context.restore();
     }
 
     pub fn render_nametag(world: &mut World, id: u32, dt: f32) {

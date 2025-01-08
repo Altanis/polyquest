@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr, time::Instant};
+use std::{collections::{HashMap, HashSet}, net::SocketAddr, time::Instant};
 
 use axum::{
     extract::{ws::{Message, WebSocket, WebSocketUpgrade}, ConnectInfo, State},
@@ -54,7 +54,11 @@ impl WebSocketServer {
                     additional_velocity: Vector2D::ZERO,
                     angle: 0.0,
                     mouse: Vector2D::ZERO,
-                    inputs: InputFlags::new(0)
+                    inputs: InputFlags::new(0),
+                    collidable: true,
+                    absorption_factor: get_body_base_identity().absorption_factor,
+                    push_factor: 8.0,
+                    collisions: HashSet::new()
                 },
                 display: DisplayComponent {
                     name: "".to_string(),
@@ -73,7 +77,8 @@ impl WebSocketServer {
                     radius: BASE_TANK_RADIUS
                 },
                 stats: StatsComponent {
-                    health: 0.0, max_health: 0.0, alive: AliveState::Uninitialized,
+                    health: 0.0, max_health: 0.0, alive: AliveState::Uninitialized, 
+                    last_damage_tick: 0, damage_reduction: 1.0,
                     regen_per_tick: 0.0,
                     damage_per_tick: 0.0,
                     reload: 0.0,

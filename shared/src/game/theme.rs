@@ -21,7 +21,7 @@ pub const ENEMY_STROKE: Color = Color::blend_colors(ENEMY_FILL, Color::BLACK, ST
 pub const TURRET_FILL: Color = Color::from_numeric(0x999999);
 pub const TURRET_STROKE: Color = Color::blend_colors(TURRET_FILL, Color::BLACK, STROKE_INTENSITY);
 
-pub const BAR_BACKGROUND: Color = Color::BLACK;
+pub const BAR_BACKGROUND: Color = Color::SOFT_BLACK;
 pub const SCORE_BAR_FOREGROUND: Color = Color::from_numeric(0x58FA96);
 pub const LEVEL_BAR_FOREGROUND: Color = Color::from_numeric(0xF5DA64);
 
@@ -38,3 +38,7 @@ pub const UPGRADE_STAT_COLORS: [Color; UpgradeStats::COUNT] = [
     Color::from_numeric(0x88FF41), 
     Color::from_numeric(0x41FFFF)
 ];
+
+pub const LOW_HEALTH_BAR: Color = Color::RED;
+pub const MEDIUM_HEALTH_BAR: Color = Color::from_numeric(0xFBFF00);
+pub const HIGH_HEALTH_BAR: Color = Color::from_numeric(0x15FF00);

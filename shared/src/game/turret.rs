@@ -34,7 +34,9 @@ pub struct ProjectileIdentity {
     /// How scattered the projectiles will be when shot.
     pub scatter_rate: f32,
     /// The lifetime of the projectile.
-    pub lifetime: u64
+    pub lifetime: u64,
+    /// The absorption factor of the tank.
+    pub absorption_factor: f32
 }
 
 #[derive(Debug, Clone)]
@@ -179,7 +181,8 @@ pub fn get_turret_mono_identity() -> TurretStructure {
                     penetration: 1.0,
                     speed: 1.0,
                     scatter_rate: 1.0,
-                    lifetime: 1
+                    lifetime: 1,
+                    absorption_factor: 1.0
                 },
             }
         ],

@@ -2,7 +2,7 @@ use std::{collections::VecDeque};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::utils::{color::Color, vec2::Vector2D};
+use shared::utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D};
 use ui::{canvas2d::{Canvas2d, Transform}, core::{ElementType, Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, get_element_by_id_and_cast, gl::webgl::WebGl, translate};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, HtmlDivElement, Performance};
 
@@ -26,6 +26,7 @@ pub struct Renderer {
     pub phase: GamePhase,
     previous_phase: GamePhase,
     pub body: Body,
+    pub backdrop_opacity: Interpolatable<f32>,
     pub fps_counter: Label
 }
 
@@ -39,7 +40,8 @@ impl Renderer {
             phase: GamePhase::default(),
             previous_phase: GamePhase::default(),
             body: Body::default()
-                .with_fill(Color(14, 14, 14)),
+                .with_fill(Color::SOFT_BLACK),
+            backdrop_opacity: Interpolatable::new(0.0),
             fps_counter: Label::new()
                 .with_text("165.0 FPS".to_string())
                 .with_fill(Color::WHITE)
@@ -109,7 +111,7 @@ impl Renderer {
             GamePhase::Lore(_) => GamePhase::generate_lore_elements(world),
             GamePhase::Home(_) => GamePhase::generate_homescreen_elements(world),
             GamePhase::Game => GamePhase::generate_game_elements(world),
-            GamePhase::Death => vec![],
+            GamePhase::Death => GamePhase::generate_death_elements(world),
         };
         
         let mut element_ids: Vec<String> = elements.iter().map(|e| e.get_id()).collect();
@@ -138,8 +140,8 @@ impl Renderer {
         match world.renderer.phase {
             GamePhase::Lore(_) => Renderer::render_lore(world, delta_average),
             GamePhase::Home(_) => Renderer::render_homescreen(world, delta_average),
-            GamePhase::Game => Renderer::render_game(world, delta_average),
-            GamePhase::Death => ()
+            GamePhase::Game => Renderer::render_game(world, delta_average, false),
+            GamePhase::Death => Renderer::render_game(world, delta_average, true)
         }
 
         world.renderer.canvas2d.restore();
@@ -199,7 +201,7 @@ impl Renderer {
         world.renderer.fps_counter.render(&mut world.renderer.canvas2d, dimensions);
     }
 
-    pub fn render_game(world: &mut World, delta_average: f64) {
+    pub fn render_game(world: &mut World, delta_average: f64, is_dead: bool) {
         get_element_by_id_and_cast!("text_input_container", HtmlDivElement)
             .style()
             .set_property("display", "none");
@@ -211,7 +213,7 @@ impl Renderer {
         
         world.renderer.canvas2d.save();
         world.renderer.canvas2d.reset_transform();
-        GamePhase::render_game(world, delta_average);
+        GamePhase::render_game(world, delta_average, is_dead);
         world.renderer.canvas2d.restore();
 
         world.renderer.body.render_children(&mut world.renderer.canvas2d);

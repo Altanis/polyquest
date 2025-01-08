@@ -14,12 +14,13 @@ pub fn handle_spawn_packet(
         entity.display.name = name;
         entity.stats.alive = AliveState::Alive;
         // TODO(Altanis): Hacky workaround.
-        entity.stats.health = 1.0;
-        entity.stats.max_health = 1.0;
+        // entity.stats.health = 1.0;
+        // entity.stats.max_health = 1.0;
     
         entity.display.radius = BASE_TANK_RADIUS;
         entity.display.body_identity = get_body_base_identity();
         entity.display.turret_identity = get_turret_base_identity();
+        entity.physics.absorption_factor = entity.display.body_identity.absorption_factor;
         entity.stats.health = entity.display.body_identity.max_health;
         entity.stats.max_health = entity.display.body_identity.max_health;
 
@@ -94,6 +95,7 @@ pub fn handle_upgrade_packet(
                 .try_into().unwrap();
 
             entity.display.body_identity = upgrade;
+            entity.physics.absorption_factor = entity.display.body_identity.absorption_factor;
             entity.display.upgrades.body.clear();
         } else if upgrade_type == 1 {
             let upgrade: TurretStructure = (*entity.display.upgrades.turret.get(upgrade_idx).ok_or(true)?)
@@ -116,7 +118,11 @@ pub fn form_update_packet(
 
     self_entity.take_census(&mut codec, true);
 
-    codec.encode_varuint((entities.len() - 1) as u64);
+    let entities_len = entities.iter().filter(|(&id, e)| {
+        id != self_entity.id && e.borrow_mut().stats.alive != AliveState::Uninitialized
+    }).count() as u64;
+
+    codec.encode_varuint(entities_len);
     for (id, entity) in entities.iter() {
         if self_entity.id == *id { continue; }
 

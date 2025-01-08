@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::{bool, connection::packets::Inputs, fuzzy_compare, game::{body::BodyIdentity, entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, MAX_STAT_INVESTMENT}, theme::{STROKE_INTENSITY, STROKE_SIZE}, turret::TurretStructure}, lerp, rand, to_locale, utils::{color::Color, vec2::Vector2D}};
+use shared::{bool, connection::packets::Inputs, fuzzy_compare, game::{body::BodyIdentity, entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, MAX_STAT_INVESTMENT}, theme::{STROKE_INTENSITY, STROKE_SIZE}, turret::TurretStructure}, lerp, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect, tank::Tank}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::sound::Sound};
 use rand::Rng;
@@ -824,7 +824,7 @@ impl GamePhase {
         elements
     }
 
-    pub fn render_game(world: &mut World, delta_average: f64) {
+    pub fn render_game(world: &mut World, delta_average: f64, is_dead: bool) {
         world.renderer.canvas2d.fill_style(OUTBOUNDS_FILL);
         world.renderer.canvas2d.fill_rect(0, 0, world.renderer.canvas2d.get_width(), world.renderer.canvas2d.get_height());
 
@@ -873,6 +873,15 @@ impl GamePhase {
         entities.iter().for_each(|&id| Entity::render_health_bar(world, id, dt));
         entities.iter().for_each(|&id| if id != world.game.self_entity.id { Entity::render_nametag(world, id, dt) });
 
+        world.renderer.canvas2d.restore();
+
+        world.renderer.backdrop_opacity.target = if is_dead { 0.6 } else { 0.0 };
+        world.renderer.backdrop_opacity.value = lerp!(world.renderer.backdrop_opacity.value, world.renderer.backdrop_opacity.target, 0.2 * dt);
+
+        world.renderer.canvas2d.save();
+        world.renderer.canvas2d.fill_style(Color::BLACK);
+        world.renderer.canvas2d.global_alpha(world.renderer.backdrop_opacity.value as f64);
+        world.renderer.canvas2d.fill_rect(0, 0, world.renderer.canvas2d.get_width(), world.renderer.canvas2d.get_height());
         world.renderer.canvas2d.restore();
 
         GamePhase::render_notifications(world);
@@ -1002,5 +1011,139 @@ impl GamePhase {
         for deletion in deletions {
             world.game.self_entity.display.notifications.remove(deletion);
         }
+    }
+
+    pub fn generate_death_elements(world: &mut World) -> Vec<Box<dyn UiElement>> {
+        let dimensions = world.renderer.canvas2d.get_dimensions();
+        let mut elements: Vec<Box<dyn UiElement>> = vec![
+            Box::new(
+                Label::new()
+                    .with_id("death_starter")
+                    .with_text("You were killed by".to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(36.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 - 200.0))
+                    .with_events(Events::default().with_hoverable(false))
+            ),
+            Box::new(
+                Label::new()
+                    .with_id("killer_name")
+                    .with_text("ALTANIS!".to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(48.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 - 140.0))
+                    .with_events(Events::default().with_hoverable(false))
+            ),
+            Box::new(
+                Label::new()
+                    .with_id("score_tag")
+                    .with_text("Score:".to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(42.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(dimensions.x as f64 / 2.0 - 150.0, dimensions.y as f64 / 2.0 - 60.0))
+                    .with_events(Events::default().with_hoverable(false))
+                    .with_align("right")
+            ),
+            Box::new(
+                Label::new()
+                    .with_id("score_value")
+                    .with_text(to_locale!(world.game.self_entity.display.score.value as u32))
+                    .with_fill(Color::WHITE)
+                    .with_font(42.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 - 60.0))
+                    .with_events(Events::default().with_hoverable(false))
+                    .with_align("center")
+            ),
+            Box::new(
+                Label::new()
+                    .with_id("kills_tag")
+                    .with_text("Kills:".to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(42.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(dimensions.x as f64 / 2.0 - 150.0, dimensions.y as f64 / 2.0))
+                    .with_events(Events::default().with_hoverable(false))
+                    .with_align("right")
+            ),
+            Box::new(
+                Label::new()
+                    .with_id("kills_value")
+                    .with_text(world.game.self_entity.display.kills.to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(42.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0))
+                    .with_events(Events::default().with_hoverable(false))
+                    .with_align("center")
+            ),
+            Box::new(
+                Label::new()
+                    .with_id("time_alive_tag")
+                    .with_text("Time Alive:".to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(42.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(dimensions.x as f64 / 2.0 - 150.0, dimensions.y as f64 / 2.0 + 60.0))
+                    .with_events(Events::default().with_hoverable(false))
+                    .with_align("right")
+            ),
+            Box::new(
+                Label::new()
+                    .with_id("time_alive_value")
+                    .with_text(prettify_ms!(world.game.self_entity.stats.life_timestamps.1 - world.game.self_entity.stats.life_timestamps.0))
+                    .with_fill(Color::WHITE)
+                    .with_font(42.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 + 60.0))
+                    .with_events(Events::default().with_hoverable(false))
+                    .with_align("center")
+            ),
+            Box::new(
+                Label::new()
+                    .with_id("enter_press")
+                    .with_text("Press enter to continue...".to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(24.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 + 120.0))
+                    .with_events(Events::default().with_hoverable(false))
+                    .with_align("center")
+            ),
+            Box::new(
+                Button::new()
+                    .with_id("start_button")
+                    .with_fill(Color::GREEN)
+                    .with_dimensions(Vector2D::new(200.0, 75.0))
+                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 + 200.0))
+                    .with_events(Events::default()
+                        .with_hover_effects(vec![
+                            HoverEffects::Inflation(1.1),
+                            HoverEffects::AdjustBrightness(0.0)
+                        ])
+                        .with_on_click(Box::new(|_| {
+                            spawn_local(async {
+                            });
+                        }))
+                    )
+                    .with_children(vec![Box::new(
+                        Label::new()
+                            .with_id("continue_text")
+                            .with_text("Continue".to_string())
+                            .with_fill(Color::WHITE)
+                            .with_font(32.0)
+                            .with_stroke(Color::BLACK)
+                            .with_transform(translate!(0.0, 10.0))
+                            .with_events(Events::default()
+                                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                            )
+                    )])
+            ),
+        ];
+
+        elements
     }
 }

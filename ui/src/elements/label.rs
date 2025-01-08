@@ -23,6 +23,7 @@ pub struct Label {
     is_animating: bool,
     opacity: Interpolatable<f32>,
     destroyed: bool,
+    align: &'static str,
 
     ticks: u64,
 }
@@ -45,6 +46,7 @@ impl Default for Label {
             is_animating: Default::default(),
             opacity: Interpolatable::new(1.0),
             destroyed: Default::default(),
+            align: "center",
             ticks: Default::default(),
         }
     }
@@ -215,7 +217,7 @@ impl UiElement for Label {
             context.set_miter_limit(2.0);
             context.fill_style(self.fill);
             context.set_font(&format!("bold {}px {}", self.font.value as u32, font));
-            context.set_text_align("center");
+            context.set_text_align(&self.align);
     
             if stroke_size != 0.0 {
                 context.stroke_style(self.stroke.unwrap());
@@ -393,6 +395,11 @@ impl Label {
 
     pub fn with_opacity(mut self, opacity: f32) -> Label {
         self.opacity = Interpolatable::new(opacity);
+        self
+    }
+
+    pub fn with_align(mut self, alignment: &'static str) -> Label {
+        self.align = alignment;
         self
     }
 }

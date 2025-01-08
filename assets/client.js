@@ -219,19 +219,19 @@ function __wbg_adapter_30(arg0, arg1, arg2) {
 function __wbg_adapter_33(arg0, arg1, arg2) {
     _assertNum(arg0);
     _assertNum(arg1);
-    wasm.closure279_externref_shim(arg0, arg1, arg2);
+    wasm.closure284_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_36(arg0, arg1, arg2) {
     _assertNum(arg0);
     _assertNum(arg1);
-    wasm.closure281_externref_shim(arg0, arg1, arg2);
+    wasm.closure286_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_39(arg0, arg1, arg2) {
     _assertNum(arg0);
     _assertNum(arg1);
-    wasm.closure286_externref_shim(arg0, arg1, arg2);
+    wasm.closure291_externref_shim(arg0, arg1, arg2);
 }
 
 export function main() {
@@ -442,6 +442,10 @@ function __wbg_get_imports() {
     }, arguments) };
     imports.wbg.__wbg_localStorage_6026615061e890bf = function() { return handleError(function (arg0) {
         const ret = arg0.localStorage;
+        return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
+    }, arguments) };
+    imports.wbg.__wbg_performance_8efa15a3e0d18099 = function() { return logError(function (arg0) {
+        const ret = arg0.performance;
         return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
     }, arguments) };
     imports.wbg.__wbg_open_00e43a48297b3786 = function() { return handleError(function (arg0, arg1, arg2) {
@@ -680,6 +684,10 @@ function __wbg_get_imports() {
     }, arguments) };
     imports.wbg.__wbg_translateSelf_c7a69d96b198f8d5 = function() { return logError(function (arg0, arg1, arg2) {
         const ret = arg0.translateSelf(arg1, arg2);
+        return ret;
+    }, arguments) };
+    imports.wbg.__wbg_now_d3cbc9581625f686 = function() { return logError(function (arg0) {
+        const ret = arg0.now();
         return ret;
     }, arguments) };
     imports.wbg.__wbg_instanceof_BeforeUnloadEvent_0c2f3970832f737d = function() { return logError(function (arg0) {
@@ -1043,20 +1051,20 @@ function __wbg_get_imports() {
         const ret = wasm.memory;
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper255 = function() { return logError(function (arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 212, __wbg_adapter_30);
+    imports.wbg.__wbindgen_closure_wrapper257 = function() { return logError(function (arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 215, __wbg_adapter_30);
         return ret;
     }, arguments) };
-    imports.wbg.__wbindgen_closure_wrapper2238 = function() { return logError(function (arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 280, __wbg_adapter_33);
+    imports.wbg.__wbindgen_closure_wrapper2253 = function() { return logError(function (arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 285, __wbg_adapter_33);
         return ret;
     }, arguments) };
-    imports.wbg.__wbindgen_closure_wrapper2240 = function() { return logError(function (arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 282, __wbg_adapter_36);
+    imports.wbg.__wbindgen_closure_wrapper2255 = function() { return logError(function (arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 287, __wbg_adapter_36);
         return ret;
     }, arguments) };
-    imports.wbg.__wbindgen_closure_wrapper2298 = function() { return logError(function (arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 287, __wbg_adapter_39);
+    imports.wbg.__wbindgen_closure_wrapper2313 = function() { return logError(function (arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 292, __wbg_adapter_39);
         return ret;
     }, arguments) };
     imports.wbg.__wbindgen_init_externref_table = function() {

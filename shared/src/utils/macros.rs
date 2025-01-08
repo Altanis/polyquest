@@ -84,3 +84,16 @@ macro_rules! normalize_angle {
         (($a % std::f32::consts::TAU) + std::f32::consts::TAU) % std::f32::consts::TAU
     };
 }
+
+#[macro_export]
+macro_rules! prettify_ms {
+    ($ms:expr) => {{
+        let ms = $ms as u32;
+
+        let total_seconds = ms / 1000;
+        let hours = total_seconds / 3600;
+        let minutes = (total_seconds % 3600) / 60;
+        let seconds = total_seconds % 60;
+        format!("{}h {}m {}s", hours, minutes, seconds)
+    }};
+}

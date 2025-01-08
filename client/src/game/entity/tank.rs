@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use derive_new::new as New;
 use gloo::console::console;
+use gloo_utils::window;
 use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use strum::EnumCount;
 use ui::{canvas2d::Canvas2d, core::UiElement, elements::tank::Tank};
@@ -46,7 +47,12 @@ impl Entity {
                     self.stats.health.target = health;
 
                     if health > 0.0 && old_state != HealthState::Alive {
+                        if !self.stats.has_spawned {
+                            self.stats.life_timestamps.0 = window().performance().unwrap().now();
+                        }
+
                         self.stats.health_state = HealthState::Alive;
+                        self.stats.has_spawned = true;
                     } else if health <= 0.0 && old_state == HealthState::Alive {
                         self.stats.health_state = HealthState::Dying;
                     }
@@ -74,7 +80,12 @@ impl Entity {
                         self.display.upgrades.turret.push((codec.decode_varuint().unwrap() as usize).try_into().unwrap());
                     }
                 },
-                CensusProperties::Opacity => self.display.opacity.target = codec.decode_f32().unwrap(),
+                CensusProperties::Opacity => {
+                    let opacity = codec.decode_f32().unwrap();
+                    if self.stats.health_state == HealthState::Alive {
+                        self.display.opacity.target = opacity;
+                    }
+                },
                 CensusProperties::Fov => self.display.fov.target = codec.decode_f32().unwrap(),
                 CensusProperties::Radius => self.display.radius.target = codec.decode_f32().unwrap(),
                 CensusProperties::Identity => {

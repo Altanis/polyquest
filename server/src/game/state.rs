@@ -1,5 +1,5 @@
 use std::{cell::{RefCell, RefMut}, collections::HashMap};
-use super::entity::base::Entity;
+use super::{collision::{collision::detect_collision, shg::SpatialHashGrid}, entity::base::Entity};
 
 pub type EntityDataStructure = HashMap<u32, RefCell<Entity>>;
 
@@ -29,7 +29,8 @@ impl GameServer {
 #[derive(Default)]
 pub struct GameState {
     pub entities: EntityDataStructure,
-    counter: u32
+    pub shg: SpatialHashGrid,
+    pub counter: u32
 }
 
 impl GameState {
@@ -39,6 +40,7 @@ impl GameState {
     }
 
     pub fn insert_entity(&mut self, entity: Entity) {
+        self.shg.insert(entity.id, entity.physics.position, entity.display.radius);
         self.entities.insert(entity.id, RefCell::new(entity));
     }
 
@@ -47,6 +49,7 @@ impl GameState {
     }
 
     pub fn delete_entity(&mut self, id: u32) {
+        self.shg.delete(id);
         self.entities.remove(&id);
     }
 
@@ -62,6 +65,23 @@ impl GameState {
             // };
 
             Entity::tick(self, id);
+        }
+
+        let ids: Vec<_> = self.entities.keys().copied().collect();
+        for id in ids {
+            let mut this = self.entities[&id].borrow_mut();
+            self.shg.reinsert(id, this.physics.position, this.display.radius);
+
+            let collisions = self.shg.query_radius(id, this.physics.position, this.display.radius);
+
+            for collision in collisions {
+                let mut other = self.entities[&collision].borrow_mut();
+                let resolve_collision = this.should_collide(&other);
+
+                if resolve_collision && detect_collision(&this, &other) {
+                    this.collide(&mut other);
+                }
+            }
         }
     }
 }

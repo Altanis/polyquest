@@ -78,6 +78,10 @@ impl Entity {
                 * (rand!(0.0, 1.0) - 0.5)
                 * 10.0;
 
+            let push_factor = ((7.0 / 3.0) + self.display.stat_investments[UpgradeStats::ProjectileDamage as usize] as f32) 
+                * turret.projectile_identity.damage 
+                * turret.projectile_identity.absorption_factor;
+
             let mut position = self.physics.position;
             position += Vector2D::from_polar(turret.length * (FICTITIOUS_TANK_RADIUS / BASE_TANK_RADIUS) * (self.display.radius / BASE_TANK_RADIUS), projectile_angle);
             // position -= *Vector2D::from_polar(turret.x_offset * (self.display.radius / BASE_TANK_RADIUS), projectile_angle).swap();
@@ -93,7 +97,8 @@ impl Entity {
                 radius,
                 position,
                 lifetime: (turret.projectile_identity.lifetime * 72) as isize,
-                owners: Ownership::from_single_owner(self.id)
+                owners: Ownership::from_single_owner(self.id),
+                kb_factors: (turret.projectile_identity.absorption_factor, push_factor)
             });
         }
 

@@ -33,7 +33,9 @@ pub struct BodyIdentity {
     /// The (base) maximum health of the body.
     pub max_health: f32,
     /// The multiplier for body damage.
-    pub body_damage: f32
+    pub body_damage: f32,
+    /// The absorption factor of the tank.
+    pub absorption_factor: f32
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -87,7 +89,8 @@ pub fn get_body_base_identity() -> BodyIdentity {
         speed: 1.0,
         knockback: 1.0,
         max_health: 50.0,
-        body_damage: 1.0
+        body_damage: 1.0,
+        absorption_factor: 1.0
     }
 }
 
@@ -106,6 +109,7 @@ pub fn get_body_smasher_identity() -> BodyIdentity {
         speed: 1.0,
         knockback: 1.0,
         max_health: 50.0,
-        body_damage: 1.0
+        body_damage: 1.0,
+        absorption_factor: 1.0
     }
 }

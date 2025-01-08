@@ -166,8 +166,10 @@ impl Ownership {
 
     pub fn has_owner(&self, owner: u32) -> bool {
         self.shallow.is_some() && self.deep.is_some() &&
-        (self.shallow == NonZeroU32::new(owner) ||
-         self.deep == NonZeroU32::new(owner))
+        (
+            self.shallow == NonZeroU32::new(owner) ||
+            self.deep == NonZeroU32::new(owner)
+        )
     }
 }
 
