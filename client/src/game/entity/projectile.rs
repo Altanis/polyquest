@@ -1,7 +1,7 @@
 use std::{collections::HashMap, num::NonZeroU32};
 use derive_new::new as New;
 use gloo::console::console;
-use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, UpgradeStats, BASE_TANK_RADIUS}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use strum::EnumCount;
 use ui::{canvas2d::Canvas2d, core::UiElement, elements::tank::Tank};
 
@@ -13,8 +13,9 @@ use super::base::{Entity, HealthState};
 
 impl Entity {
     pub fn parse_projectile_census(&mut self, codec: &mut BinaryCodec, is_self: bool) {
-        let properties = codec.decode_varuint().unwrap();
+        self.display.z_index = 0;
 
+        let properties = codec.decode_varuint().unwrap();
         for _ in 0..properties {
             let property: CensusProperties = (codec.decode_varuint().unwrap() as u8).try_into().unwrap();
 
@@ -33,7 +34,12 @@ impl Entity {
                 },
                 CensusProperties::Angle => self.physics.angle.target = codec.decode_f32().unwrap(),
                 CensusProperties::Health => {
-                    self.stats.health.target = codec.decode_f32().unwrap();
+                    let health = codec.decode_f32().unwrap();
+                    if health < self.stats.health.target {
+                        self.display.damage_blend.target = 0.9;
+                    }
+
+                    self.stats.health.target = health;
                     self.stats.health_state = if self.stats.health.target >= 0.0 {
                         HealthState::Alive
                     } else {
@@ -46,7 +52,9 @@ impl Entity {
                 CensusProperties::Owners => {
                     self.display.owners.shallow = NonZeroU32::new(codec.decode_varuint().unwrap() as u32);
                     self.display.owners.deep = NonZeroU32::new(codec.decode_varuint().unwrap() as u32);
+                    self.display.turret_index = codec.decode_varuint().unwrap() as usize;
                 },
+                CensusProperties::Ticks => self.time.server_ticks = codec.decode_varuint().unwrap(),
                 _ => {}
             }
         }
@@ -60,8 +68,16 @@ impl Entity {
         context.fill_style(fill);
         context.stroke_style(stroke);
         context.set_stroke_size(STROKE_SIZE);
+
+        context.rotate(std::f32::consts::FRAC_PI_2);
+
+        match self.display.entity_type {
+            EntityType::Bullet => context.begin_arc(0.0, 0.0, self.display.radius.value as f64, std::f64::consts::TAU),
+            EntityType::Drone => context.begin_triangle(self.display.radius.value),
+            EntityType::Trap => context.begin_star(3, self.display.radius.value / 1.5, self.display.radius.value * 1.75),
+            _ => unreachable!("Non-projectile entity attempted rendering.")
+        }
         
-        context.begin_arc(0.0, 0.0, self.display.radius.value as f64, std::f64::consts::TAU);
         context.fill();
         context.stroke();
 

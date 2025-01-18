@@ -20,6 +20,7 @@ send_wrapper = "0.6.0"
 derive-new = "0.7.0"
 strum = "0.26.3"
 strum_macros = "0.26.4"
+num_enum = "0.7.3"
 
 [dependencies.web-sys]
 version = "0.3.72"

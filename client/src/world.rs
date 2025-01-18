@@ -56,7 +56,7 @@ impl World {
         register_event!("keydown");
         register_event!("keyup");
 
-        self.renderer.canvas2d.resize(&window());
+        self.renderer.canvas2d.resize();
     }
 
     pub fn init() {

@@ -1,5 +1,5 @@
-use gloo::utils::window;
-use shared::{lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use gloo::{console::console, utils::window};
+use shared::{fuzzy_compare, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
 
 use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, OnClickScript, UiElement}, translate};
@@ -191,7 +191,7 @@ impl UiElement for Modal {
     }
 
     fn has_animation_state(&self) -> bool {
-        false
+        true
     }
 }
 

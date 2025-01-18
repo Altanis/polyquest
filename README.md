@@ -16,3 +16,6 @@ comets: polygonal shape with cometary ectoplasmic thing around it
 --- 
 Features:
 - on death, make spectate button which clears ui and allows u to roam
+- tank ideas:
+    - impulse: bullets which target nearest enemy
+    - sinusod: fires two bullets which vary according to sine/cosine paths

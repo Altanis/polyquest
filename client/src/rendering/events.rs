@@ -21,48 +21,31 @@ pub enum EventType {
     KeyUp(KeyboardEvent),
 }
 
+#[derive(Debug, num_enum::TryFromPrimitive)]
+#[repr(u32)]
 pub enum KeyCode {
-    Enter,
-    Escape,
-    Space,
-    KeyE,
-    KeyW, ArrowUp,
-    KeyA, ArrowLeft,
-    KeyS, ArrowDown,
-    KeyD, ArrowRight,
-    KeyK,
-    One, Two, Three, Four, Five, Six, Seven, Eight
-}
-
-impl TryInto<KeyCode> for u32 {
-    type Error = ();
-
-    fn try_into(self) -> Result<KeyCode, Self::Error> {
-        match self {
-            13 => Ok(KeyCode::Enter),      // Enter
-            32 => Ok(KeyCode::Space),      // Space
-            27 => Ok(KeyCode::Escape),     // Escape
-            69 => Ok(KeyCode::KeyE),
-            87 => Ok(KeyCode::KeyW),       // 'W' key
-            65 => Ok(KeyCode::KeyA),       // 'A' key
-            83 => Ok(KeyCode::KeyS),       // 'S' key
-            68 => Ok(KeyCode::KeyD),       // 'D' key
-            38 => Ok(KeyCode::ArrowUp),    // ArrowUp key
-            37 => Ok(KeyCode::ArrowLeft),  // ArrowLeft key
-            40 => Ok(KeyCode::ArrowDown),  // ArrowDown key
-            39 => Ok(KeyCode::ArrowRight), // ArrowRight key
-            75 => Ok(KeyCode::KeyK),       // 'K' key
-            49 => Ok(KeyCode::One),
-            50 => Ok(KeyCode::Two),
-            51 => Ok(KeyCode::Three),
-            52 => Ok(KeyCode::Four),
-            53 => Ok(KeyCode::Five),
-            54 => Ok(KeyCode::Six),
-            55 => Ok(KeyCode::Seven),
-            56 => Ok(KeyCode::Eight),            
-            _ => Err(()),
-        }
-    }
+    Shift       = 16,
+    Enter       = 13,
+    Escape      = 27,
+    Space       = 32,
+    KeyE        = 69,
+    KeyW        = 87,
+    ArrowUp     = 38,
+    KeyA        = 65,
+    ArrowLeft   = 37,
+    KeyS        = 83,
+    ArrowDown   = 40,
+    KeyD        = 68,
+    ArrowRight  = 39,
+    KeyK        = 75,
+    One         = 49,
+    Two         = 50,
+    Three       = 51,
+    Four        = 52,
+    Five        = 53,
+    Six         = 54,
+    Seven       = 55,
+    Eight       = 56,
 }
 
 pub fn handle_event(world: &mut World, event_type: EventType) {
@@ -121,15 +104,23 @@ pub fn on_contextmenu(world: &mut World, event: MouseEvent) {
 }
 
 pub fn on_resize(world: &mut World) {
-    world.renderer.canvas2d.resize(&window());
+    world.renderer.canvas2d.resize();
 }
 
 pub fn on_mousedown(world: &mut World, event: MouseEvent) {
-    world.game.self_entity.physics.inputs.set_flag(Inputs::Shoot);
+    match event.which() {
+        1 => world.game.self_entity.physics.inputs.set_flag(Inputs::Shoot),
+        3 => world.game.self_entity.physics.inputs.set_flag(Inputs::Repel),
+        _ => {}
+    }
 }
 
 pub fn on_mouseup(world: &mut World, event: MouseEvent) {
-    world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot);
+    match event.which() {
+        1 => world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot),
+        3 => world.game.self_entity.physics.inputs.clear_flag(Inputs::Repel),
+        _ => {}
+    }
 
     let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
     point *= window().device_pixel_ratio() as f32;
@@ -187,6 +178,7 @@ pub fn on_keydown(world: &mut World, event: KeyboardEvent) {
         Ok(KeyCode::KeyD) | Ok(KeyCode::ArrowRight) => world.game.self_entity.physics.inputs.set_flag(Inputs::Right),
         Ok(KeyCode::KeyK) => world.game.self_entity.physics.inputs.set_flag(Inputs::LevelUp),
         Ok(KeyCode::Space) => world.game.self_entity.physics.inputs.set_flag(Inputs::Shoot),
+        Ok(KeyCode::Shift) => world.game.self_entity.physics.inputs.set_flag(Inputs::Repel),
         Ok(KeyCode::KeyE) => {
             world.game.self_entity.physics.auto_fire = !world.game.self_entity.physics.auto_fire;
             world.game.self_entity.display.notifications.push(Notification {
@@ -234,6 +226,7 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
         Ok(KeyCode::KeyD) | Ok(KeyCode::ArrowRight) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Right),
         Ok(KeyCode::KeyK) => world.game.self_entity.physics.inputs.clear_flag(Inputs::LevelUp),
         Ok(KeyCode::Space) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot),
+        Ok(KeyCode::Shift) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Repel),
         Ok(KeyCode::One) | Ok(KeyCode::Two) | Ok(KeyCode::Three) | Ok(KeyCode::Four) | Ok(KeyCode::Five) | Ok(KeyCode::Six) | Ok(KeyCode::Seven) | Ok(KeyCode::Eight)
         => {
             let i = (event.key_code() as u8 - b'0') as usize - 1;

@@ -1,4 +1,8 @@
 use std::{cell::{RefCell, RefMut}, collections::HashMap};
+use shared::{game::entity::EntityType, utils::vec2::Vector2D};
+
+use crate::game::entity::base::AliveState;
+
 use super::{collision::{collision::detect_collision, shg::SpatialHashGrid}, entity::base::Entity};
 
 pub type EntityDataStructure = HashMap<u32, RefCell<Entity>>;
@@ -39,6 +43,10 @@ impl GameState {
         self.counter
     }
 
+    pub fn get_random_position(&self) -> Vector2D<f32> {
+        Vector2D::ZERO
+    }
+
     pub fn insert_entity(&mut self, entity: Entity) {
         self.shg.insert(entity.id, entity.physics.position, entity.display.radius);
         self.entities.insert(entity.id, RefCell::new(entity));
@@ -49,8 +57,53 @@ impl GameState {
     }
 
     pub fn delete_entity(&mut self, id: u32) {
-        self.shg.delete(id);
-        self.entities.remove(&id);
+        let owned_entities = {
+            let entity = self.entities.get(&id).unwrap().borrow_mut();
+            entity.display.owned_entities.clone()
+        };
+
+        for id in owned_entities {
+            self.delete_entity(id);
+        }
+
+        {
+            let entity = self.entities.get(&id).unwrap().borrow_mut();
+
+            if let Some(shallow_owner) = &entity.display.owners.shallow {
+                let mut shallow_owner = self.entities.get(&shallow_owner.get()).unwrap().borrow_mut();
+                shallow_owner.display.owned_entities.retain(|&oid| id != oid);
+                
+                let turret_idx = entity.display.turret_idx;
+                if turret_idx != -1 
+                    && let Some(turret) = shallow_owner.display.turret_identity.turrets.get_mut(turret_idx as usize) 
+                {
+                    turret.projectiles_spawned -= 1;
+                }
+            }
+
+            if let Some(deep_owner) = &entity.display.owners.deep {
+                let mut deep_owner = self.entities.get(&deep_owner.get()).unwrap().borrow_mut();
+                deep_owner.display.owned_entities.retain(|&oid| id != oid);
+                
+                let turret_idx = entity.display.turret_idx;
+                if turret_idx != -1 
+                    && let Some(turret) = deep_owner.display.turret_identity.turrets.get_mut(turret_idx as usize) 
+                {
+                    turret.projectiles_spawned -= 1;
+                }
+            }
+        }
+
+        let mut entity = self.entities.get(&id).unwrap().borrow_mut();
+
+        if entity.display.entity_type == EntityType::Player {
+            entity.stats.alive = AliveState::Uninitialized;
+        } else {
+            drop(entity);
+            
+            self.shg.delete(id);
+            self.entities.remove(&id);
+        }
     }
 
     pub fn tick(&mut self) {
@@ -77,9 +130,21 @@ impl GameState {
             for collision in collisions {
                 let mut other = self.entities[&collision].borrow_mut();
                 let resolve_collision = this.should_collide(&other);
+                let is_colliding = detect_collision(&this, &other);
 
-                if resolve_collision && detect_collision(&this, &other) {
-                    this.collide(&mut other);
+                if resolve_collision && is_colliding {
+                    this.collide(&self.entities, &mut other);
+                } else if this.display.entity_type.is_drone() && other.display.entity_type.is_drone() && is_colliding {
+                    let angle = (this.physics.position - other.physics.position).angle();
+
+                    let (this_absorption_factor, other_absorption_factor) = (this.physics.absorption_factor, other.physics.absorption_factor);
+                    let (this_push_factor, other_push_factor) = (this.physics.push_factor, other.physics.push_factor);
+
+                    // this.physics.velocity += Vector2D::from_polar(6.0, angle);
+                    // other.physics.velocity -= Vector2D::from_polar(6.0, angle);
+
+                    this.physics.velocity += Vector2D::from_polar(this_absorption_factor * other_push_factor, angle);
+                    other.physics.velocity -= Vector2D::from_polar(other_absorption_factor * this_push_factor, angle);
                 }
             }
         }

@@ -42,28 +42,26 @@ impl Debug for InputFlags {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, num_enum::TryFromPrimitive)]
+#[repr(u8)]
 pub enum EntityType {
     #[default]
     Player,
-    Projectile, // you can add stuff like drone, minion, etc.
+    Bullet, // you can add stuff like drone, minion, etc.
+    Drone,
+    Trap
     // Planet,
     // Star,
     // Comet
 }
 
-impl TryInto<EntityType> for u8 {
-    type Error = bool;
+impl EntityType {
+    pub fn is_projectile(&self) -> bool {
+        matches!(self, EntityType::Bullet | EntityType::Drone | EntityType::Trap)
+    }
 
-    fn try_into(self) -> Result<EntityType, Self::Error> {
-        match self {
-            0 => Ok(EntityType::Player),
-            1 => Ok(EntityType::Projectile),
-            // 2 => Ok(EntityType::Planet),
-            // 3 => Ok(EntityType::Comet),
-            // 4 => Ok(EntityType::Star),
-            _ => Err(true)
-        }
+    pub fn is_drone(&self) -> bool {
+        matches!(self, EntityType::Drone)
     }
 }
 
@@ -131,16 +129,9 @@ pub fn generate_identity(body: BodyIdentityIds, turret: TurretIdentityIds) -> St
     }
 }
 
-/// A struct encapsulating body and turret upgrades.
-#[derive(Debug, Default, Clone)]
-pub struct TankUpgrades {
-    pub body: Vec<BodyIdentityIds>,
-    pub turret: Vec<TurretIdentityIds>
-}
-
 /// A struct encapsulating ownership.
 /// The shallow and deep owners may be identical.
-#[derive(Debug, Default, Clone, derive_new::new)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Ownership {
     /// The immediate cause of creation.
     pub shallow: Option<NonZeroU32>,
@@ -149,8 +140,12 @@ pub struct Ownership {
 }
 
 impl Ownership {
+    pub fn new(shallow: u32, deep: u32) -> Ownership {
+        Ownership { shallow: NonZeroU32::new(shallow), deep: NonZeroU32::new(deep) }
+    }
+
     pub fn from_single_owner(owner: u32) -> Ownership {
-        Ownership::new(NonZeroU32::new(owner), NonZeroU32::new(owner))
+        Ownership::new(owner, owner)
     }
 
     pub fn to_tuple(&self) -> (u32, u32) {
@@ -158,7 +153,7 @@ impl Ownership {
             None => 0,
             Some(n) => n.into()
         },
-        match self.shallow {
+        match self.deep {
             None => 0,
             Some(n) => n.into()
         })
@@ -171,6 +166,22 @@ impl Ownership {
             self.deep == NonZeroU32::new(owner)
         )
     }
+
+    pub fn is_related(&self, other: u32, other_ownership: Ownership) -> bool {
+        self.shallow == NonZeroU32::new(other)
+            || self.deep == NonZeroU32::new(other)
+            || other_ownership.shallow == NonZeroU32::new(other)
+            || other_ownership.deep == NonZeroU32::new(other)
+            || (self.shallow == other_ownership.shallow && self.shallow.is_some())
+            || (self.shallow == other_ownership.deep && self.shallow.is_some())
+            || (self.deep == other_ownership.shallow && self.deep.is_some())
+            || (self.deep == other_ownership.deep && self.deep.is_some())
+    }
+
+    /// Whether or not the two owners are the same.
+    pub fn has_singular_owner(&self) -> bool {
+        self.shallow.is_some() && self.shallow == self.deep
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -180,4 +191,10 @@ pub struct Notification {
     pub lifetime: u64,
     pub opacity: Interpolatable<f32>,
     pub position: Interpolatable<Vector2D<f32>>
+}
+
+#[derive(Default, Clone)]
+pub struct TankUpgrades {
+    pub body: Vec<BodyIdentityIds>,
+    pub turret: Vec<TurretIdentityIds>
 }

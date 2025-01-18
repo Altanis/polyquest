@@ -28,8 +28,6 @@ pub struct BodyIdentity {
     pub fov: f32,
     /// The inherent speed of the tank.
     pub speed: f32,
-    /// The knockback the body receives upon collision.
-    pub knockback: f32,
     /// The (base) maximum health of the body.
     pub max_health: f32,
     /// The multiplier for body damage.
@@ -38,23 +36,12 @@ pub struct BodyIdentity {
     pub absorption_factor: f32
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, num_enum::TryFromPrimitive)]
+#[repr(usize)]
 pub enum BodyIdentityIds {
     #[default]
     Base       = 0,
     Smasher    = 1
-}
-
-impl TryInto<BodyIdentityIds> for usize {
-    type Error = ();
-
-    fn try_into(self) -> Result<BodyIdentityIds, Self::Error> {
-        match self {
-            0 => Ok(BodyIdentityIds::Base),
-            1 => Ok(BodyIdentityIds::Smasher),
-            _ => Err(())
-        }
-    }
 }
 
 impl TryInto<BodyIdentity> for BodyIdentityIds {
@@ -70,10 +57,20 @@ impl TryInto<BodyIdentity> for BodyIdentityIds {
 
 impl Display for BodyIdentityIds {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Base => write!(f, "Base"),
-            Self::Smasher => write!(f, "Smasher"),
-        }
+        let variant_name = format!("{:?}", self);
+        let formatted_name: String = variant_name
+            .chars()
+            .enumerate()
+            .flat_map(|(i, c)| {
+                if i > 0 && c.is_uppercase() {
+                    vec![' ', c]
+                } else {
+                    vec![c]
+                }
+            })
+            .collect();
+
+        write!(f, "{}", formatted_name)
     }
 }
 
@@ -87,7 +84,6 @@ pub fn get_body_base_identity() -> BodyIdentity {
         invisibility_rate: -1.0,
         fov: 1.0,
         speed: 1.0,
-        knockback: 1.0,
         max_health: 50.0,
         body_damage: 1.0,
         absorption_factor: 1.0
@@ -105,11 +101,10 @@ pub fn get_body_smasher_identity() -> BodyIdentity {
         level_requirement: 0,
         upgrades: vec![],
         invisibility_rate: -1.0,
-        fov: 1.0,
+        fov: 0.9,
         speed: 1.0,
-        knockback: 1.0,
         max_health: 50.0,
         body_damage: 1.0,
-        absorption_factor: 1.0
+        absorption_factor: 0.95
     }
 }

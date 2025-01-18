@@ -1,39 +1,17 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, num_enum::TryFromPrimitive)]
+#[repr(u8)]
 pub enum ServerboundPackets {
-    Spawn,
-    Input,
-    Stats,
-    Upgrade
+    Spawn    = 0x0,
+    Input    = 0x1,
+    Stats    = 0x2,
+    Upgrade  = 0x3
 }
 
-impl TryInto<ServerboundPackets> for u8 {
-    type Error = bool;
-
-    fn try_into(self) -> Result<ServerboundPackets, Self::Error> {
-        match self {
-            0x0 => Ok(ServerboundPackets::Spawn),
-            0x1 => Ok(ServerboundPackets::Input),
-            0x2 => Ok(ServerboundPackets::Stats),
-            0x3 => Ok(ServerboundPackets::Upgrade),
-            _ => Err(true)
-        }
-    }
-}
-
-#[derive(Clone)]
+#[derive(Debug, Clone, num_enum::TryFromPrimitive)]
+#[repr(u8)]
 pub enum ClientboundPackets {
-    Update
-}
-
-impl TryInto<ClientboundPackets> for u8 {
-    type Error = bool;
-
-    fn try_into(self) -> Result<ClientboundPackets, Self::Error> {
-        match self {
-            0x0 => Ok(ClientboundPackets::Update),
-            _ => Err(true)
-        }
-    }
+    Update         = 0x0,
+    Notifications  = 0x1
 }
 
 #[derive(Debug, Clone, Copy, strum_macros::EnumIter)]
@@ -43,10 +21,12 @@ pub enum Inputs {
     Down     = 0b1000,
     Left     = 0b10000,
     Right    = 0b100000,
-    LevelUp  = 0b1000000
+    LevelUp  = 0b1000000,
+    Repel    = 0b10000000
 }
 
-#[derive(Debug, strum_macros::EnumIter, Clone)]
+#[derive(Debug, strum_macros::EnumIter, Clone, num_enum::TryFromPrimitive)]
+#[repr(u8)]
 pub enum CensusProperties {
     Position,
     Velocity,
@@ -63,31 +43,7 @@ pub enum CensusProperties {
     Fov,
     Radius,
     Identity,
-    Owners
-}
-
-impl TryInto<CensusProperties> for u8 {
-    type Error = bool;
-
-    fn try_into(self) -> Result<CensusProperties, Self::Error> {
-        match self {
-            0 => Ok(CensusProperties::Position),
-            1 => Ok(CensusProperties::Velocity),
-            2 => Ok(CensusProperties::Angle),
-            3 => Ok(CensusProperties::Name),
-            4 => Ok(CensusProperties::Score),
-            5 => Ok(CensusProperties::Health),
-            6 => Ok(CensusProperties::MaxHealth),
-            7 => Ok(CensusProperties::Energy),
-            8 => Ok(CensusProperties::MaxEnergy),
-            9 => Ok(CensusProperties::Stats),
-            10 => Ok(CensusProperties::Upgrades),
-            11 => Ok(CensusProperties::Opacity),
-            12 => Ok(CensusProperties::Fov),
-            13 => Ok(CensusProperties::Radius),
-            14 => Ok(CensusProperties::Identity),
-            15 => Ok(CensusProperties::Owners),
-            _ => Err(true),
-        }
-    }
+    Owners,
+    Ticks,
+    Invincibility
 }

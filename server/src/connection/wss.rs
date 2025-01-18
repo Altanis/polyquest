@@ -1,13 +1,13 @@
-use std::{collections::{HashMap, HashSet}, net::SocketAddr, time::Instant};
+use std::{collections::HashMap, net::SocketAddr};
 
 use axum::{
     extract::{ws::{Message, WebSocket, WebSocketUpgrade}, ConnectInfo, State},
     response::IntoResponse
 };
 use futures::{stream::SplitSink, SinkExt, StreamExt};
-use shared::{connection::packets::ServerboundPackets, game::{body::get_body_base_identity, entity::{EntityType, InputFlags, Ownership, TankUpgrades, BASE_TANK_RADIUS}, turret::get_turret_base_identity}, utils::{codec::BinaryCodec, vec2::Vector2D}};
+use shared::{connection::packets::ServerboundPackets, utils::codec::BinaryCodec};
 
-use crate::{game::entity::base::{AliveState, ConnectionComponent, DisplayComponent, Entity, PhysicsComponent, StatsComponent, TimeComponent}, server::{Server, ServerGuard, WrappedServer}};
+use crate::{game::entity::base::Entity, server::{Server, ServerGuard, WrappedServer}};
 
 use super::packets;
 
@@ -46,54 +46,7 @@ impl WebSocketServer {
             let (sender, receiver) = socket.split();
 
             full_server.ws_server.clients.insert(id, WebSocketClient { sender });
-            full_server.game_server.get_server().insert_entity(Entity {
-                id,
-                physics: PhysicsComponent {
-                    position: Vector2D::ZERO,
-                    velocity: Vector2D::ZERO,
-                    additional_velocity: Vector2D::ZERO,
-                    angle: 0.0,
-                    mouse: Vector2D::ZERO,
-                    inputs: InputFlags::new(0),
-                    collidable: true,
-                    absorption_factor: get_body_base_identity().absorption_factor,
-                    push_factor: 8.0,
-                    collisions: HashSet::new()
-                },
-                display: DisplayComponent {
-                    name: "".to_string(),
-                    level: 1,
-                    score: 0,
-                    stat_investments: [0; _],
-                    available_stat_points: 0,
-                    upgrades: TankUpgrades::default(),
-                    opacity: 1.0,
-                    fov: 0.0,
-                    surroundings: vec![],
-                    entity_type: EntityType::Player,
-                    body_identity: get_body_base_identity(),
-                    turret_identity: get_turret_base_identity(),
-                    owners: Ownership::from_single_owner(0),
-                    radius: BASE_TANK_RADIUS
-                },
-                stats: StatsComponent {
-                    health: 0.0, max_health: 0.0, alive: AliveState::Uninitialized, 
-                    last_damage_tick: 0, damage_reduction: 1.0,
-                    regen_per_tick: 0.0,
-                    damage_per_tick: 0.0,
-                    reload: 0.0,
-                    speed: 0.0,
-                    lifetime: -1,
-                    energy: 0.0, max_energy: 0.0,
-                },
-                time: TimeComponent {
-                    ticks: 0,
-                    last_tick: Instant::now()
-                },
-                connection: ConnectionComponent {
-                    outgoing_packets: vec![]
-                }
-            });
+            full_server.game_server.get_server().insert_entity(Entity::from_id(id));
 
             (receiver, id)
         };
@@ -110,7 +63,9 @@ impl WebSocketServer {
         match message {
             Message::Binary(data) => {
                 let mut codec = BinaryCodec::from_bytes(data);
-                let header: ServerboundPackets = (codec.decode_varuint().ok_or(true)? as u8).try_into()?;
+                let header: ServerboundPackets = (codec.decode_varuint().ok_or(true)? as u8)
+                    .try_into()
+                    .map_err(|_| true)?;
 
                 match header {
                     ServerboundPackets::Spawn => packets::handle_spawn_packet(full_server, id, codec),

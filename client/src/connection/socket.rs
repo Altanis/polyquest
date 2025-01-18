@@ -5,7 +5,7 @@ use web_sys::{js_sys::{ArrayBuffer, Uint8Array}, wasm_bindgen::{prelude::Closure
 
 use crate::world::{get_world, World};
 
-use super::packets::handle_update_packet;
+use super::packets::{handle_notification_packet, handle_update_packet};
 
 const IS_PROD: bool = false;
 const URL: &str = if IS_PROD {
@@ -129,6 +129,7 @@ impl Connection {
         let header: ClientboundPackets = (codec.decode_varuint().unwrap() as u8).try_into().unwrap();
         match header {
             ClientboundPackets::Update => handle_update_packet(world, codec),
+            ClientboundPackets::Notifications => handle_notification_packet(world, codec)
         }
     }
 

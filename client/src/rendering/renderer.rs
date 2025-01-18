@@ -2,7 +2,7 @@ use std::{collections::VecDeque};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D};
+use shared::{fuzzy_compare, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use ui::{canvas2d::{Canvas2d, Transform}, core::{ElementType, Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, get_element_by_id_and_cast, gl::webgl::WebGl, translate};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, HtmlDivElement, Performance};
 
@@ -27,11 +27,17 @@ pub struct Renderer {
     previous_phase: GamePhase,
     pub body: Body,
     pub backdrop_opacity: Interpolatable<f32>,
-    pub fps_counter: Label
+    pub fps_counter: Label,
+
+    pub phase_switch: Option<GamePhase>,
+    phase_switch_radius: Interpolatable<f32>
 }
 
 impl Renderer {
     pub fn new() -> Renderer {
+        let mut phase_switch_radius = Interpolatable::new(0.0);
+        phase_switch_radius.direction = 0.0;
+
         Renderer {
             canvas2d: Canvas2d::new("offscreen_canvas"),
             gl: WebGl::new(),
@@ -48,17 +54,29 @@ impl Renderer {
                 .with_font(28.0)
                 .with_stroke(Color::BLACK)
                 .with_transform(translate!(75.0, 35.0))
-                .with_events(Events::default().with_hoverable(false))
+                .with_events(Events::default().with_hoverable(false)),
+            phase_switch: None,
+            phase_switch_radius
+        }
+    }
+
+    pub fn change_phase(&mut self, phase: GamePhase) {
+        if phase == GamePhase::Death {
+            self.phase = phase;
+            return;
+        }
+
+        if !self.phase.same_phase(&phase) {
+            self.phase_switch = Some(phase);
         }
     }
 
     pub fn tick(world: &mut World, timestamp: f64) {
         world.sounds.tick();
-
-        if !world.renderer.phase.same_phase(&world.renderer.previous_phase) {
-            world.renderer.body.set_children(vec![]);
-        }
         world.renderer.previous_phase = world.renderer.phase.clone();
+        world.renderer.canvas2d.resize();
+
+        let dimensions = world.renderer.canvas2d.get_dimensions();
 
         if !world.sounds.can_play && window().navigator().user_activation().has_been_active() {
             world.sounds.can_play = true;
@@ -102,6 +120,40 @@ impl Renderer {
             time.deltas.iter().sum::<f64>() / time.deltas.len() as f64
         };
 
+        let dt = (delta_average / 16.66).clamp(0.0, 1.0) as f32;
+
+        world.renderer.phase_switch_radius.value = lerp!(
+            world.renderer.phase_switch_radius.value,
+            world.renderer.phase_switch_radius.target,
+            0.15 * dt
+        );
+
+        if let Some(new_phase) = &world.renderer.phase_switch {
+            if fuzzy_compare!(world.renderer.phase_switch_radius.value, world.renderer.phase_switch_radius.target, 5.0) {
+                world.renderer.phase_switch_radius.target = if world.renderer.phase_switch_radius.direction == 1.0 {
+                    world.renderer.phase = new_phase.clone();
+                    world.renderer.phase_switch_radius.direction = -1.0;
+                    dimensions.x
+                } else {
+                    world.renderer.phase_switch_radius.direction = 0.0;
+                    world.renderer.phase_switch = None;
+                    dimensions.x
+                };
+            }
+
+            world.renderer.phase_switch_radius.target = if world.renderer.phase_switch_radius.direction == 0.0 {
+                world.renderer.phase_switch_radius.value = dimensions.x;
+                world.renderer.phase_switch_radius.direction = 1.0;
+                0.0
+            } else if world.renderer.phase_switch_radius.direction == 1.0 {
+                0.0
+            } else {
+                dimensions.x
+            };
+        } else {
+            world.renderer.phase_switch_radius.direction = 0.0;
+        }
+
         world.renderer.canvas2d.clear_rect();
 
         world.renderer.canvas2d.save();
@@ -129,7 +181,7 @@ impl Renderer {
         
         let stale_ids: Vec<String> = world.renderer.body.get_mut_children()
             .iter()
-            .filter(|e| !element_ids.contains(&e.get_id()))
+            .filter(|e| e.get_identity() != ElementType::Modal && !element_ids.contains(&e.get_id()))
             .map(|e| e.get_id())
             .collect();
         
@@ -144,7 +196,22 @@ impl Renderer {
             GamePhase::Death => Renderer::render_game(world, delta_average, true)
         }
 
-        world.renderer.canvas2d.restore();
+        if world.renderer.phase_switch_radius.direction != 0.0 {
+            world.renderer.canvas2d.save();
+            world.renderer.canvas2d.reset_transform();
+            
+            world.renderer.canvas2d.save();
+            world.renderer.canvas2d.global_composite_operation("destination-in");
+            world.renderer.canvas2d.fill_style(Color::WHITE);
+            world.renderer.canvas2d.begin_arc(dimensions.x / 2.0, dimensions.y / 2.0, world.renderer.phase_switch_radius.value, std::f64::consts::TAU);
+            world.renderer.canvas2d.fill();
+            world.renderer.canvas2d.restore();
+    
+            world.renderer.canvas2d.global_composite_operation("destination-over");
+            world.renderer.canvas2d.fill_style(Color::BLACK);
+            world.renderer.canvas2d.fill_rect(0.0, 0.0, dimensions.x, dimensions.y);
+            world.renderer.canvas2d.restore();
+        }
 
         if SHADERS_ENABLED {
             world.renderer.gl.render(
@@ -163,7 +230,9 @@ impl Renderer {
         closure.forget();
     }
 
-    pub fn render_lore(world: &mut World, delta_average: f64) {        
+    pub fn render_lore(world: &mut World, delta_average: f64) {      
+        let dt = (delta_average / 16.66).clamp(0.0, 1.0) as f32;
+
         get_element_by_id_and_cast!("text_input_container", HtmlDivElement)
             .style()
             .set_property("display", "none");
@@ -180,10 +249,14 @@ impl Renderer {
     }
 
     pub fn render_homescreen(world: &mut World, delta_average: f64) {
+        let dt = (delta_average / 16.66).clamp(0.0, 1.0) as f32;
+
         let modal_exists = world.renderer.body.get_mut_children()
             .iter_mut()
             .any(|child| child.get_identity() == ElementType::Modal);
-        let should_display_textbox = !modal_exists && world.connection.state == ConnectionState::Connected;
+        let should_display_textbox = !modal_exists 
+            && world.connection.state == ConnectionState::Connected 
+            && (matches!(world.renderer.phase_switch, Some(GamePhase::Home(_))) || world.renderer.phase_switch.is_none());
         
         get_element_by_id_and_cast!("text_input_container", HtmlDivElement)
             .style()
@@ -202,6 +275,8 @@ impl Renderer {
     }
 
     pub fn render_game(world: &mut World, delta_average: f64, is_dead: bool) {
+        let dt = (delta_average / 16.66).clamp(0.0, 1.0) as f32;
+
         get_element_by_id_and_cast!("text_input_container", HtmlDivElement)
             .style()
             .set_property("display", "none");
@@ -209,11 +284,17 @@ impl Renderer {
         let dimensions = world.renderer.body.get_bounding_rect().dimensions;
 
         world.renderer.canvas2d.save();
-        world.renderer.body.render(&mut world.renderer.canvas2d, dimensions);
-        
+
+        let dimensions = world.renderer.canvas2d.get_dimensions();
+        world.renderer.canvas2d.translate(dimensions.x / 2.0, dimensions.y / 2.0);
+        let factor = window().device_pixel_ratio() as f32;
+        world.renderer.canvas2d.scale(factor, factor);
+        world.renderer.canvas2d.translate(-dimensions.x / (2.0 * factor), -dimensions.y / (2.0 * factor));
+
+
         world.renderer.canvas2d.save();
         world.renderer.canvas2d.reset_transform();
-        GamePhase::render_game(world, delta_average, is_dead);
+        GamePhase::render_game(world, delta_average, is_dead, dt);
         world.renderer.canvas2d.restore();
 
         world.renderer.body.render_children(&mut world.renderer.canvas2d);

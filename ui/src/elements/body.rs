@@ -1,3 +1,4 @@
+use gloo::{console::console, utils::window};
 use shared::utils::{color::Color, vec2::Vector2D};
 use web_sys::MouseEvent;
 
@@ -92,7 +93,7 @@ impl UiElement for Body {
         self.dimensions = context.get_dimensions();
         context.translate(self.dimensions.x / 2.0, self.dimensions.y / 2.0);
 
-        let factor = (self.dimensions.x / 1920.0).max(self.dimensions.y / 1080.0);
+        let factor = window().device_pixel_ratio() as f32;
         self.dimensions *= 1.0 / factor;
 
         context.scale(factor, factor);

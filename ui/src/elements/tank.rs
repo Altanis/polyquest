@@ -146,7 +146,7 @@ impl UiElement for Tank {
         self.raw_transform = context.get_transform();
         context.global_alpha(self.opacity.value as f64);
 
-        Tank::render_turrets(context, self.radius, &self.turret_structure);
+        Tank::render_turrets(context, self.radius, &self.turret_structure, &vec![Interpolatable::new(1.0); self.turret_structure.turrets.len()]);
         Tank::render_body(context, &self.body_identity, self.radius, PLAYER_FILL, PLAYER_STROKE);
         
         if DEBUG {
@@ -193,7 +193,7 @@ impl Tank {
         }
     }
 
-    pub fn render_turrets(context: &mut Canvas2d, radius: f32, turret_structure: &TurretStructure) {
+    pub fn render_turrets(context: &mut Canvas2d, radius: f32, turret_structure: &TurretStructure, turret_lengths: &[Interpolatable<f32>]) {
         context.save();
         context.fill_style(TURRET_FILL);
         context.stroke_style(TURRET_STROKE);
@@ -201,7 +201,7 @@ impl Tank {
 
         let size_factor = radius / FICTITIOUS_TANK_RADIUS;
 
-        for turret in turret_structure.turrets.iter() {
+        for (i, turret) in turret_structure.turrets.iter().enumerate() {
             context.save();
             context.rotate(turret.angle);
             context.translate(
@@ -209,7 +209,7 @@ impl Tank {
                 turret.y_offset * size_factor,
             );
 
-            let (length, width) = (turret.length * size_factor, turret.width * size_factor);
+            let (length, width) = (turret_lengths[i].value * (turret.length * size_factor), turret.width * size_factor);
 
             if turret.rendering_hints.is_empty() {
                 context.fill_rect(0.0, -width / 2.0, length, width);
@@ -217,8 +217,48 @@ impl Tank {
             } else {
                 for &hint in turret.rendering_hints.iter() {
                     match hint {
-                        TurretRenderingHints::Trapezoidal(_) => {
-        
+                        TurretRenderingHints::Trapezoidal(angle) => {
+                            context.rotate(angle);
+
+                            let height = length;
+                            let bottom_width = width;
+                            let top_width = width * 2.0;
+            
+                            context.save();
+            
+                            context.begin_path();
+                            context.move_to(0.0, -bottom_width / 2.0);
+                            context.line_to(height, -top_width / 2.0);
+                            context.line_to(height, top_width / 2.0);
+                            context.line_to(0.0, bottom_width / 2.0);
+                            context.line_to(0.0, -bottom_width / 2.0);
+            
+                            context.fill();
+                            context.stroke();
+                            context.restore();
+                        },
+                        TurretRenderingHints::Trapper => {
+                            context.fill_rect(0.0, -width / 2.0, length, width);
+                            context.stroke_rect(0.0, -width / 2.0, length, width);
+
+                            context.translate(36.0 * size_factor, 0.0);
+
+                            let height = 12.0 * size_factor;
+                            let bottom_width = 24.0 * size_factor;
+                            let top_width = width * 2.0;
+            
+                            context.save();
+            
+                            context.begin_path();
+                            context.move_to(0.0, -bottom_width / 2.0);
+                            context.line_to(height, -top_width / 2.0);
+                            context.line_to(height, top_width / 2.0);
+                            context.line_to(0.0, bottom_width / 2.0);
+                            context.line_to(0.0, -bottom_width / 2.0);
+            
+                            context.fill();
+                            context.stroke();
+                            context.restore();
                         }
                     }
                 }

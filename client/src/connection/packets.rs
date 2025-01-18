@@ -1,5 +1,5 @@
 use gloo::console::console;
-use shared::{connection::packets::ServerboundPackets, game::entity::InputFlags, utils::{codec::BinaryCodec, consts::ARENA_SIZE, vec2::Vector2D}};
+use shared::{connection::packets::ServerboundPackets, game::entity::{InputFlags, Notification}, utils::{codec::BinaryCodec, color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
 
 use crate::{game::entity::base::{Entity, HealthState}, world::{get_world, World}};
 
@@ -70,4 +70,23 @@ pub fn handle_update_packet(
     }
 
     world.game.surroundings.retain(|id, _| !deletion_ids.contains(id));
+}
+
+pub fn handle_notification_packet(
+    world: &mut World,
+    mut codec: BinaryCodec
+) {
+    let length = codec.decode_varuint().unwrap();
+    for _ in 0..length {
+        let message = codec.decode_string().unwrap();
+        let (r, g, b) = (codec.decode_varuint().unwrap(), codec.decode_varuint().unwrap(), codec.decode_varuint().unwrap());
+        let lifetime = codec.decode_varuint().unwrap();
+
+        world.game.self_entity.display.notifications.push(Notification {
+            message,
+            color: Color(r as u8, g as u8, b as u8),
+            lifetime,
+            ..Default::default()
+        });
+    }
 }

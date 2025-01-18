@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use derive_new::new as New;
 use gloo::console::console;
 use gloo_utils::window;
-use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, Notification, Ownership, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, theme::{BAR_BACKGROUND, HIGH_HEALTH_BAR, LOW_HEALTH_BAR, MEDIUM_HEALTH_BAR}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, prettify_score, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, Notification, Ownership, UpgradeStats, BASE_TANK_RADIUS}, theme::{BAR_BACKGROUND, HIGH_HEALTH_BAR, LOW_HEALTH_BAR, MEDIUM_HEALTH_BAR}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, prettify_score, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use strum::EnumCount;
 use ui::{canvas2d::Canvas2d, core::UiElement, elements::tank::Tank};
 
@@ -46,7 +46,7 @@ pub struct DisplayComponent {
     pub stat_investments: [usize; UpgradeStats::COUNT],
     pub available_stat_points: usize,
     pub should_display_stats: bool,
-    pub upgrades: TankUpgrades,
+    pub upgrades: Vec<i32>,
     pub notifications: Vec<Notification>,
     pub kills: usize,
     
@@ -56,8 +56,12 @@ pub struct DisplayComponent {
     pub entity_type: EntityType,
     pub body_identity: BodyIdentity,
     pub turret_identity: TurretStructure,
+    pub turret_lengths: Vec<Interpolatable<f32>>,
+    pub turret_index: usize,
     pub owners: Ownership,
     pub radius: Interpolatable<f32>,
+    pub damage_blend: Interpolatable<f32>,
+    pub invincible: bool,
 
     pub z_index: isize
 }
@@ -73,12 +77,13 @@ pub enum HealthState {
 #[derive(Debug, Clone, New)]
 pub struct TimeComponent {
     pub ticks: u64,
+    pub server_ticks: u64,
     pub last_tick: f64
 }
 
 impl Default for TimeComponent {
     fn default() -> TimeComponent {
-        TimeComponent { ticks: 0, last_tick: 0.0 }
+        TimeComponent { ticks: 0, server_ticks: 0, last_tick: 0.0 }
     }
 }
 
@@ -87,7 +92,7 @@ pub struct ConnectionComponent {
     pub outgoing_packets: Vec<BinaryCodec>
 }
 
-#[derive(Debug, Default, Clone, New)]
+#[derive(Debug, Default, Clone)]
 pub struct StatsComponent {
     pub has_spawned: bool,
     pub life_timestamps: (f64, f64),
@@ -128,15 +133,16 @@ impl Entity {
         entity.display.entity_type = (codec.decode_varuint().unwrap() as u8).try_into().unwrap();
         match entity.display.entity_type {
             EntityType::Player => entity.parse_tank_census(codec, is_self),
-            EntityType::Projectile => entity.parse_projectile_census(codec, is_self),
+            EntityType::Bullet | EntityType::Drone | EntityType::Trap => entity.parse_projectile_census(codec, is_self),
         }
 
         if is_self {
             if entity.stats.health.target > 0.0 {
                 entity.display.score.direction = 1.0;
-                world.renderer.phase = GamePhase::Game;
+                world.renderer.change_phase(GamePhase::Game);
             } else if (entity.stats.health.target < 0.0 || fuzzy_compare!(entity.stats.health.target, 0.0, 1e-1))
                 && entity.stats.has_spawned
+                && !matches!(world.renderer.phase, GamePhase::Home(_))
             {
                 if entity.display.score.direction == 1.0 {
                     entity.display.score.direction = -1.0;
@@ -144,7 +150,7 @@ impl Entity {
                     entity.stats.life_timestamps.1 = window().performance().unwrap().now();
                 }
 
-                world.renderer.phase = GamePhase::Death;
+                world.renderer.change_phase(GamePhase::Death);
             }
         }
 
@@ -153,26 +159,61 @@ impl Entity {
 
     pub fn render(world: &mut World, id: u32, dt: f32) {
         let self_id = world.game.self_entity.id;
-        let mut entity = if id == self_id {
-            &mut world.game.self_entity
+        if id == self_id {
+            world.game.self_entity.render_tank(&mut world.renderer.canvas2d, true, dt);
         } else {
-            world.game.surroundings.get_mut(&id).unwrap()
-        };
+            let (shooter, turret_idx) = {
+                let mut shooter = None;
+                let mut turret_idx = None;
 
-        let is_friendly = id == self_id || entity.display.owners.has_owner(self_id);
-        match entity.display.entity_type {
-            EntityType::Player => entity.render_tank(&mut world.renderer.canvas2d, is_friendly, dt),
-            EntityType::Projectile => entity.render_projectile(&mut world.renderer.canvas2d, is_friendly, dt),
+                let entity = world.game.surroundings.get_mut(&id).unwrap();
+                let is_friendly = id == self_id || entity.display.owners.has_owner(self_id);
+                match entity.display.entity_type {
+                    EntityType::Player => entity.render_tank(&mut world.renderer.canvas2d, is_friendly, dt),
+                    EntityType::Bullet | EntityType::Drone | EntityType::Trap => {
+                        if entity.time.server_ticks == 0 || entity.time.server_ticks == 1 {
+                            turret_idx = Some(entity.display.turret_index);
+    
+                            if is_friendly {
+                                world.game.self_entity.display.turret_lengths[turret_idx.unwrap()].target = 0.75;
+                            } else {
+                                shooter = entity.display.owners.deep;
+                            }
+                        }
+        
+                        entity.render_projectile(&mut world.renderer.canvas2d, is_friendly, dt);
+                    },
+                }
+
+                (shooter, turret_idx)
+            };
+
+            if let Some(shooter) = shooter && let Some(entity) = world.game.surroundings.get_mut(&shooter.get()) {
+                entity.display.turret_lengths[turret_idx.unwrap()].target = 0.75;
+            }
         }
     }
 
     pub fn compute_body_fill(&self, is_friendly: bool) -> (Color, Color) {
-        let fill = if is_friendly { PLAYER_FILL } else { ENEMY_FILL };
-        let stroke = if is_friendly { PLAYER_STROKE } else { ENEMY_STROKE };
+        let mut fill = Color::blend_colors(
+            if is_friendly { PLAYER_FILL } else { ENEMY_FILL }, 
+            Color::RED, 
+            self.display.damage_blend.value
+        );
+
+        let mut stroke = Color::blend_colors(
+            if is_friendly { PLAYER_STROKE } else { ENEMY_STROKE }, 
+            Color::RED, 
+            self.display.damage_blend.value
+        );
+
+        if self.display.invincible && self.time.ticks % 20 > 10 {
+            fill.blend_with(0.3, Color::WHITE);
+            stroke.blend_with(0.3, Color::WHITE);
+        }
 
         (fill, stroke)
     }
-
 
     pub fn render_health_bar(world: &mut World, id: u32, dt: f32) {
         let mut entity = if id == world.game.self_entity.id {
@@ -181,12 +222,12 @@ impl Entity {
             world.game.surroundings.get_mut(&id).unwrap()
         };
 
-        if matches!(entity.display.entity_type, EntityType::Projectile) { return; }
+        if entity.display.entity_type.is_projectile() { return; }
         if entity.stats.health_state != HealthState::Alive { return; }
 
         let ratio = entity.stats.health.value / entity.stats.max_health.value;
         entity.stats.health_bar_opacity.target = if ratio > 0.99 { 0.0 } else { 1.0 };
-        entity.stats.health_bar_opacity.value = lerp!(entity.stats.health_bar_opacity.value, entity.stats.health_bar_opacity.target, 0.2);
+        entity.stats.health_bar_opacity.value = lerp!(entity.stats.health_bar_opacity.value, entity.stats.health_bar_opacity.target, 0.2 * dt);
 
         let color = if ratio > 0.6 {
             Color::blend_colors(MEDIUM_HEALTH_BAR, HIGH_HEALTH_BAR, (ratio - 0.6) / 0.4)
@@ -278,6 +319,14 @@ impl Entity {
     pub fn lerp_all(&mut self, dt: f32, is_self: bool) {
         let factor = if self.time.ticks <= 1 { 1.0 } else { 0.2 * dt };
 
+        if !is_self {
+            self.physics.angle.value = lerp_angle!(
+                self.physics.angle.value, 
+                self.physics.angle.target, 
+                factor
+            );
+        }
+
         self.physics.position.value.lerp_towards(
             self.physics.position.target, 
             factor
@@ -287,14 +336,6 @@ impl Entity {
             self.physics.velocity.target, 
             factor
         );
-
-        if !is_self {
-            self.physics.angle.value = lerp_angle!(
-                self.physics.angle.value, 
-                self.physics.angle.target, 
-                factor
-            );
-        }
 
         self.display.score.value = lerp!(
             self.display.score.value, 
@@ -335,7 +376,7 @@ impl Entity {
         self.display.fov.value = lerp!(
             self.display.fov.value, 
             self.display.fov.target, 
-            factor
+            factor / 2.0
         );
 
         self.display.radius.value = lerp!(
@@ -343,5 +384,22 @@ impl Entity {
             self.display.radius.target, 
             factor
         );
+
+        self.display.damage_blend.value = lerp!(
+            self.display.damage_blend.value,
+            self.display.damage_blend.target,
+            factor
+        );
+
+        if fuzzy_compare!(self.display.damage_blend.value, self.display.damage_blend.target, 1e-1) {
+            self.display.damage_blend.target = 0.0;
+        }
+
+        for length in self.display.turret_lengths.iter_mut() {
+            length.value = lerp!(length.value, length.target, factor);
+            if fuzzy_compare!(length.value, length.target, 1e-1) {
+                length.target = 1.0;
+            }
+        }
     }
 }

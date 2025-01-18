@@ -1,12 +1,12 @@
-use shared::{connection::packets::{CensusProperties, Inputs}, game::{body::BodyIdentity, entity::{get_min_score_from_level, Ownership, UpgradeStats, BASE_TANK_RADIUS, FICTITIOUS_TANK_RADIUS}, turret::TurretStructure}, rand, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION, MAX_LEVEL}, vec2::Vector2D}};
+use shared::{connection::packets::{CensusProperties, Inputs}, game::{body::BodyIdentity, entity::{get_min_score_from_level, EntityType, Ownership, UpgradeStats, BASE_TANK_RADIUS, FICTITIOUS_TANK_RADIUS}, turret::TurretStructure}, rand, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION, MAX_LEVEL, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 use rand::Rng;
-use crate::{connection::packets, game::state::EntityDataStructure};
+use crate::{connection::packets, game::{collision::shg::SpatialHashGrid, state::EntityDataStructure}, server::SPAWN_INVINCIBILITY_TIME};
 
-use super::base::{AliveState, Entity, EntityConstruction};
+use super::{ai::AI, base::{AliveState, Entity, EntityConstruction}};
 
 impl Entity {
-    pub fn tick_tank(&mut self, entities: &EntityDataStructure) -> Vec<EntityConstruction> {
+    pub fn tick_tank(&mut self, entities: &EntityDataStructure, shg: &SpatialHashGrid) -> Vec<EntityConstruction> {
         let mut constructions = vec![];
 
         if self.stats.alive == AliveState::Alive && self.stats.health <= 0.0 {
@@ -15,8 +15,32 @@ impl Entity {
             // regeneration maybe
         }
 
+        let (screen_width, screen_height) = (SCREEN_WIDTH / self.display.fov / 0.9, SCREEN_HEIGHT / self.display.fov / 0.9);
+        let screen_top_left = self.physics.position - Vector2D::new(screen_width / 2.0, screen_height / 2.0);
+        let screen_bottom_right = self.physics.position + Vector2D::new(screen_width / 2.0, screen_height / 2.0);
+
+        self.display.surroundings = shg.query_rect(self.id, screen_top_left, screen_width, screen_height)
+            .into_iter()
+            .filter(|entity| {
+                if let Some(entity) = entities.get(entity) {
+                    if entity.borrow().display.opacity <= 0.05 {
+                        return false;
+                    }
+
+                    let pos = entity.borrow().physics.position;
+
+                    pos.x >= screen_top_left.x
+                        && pos.x <= screen_bottom_right.x
+                        && pos.y >= screen_top_left.y
+                        && pos.y <= screen_bottom_right.y
+                } else {
+                    false
+                }
+            })
+            .collect();
+
         if self.stats.alive == AliveState::Alive {
-            let (mut movement, mut shooting) = (Vector2D::ZERO, false);
+            let mut movement = Vector2D::ZERO;
 
             for flag in Inputs::iter() {
                 if self.physics.inputs.is_set(flag) {
@@ -25,18 +49,17 @@ impl Entity {
                         Inputs::Down => movement.y += 1.0,
                         Inputs::Left => movement.x -= 1.0,
                         Inputs::Right => movement.x += 1.0,
-                        Inputs::Shoot => shooting = true,
-                        Inputs::LevelUp => {
-                            let new_level = self.display.level + 1;
-                            self.update_level(new_level);
-                            
-                            self.display.score = get_min_score_from_level(self.display.level).max(self.display.score);
-                        }
+                        Inputs::LevelUp => self.display.score = get_min_score_from_level(self.display.level + 1).max(self.display.score),
+                        _ => ()
                     }
                 }
             }
 
-            constructions.append(&mut self.handle_shooting(shooting));
+            if movement != Vector2D::ZERO {
+                self.physics.has_moved = true;
+            }
+
+            constructions.append(&mut self.handle_shooting(self.is_shooting()));
     
             movement.set_magnitude(self.stats.speed);
             self.physics.velocity += movement;
@@ -47,24 +70,40 @@ impl Entity {
             self.physics.position.constrain(0.0, ARENA_SIZE);
     
             self.update_display();
+        } else if let Some(killer) = self.display.killer && let Some(entity) = entities.get(&killer.into()) {
+            let entity = entity.borrow_mut();
+            self.physics.position = entity.physics.position;
         }
 
         let update_packet = packets::form_update_packet(self, entities);
+        let notifications_packet = packets::form_notification_packet(self);
+
         self.connection.outgoing_packets.push(update_packet);
+        self.connection.outgoing_packets.push(notifications_packet);
 
         constructions
+    }
+
+    pub fn is_shooting(&self) -> bool {
+        self.physics.inputs.is_set(Inputs::Shoot)
     }
 
     fn handle_shooting(&mut self, shooting: bool) -> Vec<EntityConstruction> {
         let mut constructions = vec![];
 
         for (i, turret) in self.display.turret_identity.turrets.iter_mut().enumerate() {
-            if !turret.can_fire(self.stats.reload, shooting) { continue; }
+            let projectile_type = turret.projectile_identity.projectile_type;
+
+            if !turret.can_fire(self.stats.reload, shooting || turret.force_shoot) { continue; }
+
+            if turret.max_projectiles != -1 && turret.projectiles_spawned >= turret.max_projectiles { continue; }
+            turret.projectiles_spawned += 1;
 
             let base_speed = (20.0 
                 + (3.0 * self.display.stat_investments[UpgradeStats::ProjectileSpeed as usize] as f32))
                 * turret.projectile_identity.speed;
-            let initial_speed = base_speed + 30.0 - rand!(0.0, 1.0) * turret.projectile_identity.scatter_rate;
+
+            let initial_speed = base_speed + 20.0 - rand!(0.0, 1.0) * turret.projectile_identity.scatter_rate;
 
             let penetration = (1.5 * self.display.stat_investments[UpgradeStats::ProjectilePenetration as usize] as f32 + 2.0)
                 * turret.projectile_identity.health;
@@ -76,7 +115,7 @@ impl Entity {
             let projectile_angle = self.physics.angle + turret.angle + (std::f32::consts::PI / 180.0)
                 * turret.projectile_identity.scatter_rate
                 * (rand!(0.0, 1.0) - 0.5)
-                * 10.0;
+                * 5.0;
 
             let push_factor = ((7.0 / 3.0) + self.display.stat_investments[UpgradeStats::ProjectileDamage as usize] as f32) 
                 * turret.projectile_identity.damage 
@@ -84,21 +123,39 @@ impl Entity {
 
             let mut position = self.physics.position;
             position += Vector2D::from_polar(turret.length * (FICTITIOUS_TANK_RADIUS / BASE_TANK_RADIUS) * (self.display.radius / BASE_TANK_RADIUS), projectile_angle);
-            // position -= *Vector2D::from_polar(turret.x_offset * (self.display.radius / BASE_TANK_RADIUS), projectile_angle).swap();
-            position += Vector2D::from_polar(turret.y_offset, projectile_angle);
+            position -= *Vector2D::from_polar(turret.y_offset * (self.display.radius / BASE_TANK_RADIUS), projectile_angle).swap();
+            position += Vector2D::from_polar(turret.x_offset, projectile_angle);
 
             self.physics.velocity -= Vector2D::from_polar(turret.recoil, projectile_angle);
 
             constructions.push(EntityConstruction::ProjectileConstruction {
                 angle: projectile_angle,
-                speed: (base_speed, initial_speed),
+                speed: match projectile_type {
+                    EntityType::Bullet => (base_speed, initial_speed),
+                    EntityType::Drone => (base_speed, base_speed),
+                    EntityType::Trap => (0.0, base_speed),
+                    _ => unreachable!("invalid projectile type")
+                },
                 penetration,
                 damage,
                 radius,
                 position,
-                lifetime: (turret.projectile_identity.lifetime * 72) as isize,
+                lifetime: match projectile_type {
+                    EntityType::Bullet => (turret.projectile_identity.lifetime * 72) as isize,
+                    EntityType::Drone => -1,
+                    EntityType::Trap => (turret.projectile_identity.lifetime * 75) as isize,
+                    _ => unreachable!("invalid projectile type")
+                },
                 owners: Ownership::from_single_owner(self.id),
-                kb_factors: (turret.projectile_identity.absorption_factor, push_factor)
+                turret_idx: i as isize,
+                kb_factors: (turret.projectile_identity.absorption_factor, push_factor),
+                ai: match projectile_type {
+                    EntityType::Bullet => None,
+                    EntityType::Drone => Some(AI::new(self.id, false)),
+                    EntityType::Trap => None,
+                    _ => unreachable!("invalid projectile type")
+                },
+                projectile_type
             });
         }
 
@@ -119,10 +176,17 @@ impl Entity {
             self.display.opacity = self.display.opacity.clamp(0.0, 1.0);
         }
 
+        // Invincibility
+        self.display.invincible = !self.physics.has_moved && (self.time.ticks - self.time.spawn_tick) <= SPAWN_INVINCIBILITY_TIME;
+
         // Upgrade Level
         let mut new_level = self.display.level;
         while new_level < MAX_LEVEL && get_min_score_from_level(new_level + 1) <= self.display.score {
             new_level += 1;
+
+            if new_level < 29 || new_level % 3 == 0 {
+                self.display.available_stat_points += 1;
+            }
         }
         self.update_level(new_level);
         self.check_for_upgrades();
@@ -139,7 +203,11 @@ impl Entity {
         self.stats.max_health = self.display.body_identity.max_health 
             + (2.0 * (self.display.level - 1) as f32)
             + (20.0 * self.display.stat_investments[UpgradeStats::MaxHealth as usize] as f32);
-        self.stats.health = self.stats.max_health * prev_health_ratio;
+        self.stats.health = if self.display.invincible {
+            self.stats.max_health
+        } else {
+            self.stats.max_health * prev_health_ratio
+        };
 
         // Body Damage
         self.stats.damage_per_tick = (self.display.stat_investments[UpgradeStats::BodyDamage as usize] as f32
@@ -167,7 +235,7 @@ impl Entity {
         }
 
         if is_self {
-            codec.encode_varuint(15);
+            codec.encode_varuint(17);
             for property in CensusProperties::iter() {
                 codec.encode_varuint(property.clone() as u64);
     
@@ -180,7 +248,7 @@ impl Entity {
                         codec.encode_f32(self.physics.velocity.x);
                         codec.encode_f32(self.physics.velocity.y);
                     },
-                    CensusProperties::Angle => codec.encode_f32(self.physics.mouse.angle()),
+                    CensusProperties::Angle => codec.encode_f32(self.physics.angle),
                     CensusProperties::Name => codec.encode_string(self.display.name.clone()),
                     CensusProperties::Score => codec.encode_varuint(self.display.score as u64),
                     CensusProperties::Health => codec.encode_f32(self.stats.health),
@@ -210,12 +278,14 @@ impl Entity {
                     CensusProperties::Identity => {
                         codec.encode_varuint(self.display.body_identity.id as u64);
                         codec.encode_varuint(self.display.turret_identity.id as u64);
-                    }
+                    },
+                    CensusProperties::Ticks => codec.encode_varuint(self.time.ticks),
+                    CensusProperties::Invincibility => codec.encode_bool(self.display.invincible),
                     _ => codec.backspace(),
                 }
             }
         } else {
-            codec.encode_varuint(12);
+            codec.encode_varuint(14);
             for property in CensusProperties::iter() {
                 codec.encode_varuint(property.clone() as u64);
     
@@ -228,7 +298,7 @@ impl Entity {
                         codec.encode_f32(self.physics.velocity.x);
                         codec.encode_f32(self.physics.velocity.y);
                     },
-                    CensusProperties::Angle => codec.encode_f32(self.physics.mouse.angle()),
+                    CensusProperties::Angle => codec.encode_f32(self.physics.angle),
                     CensusProperties::Name => codec.encode_string(self.display.name.clone()),
                     CensusProperties::Score => codec.encode_varuint(self.display.score as u64),
                     CensusProperties::Health => codec.encode_f32(self.stats.health),
@@ -240,7 +310,9 @@ impl Entity {
                     CensusProperties::Identity => {
                         codec.encode_varuint(self.display.body_identity.id as u64);
                         codec.encode_varuint(self.display.turret_identity.id as u64);
-                    }
+                    },
+                    CensusProperties::Ticks => codec.encode_varuint(self.time.ticks),
+                    CensusProperties::Invincibility => codec.encode_bool(self.display.invincible),
                     _ => codec.backspace(),
                 }
             }
@@ -274,9 +346,5 @@ impl Entity {
 
         self.display.level = level;
         self.display.radius = BASE_TANK_RADIUS * 1.007_f32.powf((self.display.level - 1) as f32);
-
-        if level < 29 || level % 3 == 0 {
-            self.display.available_stat_points += 1;
-        }
     }
 }

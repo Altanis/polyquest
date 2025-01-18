@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 derive-new = "0.7.0"
+num_enum = "0.7.3"
 rand = "0.8.5"
 strum = "0.26.3"
 strum_macros = "0.26.4"

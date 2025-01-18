@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::{bool, connection::packets::Inputs, fuzzy_compare, game::{body::BodyIdentity, entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, MAX_STAT_INVESTMENT}, theme::{STROKE_INTENSITY, STROKE_SIZE}, turret::TurretStructure}, lerp, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, vec2::Vector2D}};
+use shared::{bool, connection::packets::Inputs, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, MAX_STAT_INVESTMENT}, theme::{STROKE_INTENSITY, STROKE_SIZE}, turret::{TurretIdentityIds, TurretStructure}}, lerp, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect, tank::Tank}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::sound::Sound};
 use rand::Rng;
@@ -113,7 +113,7 @@ impl GamePhase {
             12 => "Good luck.",
             _ => {
                 world.sounds.get_mut_sound("soundtrack_home").play();
-                world.renderer.phase = GamePhase::Home(Box::default());
+                world.renderer.change_phase(GamePhase::Home(Box::default()));
 
                 storage_set!("lore_done", "1");
 
@@ -171,6 +171,7 @@ impl GamePhase {
                         let GamePhase::Lore(phase) = &mut world.renderer.phase else { return; };
 
                         *phase += 1;
+                        world.renderer.body.set_children(vec![]);
                     });
                 }))
             )
@@ -413,7 +414,7 @@ impl GamePhase {
 
     pub fn generate_game_elements(world: &mut World) -> Vec<Box<dyn UiElement>> {
         let mut elements: Vec<Box<dyn UiElement>> = vec![];
-        let dimensions = world.renderer.canvas2d.get_dimensions();
+        let dimensions = world.renderer.canvas2d.get_dimensions() * (1.0 / window().device_pixel_ratio() as f32);
 
         'nametag: {
             let score = world.game.self_entity.display.score.value as usize;
@@ -480,7 +481,7 @@ impl GamePhase {
             let (stat_width, stat_height) = (400.0_f64, 40.0_f64);
             let upgrades_center = Vector2D::new(
                 266.6 + (stat_width / 2.0 + dimensions.x as f64 / 100.0) / 10.0,
-                (dimensions.y as f64 - (UpgradeStats::COUNT as f64 * 50.0) - 70.0)
+                (dimensions.y as f64 - (UpgradeStats::COUNT as f64 * 45.0) - 40.0)
             );
     
             let available_stat_points = world.game.self_entity.display.available_stat_points;
@@ -497,7 +498,7 @@ impl GamePhase {
                         .with_fill(Color::BLACK)
                         .with_stroke(5.0)
                         .with_roundness(5.0)
-                        .with_dimensions(Vector2D::new(stat_width as f32 + 80.0, 75.0 + (UpgradeStats::COUNT as f32 * 50.0)))
+                        .with_dimensions(Vector2D::new(stat_width as f32 + 80.0, 75.0 + (UpgradeStats::COUNT as f32 * 45.0)))
                         .with_opacity(0.2)
                         .with_events(Events::default()
                             .with_deletion_effects(vec![DeletionEffects::Disappear])
@@ -526,7 +527,7 @@ impl GamePhase {
                             .with_id(&format!("upgrade_stat-{}", i))
                             .with_transform(translate!(
                                 266.6,
-                                (upgrades_center.y + 40.0) + (i as f64 * 50.0)
+                                (upgrades_center.y + 40.0) + (i as f64 * 45.0)
                             ))
                             .with_fill(BAR_BACKGROUND)
                             .with_accent(color)
@@ -538,7 +539,7 @@ impl GamePhase {
                                     .with_id(&format!("upgrade_stat_text-{}", i))
                                     .with_text(format!("{}", stat))
                                     .with_fill(Color::WHITE)
-                                    .with_font(26.0)
+                                    .with_font(24.0)
                                     .with_stroke(Color::BLACK)
                                     .with_events(Events::default()
                                         .with_hoverable(false)
@@ -568,10 +569,10 @@ impl GamePhase {
                         Button::new()
                             .with_id(&format!("upgrade-button-{}", i))
                             .with_fill(if available_stat_points > 0 && value < MAX_STAT_INVESTMENT { color } else { Color::SOFT_GRAY })
-                            .with_dimensions(Vector2D::new(45.0, 45.0))
+                            .with_dimensions(Vector2D::new(40.0, 40.0))
                             .with_transform(translate!(
                                 266.6 + stat_width / 2.0 + 32.5,
-                                (upgrades_center.y + 40.0) + (i as f64 * 50.0)
+                                (upgrades_center.y + 40.0) + (i as f64 * 45.0)
                             ))
                             .with_roundness(100.0)
                             .with_stroke((4.5, None))
@@ -619,7 +620,7 @@ impl GamePhase {
                     .with_dimensions(Vector2D::new(50.0, 40.0 + (UpgradeStats::COUNT as f32 * 50.0)))
                     .with_transform(translate!(
                         -10.0,
-                        upgrades_center.y + 200.0
+                        upgrades_center.y + 170.0
                     ))
                     .with_events(Events::default()
                         .with_hover_effects(vec![
@@ -639,184 +640,124 @@ impl GamePhase {
         }
 
         'upgrades: {
-            let has_body_upgrades = !world.game.self_entity.display.upgrades.body.is_empty();
-            let has_turret_upgrades = !world.game.self_entity.display.upgrades.turret.is_empty();
-
             let position: Vector2D<f32> = Vector2D::new(dimensions.x / 70.0, 100.0);
-            let dimensions = Vector2D::new(700.0, 1000.0);
+            let dimensions = Vector2D::new(700.0, 500.0);
 
-            if has_body_upgrades || has_turret_upgrades {
-                elements.push(Box::new(
-                    Rect::new()
-                        .with_id("upgrades_div")
-                        .with_transform(translate!(position.x as f64, position.y as f64))
-                        .with_fill(Color::BLACK)
-                        .with_stroke(10.0)
-                        .with_roundness(5.0)
-                        .with_dimensions(dimensions)
-                        .with_opacity(0.2)
-                        .with_events(Events::default().with_deletion_effects(vec![DeletionEffects::Disappear]))
-                ));
+            if !world.game.self_entity.display.upgrades.is_empty() {
+                // elements.push(Box::new(
+                //     Rect::new()
+                //         .with_id("upgrades_div")
+                //         .with_transform(translate!(position.x as f64, position.y as f64))
+                //         .with_fill(Color::BLACK)
+                //         .with_stroke(10.0)
+                //         .with_roundness(5.0)
+                //         .with_dimensions(dimensions)
+                //         .with_opacity(0.2)
+                //         .with_events(Events::default().with_deletion_effects(vec![DeletionEffects::Disappear]))
+                // ));
 
-                elements.push(Box::new(
-                    Label::new()
-                        .with_id("tank_upgrades_text")
-                        .with_text(format!("{} Upgrades", if has_body_upgrades { "Body" } else { "Weaponry" }))
-                        .with_fill(Color::WHITE)
-                        .with_font(48.0)
-                        .with_stroke(Color::BLACK)
-                        .with_transform(translate!(position.x as f64 + (dimensions.x as f64 / 2.0), position.y as f64 + 48.0 + 20.0))
-                        .with_events(Events::default()
-                            .with_deletion_effects(vec![DeletionEffects::Disappear])
-                        )
-                ));
+                let is_body_upgrades = world.game.self_entity.display.upgrades.contains(&-1);
 
-                if has_body_upgrades {
-                    let turret_structure = world.game.self_entity.display.turret_identity.clone();
-                    for (i, &upgrade) in world.game.self_entity.display.upgrades.body.iter().enumerate() {
-                        let color = UPGRADE_STAT_COLORS[i % UpgradeStats::COUNT];
+                let turret_structure = world.game.self_entity.display.turret_identity.clone();
+                let body_structure = world.game.self_entity.display.body_identity.clone();
 
-                        let upgrade_position = position + Vector2D::new(
-                            (dimensions.x / 2.0) - (if i % 2 == 0 { dimensions.x / 4.0 } else { -dimensions.x / 4.0 }),
-                            (dimensions.y / 5.0) + (150.0 * (i / 2) as f32)
-                        );
-
-                        elements.push(Box::new(
-                            Button::new()
-                                .with_id(&format!("body-button-{}", i))
-                                .with_fill(color)
-                                .with_dimensions(Vector2D::new(200.0, 200.0))
-                                .with_transform(translate!(
-                                    upgrade_position.x as f64,
-                                    upgrade_position.y as f64
-                                ))
-                                .with_roundness(5.0)
-                                .with_stroke((7.5, None))
-                                .with_events(Events::default()
-                                    .with_hoverable(true)
-                                    .with_hover_effects(vec![
-                                        HoverEffects::Inflation(1.1),
-                                        HoverEffects::AdjustBrightness(0.0)
-                                    ])
-                                    .with_deletion_effects(vec![DeletionEffects::Disappear])
-                                    .with_on_click(Box::new(|button| {
-                                        let i = button.get_id()
-                                            .split('-')
-                                            .last()
-                                            .and_then(|s| s.parse::<usize>().ok())
-                                            .unwrap();
-            
-                                        spawn_local(async move {
-                                            let world = get_world();
-                                            world.connection.send_message(form_upgrade_packet(0, i));
-                                        });
-                                    }))
-                                )
-                                .with_children(vec![
-                                    Box::new(
-                                        Tank::new()
-                                            .with_id(&format!("body-button-tank-icon-{}", i))
-                                            .with_transform(translate!(0.0, -5.0))
-                                            .with_radius(40.0)
-                                            .with_body_identity(std::convert::TryInto::<BodyIdentity>::try_into(upgrade).unwrap())
-                                            .with_turret_structure(turret_structure.clone())
-                                            .with_events(Events::default()
-                                                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
-                                                .with_deletion_effects(vec![DeletionEffects::Disappear])
-                                            )                                        
-                                    ),
-                                    Box::new(
-                                        Label::new()
-                                            .with_id(&format!("body-button-text-{}", i))
-                                            .with_text(format!("{}", upgrade))
-                                            .with_fill(Color::WHITE)
-                                            .with_stroke(Color::BLACK)
-                                            .with_font(32.0)
-                                            .with_transform(translate!(0.0, 80.0))
-                                            .with_events(Events::default()
-                                                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
-                                                .with_deletion_effects(vec![DeletionEffects::Disappear])
-                                            )
-                                    )
-                                ])
-                        ));
-
-                        let context = &world.renderer.canvas2d;
-                        context.save();
-                        context.reset_transform();
-                        
-                        context.restore();
+                for (i, &upgrade) in world.game.self_entity.display.upgrades.iter().enumerate() {
+                    if upgrade == -1 {
+                        break;
                     }
-                } else if has_turret_upgrades {
-                    let body_identity = world.game.self_entity.display.body_identity.clone();
-                    for (i, &upgrade) in world.game.self_entity.display.upgrades.turret.iter().enumerate() {
-                        let color = UPGRADE_STAT_COLORS[i % UpgradeStats::COUNT];
 
-                        let upgrade_position = position + Vector2D::new(
-                            (dimensions.x / 2.0) - (if i % 2 == 0 { dimensions.x / 4.0 } else { -dimensions.x / 4.0 }),
-                            (dimensions.y / 5.0) + (150.0 * (i / 2) as f32)
-                        );
+                    let color = Color::blend_colors(
+                        UPGRADE_STAT_COLORS[(i + 3) % UpgradeStats::COUNT], 
+                        Color::BLACK, 
+                        0.05
+                    );
 
-                        elements.push(Box::new(
-                            Button::new()
-                                .with_id(&format!("weapon-button-{}", i))
-                                .with_fill(color)
-                                .with_dimensions(Vector2D::new(200.0, 200.0))
-                                .with_transform(translate!(
-                                    upgrade_position.x as f64,
-                                    upgrade_position.y as f64
-                                ))
-                                .with_roundness(5.0)
-                                .with_stroke((7.5, None))
-                                .with_events(Events::default()
-                                    .with_hoverable(true)
-                                    .with_hover_effects(vec![
-                                        HoverEffects::Inflation(1.1),
-                                        HoverEffects::AdjustBrightness(0.0)
-                                    ])
-                                    .with_deletion_effects(vec![DeletionEffects::Disappear])
-                                    .with_on_click(Box::new(|button| {
-                                        let i = button.get_id()
-                                            .split('-')
-                                            .last()
-                                            .and_then(|s| s.parse::<usize>().ok())
-                                            .unwrap();
-            
-                                        spawn_local(async move {
-                                            let world = get_world();
-                                            world.connection.send_message(form_upgrade_packet(1, i));
-                                        });
-                                    }))
-                                )
-                                .with_children(vec![
-                                    Box::new(
-                                        Tank::new()
-                                            .with_id(&format!("weapon-button-tank-icon-{}", i))
-                                            .with_transform(translate!(0.0, -5.0))
-                                            .with_radius(40.0)
-                                            .with_body_identity(body_identity.clone())
-                                            .with_turret_structure(std::convert::TryInto::<TurretStructure>::try_into(upgrade).unwrap())
-                                            .with_events(Events::default()
-                                                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
-                                                .with_deletion_effects(vec![DeletionEffects::Disappear])
-                                            )                                        
-                                    ),
-                                    Box::new(
-                                        Label::new()
-                                            .with_id(&format!("weapon-button-text-{}", i))
-                                            .with_text(format!("{}", upgrade))
-                                            .with_fill(Color::WHITE)
-                                            .with_stroke(Color::BLACK)
-                                            .with_font(32.0)
-                                            .with_transform(translate!(0.0, 80.0))
-                                            .with_events(Events::default()
-                                                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
-                                                .with_deletion_effects(vec![DeletionEffects::Disappear])
-                                            )
-                                    )
+                    let upgrade_position = position + Vector2D::new(
+                        75.0 + (i % 3) as f32 * 200.0,
+                        75.0 + (200.0 * (i / 3) as f32)
+                    );
+
+                    elements.push(Box::new(
+                        Button::new()
+                            .with_id(&format!("{}-upgrade-button-{}", if is_body_upgrades { "body" } else { "turret" }, i))
+                            .with_fill(color)
+                            .with_dimensions(Vector2D::new(175.0, 175.0))
+                            .with_transform(translate!(
+                                upgrade_position.x as f64,
+                                upgrade_position.y as f64
+                            ))
+                            .with_roundness(1.0)
+                            .with_stroke((7.5, Some(Color(85, 85, 85))))
+                            .with_events(Events::default()
+                                .with_hoverable(true)
+                                .with_hover_effects(vec![
+                                    HoverEffects::Inflation(1.1),
+                                    HoverEffects::AdjustBrightness(0.0)
                                 ])
-                        ));
-                    }
+                                .with_deletion_effects(vec![DeletionEffects::Disappear])
+                                .with_on_click(Box::new(|button| {
+                                    let i = button.get_id()
+                                        .split('-')
+                                        .last()
+                                        .and_then(|s| s.parse::<usize>().ok())
+                                        .unwrap();
+
+                                    let upgrade_type = if button.get_id().split('-').next().unwrap() == "body" {
+                                        0
+                                    } else {
+                                        1
+                                    };
+
+                                    spawn_local(async move {
+                                        let world = get_world();
+                                        world.connection.send_message(form_upgrade_packet(upgrade_type, i));
+                                    });
+                                }))
+                            )
+                            .with_children(vec![
+                                Box::new(
+                                    Tank::new()
+                                        .with_id(&format!("upgrade-tank-icon-{}", i))
+                                        .with_transform(translate!(0.0, -5.0))
+                                        .with_radius(35.0)
+                                        .with_body_identity(if is_body_upgrades {
+                                            std::convert::TryInto::<BodyIdentity>::try_into(
+                                                std::convert::TryInto::<BodyIdentityIds>::try_into(upgrade as usize).unwrap()
+                                            ).unwrap()
+                                        } else {
+                                            body_structure.clone()
+                                        })
+                                        .with_turret_structure(if is_body_upgrades {
+                                            turret_structure.clone()
+                                        } else {
+                                            std::convert::TryInto::<TurretStructure>::try_into(
+                                                std::convert::TryInto::<TurretIdentityIds>::try_into(upgrade as usize).unwrap()
+                                            ).unwrap()
+                                        })
+                                        .with_events(Events::default()
+                                            .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                            .with_deletion_effects(vec![DeletionEffects::Disappear])
+                                        )                                        
+                                ),
+                                Box::new(
+                                    Label::new()
+                                        .with_id(&format!("body-button-text-{}", i))
+                                        .with_text(if is_body_upgrades {
+                                            format!("{}", std::convert::TryInto::<BodyIdentityIds>::try_into(upgrade as usize).unwrap())
+                                        } else {
+                                            format!("{}", std::convert::TryInto::<TurretIdentityIds>::try_into(upgrade as usize).unwrap())
+                                        })
+                                        .with_fill(Color::WHITE)
+                                        .with_stroke(Color::BLACK)
+                                        .with_font(28.0)
+                                        .with_transform(translate!(0.0, 175.0 / 2.0 - 10.0))
+                                        .with_events(Events::default()
+                                            .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                            .with_deletion_effects(vec![DeletionEffects::Disappear])
+                                        )
+                                )
+                            ])
+                    ));
                 }
             }
         }
@@ -824,20 +765,19 @@ impl GamePhase {
         elements
     }
 
-    pub fn render_game(world: &mut World, delta_average: f64, is_dead: bool) {
+    pub fn render_game(world: &mut World, delta_average: f64, is_dead: bool, dt: f32) {
         world.renderer.canvas2d.fill_style(OUTBOUNDS_FILL);
         world.renderer.canvas2d.fill_rect(0, 0, world.renderer.canvas2d.get_width(), world.renderer.canvas2d.get_height());
 
         world.renderer.canvas2d.save();
 
-        let dt = (delta_average / 16.66).clamp(0.0, 1.0) as f32;
         world.game.self_entity.lerp_all(dt, true);
 
         GamePhase::render_minimap(&mut world.renderer.canvas2d);
 
         world.renderer.canvas2d.save();
 
-        let factor = (world.renderer.canvas2d.get_width() as f32 / 1920.0).min(world.renderer.canvas2d.get_height() as f32 / 1080.0);
+        let factor = window().device_pixel_ratio() as f32;
         let (screen_width, screen_height) = (world.renderer.canvas2d.get_width() as f32 / factor, world.renderer.canvas2d.get_height() as f32 / factor);
 
         world.renderer.canvas2d.translate(world.renderer.canvas2d.get_width() as f32 / 2.0, world.renderer.canvas2d.get_height() as f32 / 2.0);
@@ -873,7 +813,14 @@ impl GamePhase {
         entities.iter().for_each(|&id| Entity::render_health_bar(world, id, dt));
         entities.iter().for_each(|&id| if id != world.game.self_entity.id { Entity::render_nametag(world, id, dt) });
 
+        if world.game.self_entity.stats.health_state == HealthState::Alive {
+            GamePhase::send_packets(world);
+        }
+
         world.renderer.canvas2d.restore();
+        world.renderer.canvas2d.restore();
+
+        world.renderer.canvas2d.save();
 
         world.renderer.backdrop_opacity.target = if is_dead { 0.6 } else { 0.0 };
         world.renderer.backdrop_opacity.value = lerp!(world.renderer.backdrop_opacity.value, world.renderer.backdrop_opacity.target, 0.2 * dt);
@@ -884,11 +831,10 @@ impl GamePhase {
         world.renderer.canvas2d.fill_rect(0, 0, world.renderer.canvas2d.get_width(), world.renderer.canvas2d.get_height());
         world.renderer.canvas2d.restore();
 
-        GamePhase::render_notifications(world);
 
-        if world.game.self_entity.stats.health_state == HealthState::Alive {
-            GamePhase::send_packets(world);
-        }
+        GamePhase::render_notifications(world, dt);
+
+        world.renderer.canvas2d.restore();
     }
 
     fn send_packets(world: &mut World) {
@@ -896,9 +842,13 @@ impl GamePhase {
             world.game.self_entity.physics.inputs.set_flag(Inputs::Shoot);
         }
 
+        let mut mouse = world.game.self_entity.physics.mouse + (world.renderer.canvas2d.get_dimensions() * (1.0 / 2.0));
+        let inverse_transform = world.renderer.canvas2d.get_transform().get_inverse();
+        inverse_transform.transform_point(&mut mouse);
+
         world.connection.send_message(form_input_packet(
             world.game.self_entity.physics.inputs, 
-            world.game.self_entity.physics.mouse
+            mouse
         ));
     }
 
@@ -929,7 +879,7 @@ impl GamePhase {
         context.restore();
     }
 
-    fn render_notifications(world: &mut World) {
+    fn render_notifications(world: &mut World, dt: f32) {
         let length = world.game.self_entity.display.notifications.len();
         let mut deletions = vec![];
 
@@ -960,8 +910,8 @@ impl GamePhase {
                 }
             }
 
-            notif.opacity.value = lerp!(notif.opacity.value, notif.opacity.target, 0.2);
-            notif.position.value.lerp_towards(notif.position.target, 0.2);
+            notif.opacity.value = lerp!(notif.opacity.value, notif.opacity.target, 0.2 * dt);
+            notif.position.value.lerp_towards(notif.position.target, 0.2 * dt);
 
             let context = &mut world.renderer.canvas2d;
             
@@ -1014,7 +964,7 @@ impl GamePhase {
     }
 
     pub fn generate_death_elements(world: &mut World) -> Vec<Box<dyn UiElement>> {
-        let dimensions = world.renderer.canvas2d.get_dimensions();
+        let dimensions = world.renderer.canvas2d.get_dimensions() * (1.0 / window().device_pixel_ratio() as f32);
         let mut elements: Vec<Box<dyn UiElement>> = vec![
             Box::new(
                 Label::new()
@@ -1103,17 +1053,6 @@ impl GamePhase {
                     .with_align("center")
             ),
             Box::new(
-                Label::new()
-                    .with_id("enter_press")
-                    .with_text("Press enter to continue...".to_string())
-                    .with_fill(Color::WHITE)
-                    .with_font(24.0)
-                    .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 + 120.0))
-                    .with_events(Events::default().with_hoverable(false))
-                    .with_align("center")
-            ),
-            Box::new(
                 Button::new()
                     .with_id("start_button")
                     .with_fill(Color::GREEN)
@@ -1126,12 +1065,14 @@ impl GamePhase {
                         ])
                         .with_on_click(Box::new(|_| {
                             spawn_local(async {
+                                let mut world = get_world();
+                                world.renderer.change_phase(GamePhase::Home(Box::default()));
                             });
                         }))
                     )
                     .with_children(vec![Box::new(
                         Label::new()
-                            .with_id("continue_text")
+                            .with_id("cont_text")
                             .with_text("Continue".to_string())
                             .with_fill(Color::WHITE)
                             .with_font(32.0)

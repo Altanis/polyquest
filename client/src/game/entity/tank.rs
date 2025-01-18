@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use derive_new::new as New;
 use gloo::console::console;
 use gloo_utils::window;
-use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, UpgradeStats, BASE_TANK_RADIUS}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use strum::EnumCount;
 use ui::{canvas2d::Canvas2d, core::UiElement, elements::tank::Tank};
 
@@ -14,8 +14,9 @@ use super::base::{Entity, HealthState};
 
 impl Entity {
     pub fn parse_tank_census(&mut self, codec: &mut BinaryCodec, is_self: bool) {
-        let properties = codec.decode_varuint().unwrap();
+        self.display.z_index = 1;
 
+        let properties = codec.decode_varuint().unwrap();
         for _ in 0..properties {
             let property: CensusProperties = (codec.decode_varuint().unwrap() as u8).try_into().unwrap();
 
@@ -43,6 +44,9 @@ impl Entity {
                 CensusProperties::Health => {
                     let old_state = self.stats.health_state;
                     let health = codec.decode_f32().unwrap();
+                    if health < self.stats.health.target {
+                        self.display.damage_blend.target = 0.9;
+                    }
 
                     self.stats.health.target = health;
 
@@ -67,17 +71,20 @@ impl Entity {
                     }
                 },
                 CensusProperties::Upgrades => {
-                    self.display.upgrades.body.clear();
-                    self.display.upgrades.turret.clear();
+                    self.display.upgrades.clear();
 
                     let body_length = codec.decode_varuint().unwrap() as usize;
                     for _ in 0..body_length {
-                        self.display.upgrades.body.push((codec.decode_varuint().unwrap() as usize).try_into().unwrap());
+                        self.display.upgrades.push(codec.decode_varuint().unwrap() as i32);
+                    }
+
+                    if body_length != 0 {
+                        self.display.upgrades.push(-1);
                     }
 
                     let turret_length = codec.decode_varuint().unwrap() as usize;
                     for _ in 0..turret_length {
-                        self.display.upgrades.turret.push((codec.decode_varuint().unwrap() as usize).try_into().unwrap());
+                        self.display.upgrades.push(codec.decode_varuint().unwrap() as i32);
                     }
                 },
                 CensusProperties::Opacity => {
@@ -94,14 +101,18 @@ impl Entity {
 
                     let turret_identity_id: TurretIdentityIds = (codec.decode_varuint().unwrap() as usize).try_into().unwrap();
                     self.display.turret_identity = turret_identity_id.try_into().unwrap();
+
+                    self.display.turret_lengths.resize(self.display.turret_identity.turrets.len(), Interpolatable::new(1.0));
                 },
+                CensusProperties::Ticks => self.time.server_ticks = codec.decode_varuint().unwrap(),
+                CensusProperties::Invincibility => self.display.invincible = codec.decode_bool().unwrap(),
                 _ => {}
             }
         }
     }
 
     fn render_tank_turrets(&self, context: &mut Canvas2d, is_self: bool) {
-        Tank::render_turrets(context, self.display.radius.value, &self.display.turret_identity);
+        Tank::render_turrets(context, self.display.radius.value, &self.display.turret_identity, &self.display.turret_lengths);
     }
 
     fn render_tank_body(&self, context: &mut Canvas2d, is_self: bool) {

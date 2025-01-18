@@ -168,6 +168,13 @@ impl Transform {
         self.matrix = self.matrix.multiply(&transform.matrix);
     }
 
+    pub fn get_inverse(&self) -> Transform {
+        Transform::new(
+            self.matrix.inverse(),
+            self.generate_translation.clone_box()
+        )
+    }
+
     pub fn lerp_towards(&self, transform: &Transform, factor: f32) {
         let a = self.a() + (transform.a() - self.a()) * factor as f64;
         let b = self.b() + (transform.b() - self.b()) * factor as f64;
@@ -213,7 +220,7 @@ impl Canvas2d {
             ctx
         };
 
-        canvas.resize(&window());
+        canvas.resize();
 
         canvas
     }
@@ -254,9 +261,13 @@ impl Canvas2d {
         self.ctx.clear_rect(0.0, 0.0, self.canvas.width() as f64, self.canvas.height() as f64);
     }
 
-    pub fn resize(&self, window: &Window) {
-        self.canvas.set_width((window.inner_width().unwrap().as_f64().unwrap() * window.device_pixel_ratio()) as u32);
-        self.canvas.set_height((window.inner_height().unwrap().as_f64().unwrap() * window.device_pixel_ratio()) as u32);
+    pub fn global_composite_operation(&self, operation: &str) {
+        let _ = self.ctx.set_global_composite_operation(operation);
+    }
+
+    pub fn resize(&self) {
+        self.canvas.set_width((window().inner_width().unwrap().as_f64().unwrap() * window().device_pixel_ratio()) as u32);
+        self.canvas.set_height((window().inner_height().unwrap().as_f64().unwrap() * window().device_pixel_ratio()) as u32);
     }
 
     pub fn fill(&self) {
@@ -377,6 +388,23 @@ impl Canvas2d {
         self.ctx.line_to(-radius * 0.587785252292473, radius * 0.8090169943749475);
         self.ctx.line_to(-radius * 0.9510565162951536, -radius * 0.30901699437494734);
         self.ctx.close_path();
+    }
+
+    pub fn begin_star(&self, points: u32, outer_radius: f32, inner_radius: f32) {
+        let step = std::f32::consts::PI / points as f32;
+        let mut angle = std::f32::consts::PI / 2.0 * 3.0;
+
+        self.begin_path();
+        for _ in 0..points {
+            let outer = Vector2D::from_polar(outer_radius, angle);
+            self.line_to(outer.x, outer.y);
+            angle += step;
+
+            let inner = Vector2D::from_polar(inner_radius, angle);
+            self.line_to(inner.x, inner.y);
+            angle += step;
+        }
+        self.close_path();
     }
 
     pub fn translate<T: Into<f64>>(&self, tx: T, ty: T) {

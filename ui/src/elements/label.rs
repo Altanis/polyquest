@@ -217,7 +217,7 @@ impl UiElement for Label {
             context.set_miter_limit(2.0);
             context.fill_style(self.fill);
             context.set_font(&format!("bold {}px {}", self.font.value as u32, font));
-            context.set_text_align(&self.align);
+            context.set_text_align(self.align);
     
             if stroke_size != 0.0 {
                 context.stroke_style(self.stroke.unwrap());
@@ -271,7 +271,7 @@ impl UiElement for Label {
     }
 
     fn has_animation_state(&self) -> bool {
-        self.is_animating
+        self.is_animating || matches!(self.effects, Some(TextEffects::Typewriter(..)))
     }
 }
 

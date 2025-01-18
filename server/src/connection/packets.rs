@@ -1,4 +1,4 @@
-use shared::{connection::packets::ClientboundPackets, game::{body::{get_body_base_identity, BodyIdentity}, entity::{InputFlags, BASE_TANK_RADIUS, MAX_STAT_INVESTMENT}, turret::{get_turret_base_identity, TurretStructure}}, utils::{codec::BinaryCodec, vec2::Vector2D}};
+use shared::{connection::packets::ClientboundPackets, game::{body::BodyIdentity, entity::{get_min_score_from_level, InputFlags, MAX_STAT_INVESTMENT}, turret::TurretStructure}, utils::{codec::BinaryCodec, consts::{SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use crate::{game::{entity::base::{AliveState, Entity}, state::EntityDataStructure}, server::ServerGuard};
 
 pub fn handle_spawn_packet(
@@ -7,31 +7,28 @@ pub fn handle_spawn_packet(
     mut codec: BinaryCodec
 ) -> Result<(), bool> {
     let game_server = full_server.game_server.get_server();
-
     let name = codec.decode_string().ok_or(true)?;
 
+    let random_position = game_server.get_random_position();
     if let Some(mut entity) = game_server.get_entity(id) && entity.stats.alive != AliveState::Alive {
+        let old_level = entity.display.level;
+        *entity = Entity::from_id(entity.id);
+
+        entity.physics.position = random_position;
         entity.display.name = name;
         entity.stats.alive = AliveState::Alive;
-        // TODO(Altanis): Hacky workaround.
-        // entity.stats.health = 1.0;
-        // entity.stats.max_health = 1.0;
     
-        entity.display.radius = BASE_TANK_RADIUS;
-        entity.display.body_identity = get_body_base_identity();
-        entity.display.turret_identity = get_turret_base_identity();
-        entity.physics.absorption_factor = entity.display.body_identity.absorption_factor;
         entity.stats.health = entity.display.body_identity.max_health;
         entity.stats.max_health = entity.display.body_identity.max_health;
 
-        entity.update_level(1); // todo: base it off prev lvl
+        entity.display.score = get_min_score_from_level((old_level / 2).max(1));
     }
 
     Ok(())
 }
 
 pub fn handle_input_packet(
-    full_server: &mut ServerGuard, 
+    full_server: &mut ServerGuard,
     id: u32,
     mut codec: BinaryCodec
 ) -> Result<(), bool> {
@@ -45,8 +42,20 @@ pub fn handle_input_packet(
 
     if let Some(mut entity) = game_server.get_entity(id) && entity.stats.alive == AliveState::Alive {
         entity.physics.inputs = InputFlags::new(flags);
-        entity.physics.mouse = mouse;
-        entity.physics.angle = mouse.angle();
+
+        let (screen_width, screen_height) = (SCREEN_WIDTH / entity.display.fov / 0.9, SCREEN_HEIGHT / entity.display.fov / 0.9);
+        let screen_top_left = entity.physics.position - Vector2D::new(screen_width / 2.0, screen_height / 2.0);
+        let screen_bottom_right = entity.physics.position + Vector2D::new(screen_width / 2.0, screen_height / 2.0);
+
+        let mouse_in_bounds = entity.physics.mouse.x >= screen_top_left.x 
+            && entity.physics.mouse.x <= screen_bottom_right.x
+            && entity.physics.mouse.y >= screen_top_left.y
+            && entity.physics.mouse.y <= screen_bottom_right.y;
+
+        // if mouse_in_bounds {
+            entity.physics.mouse = mouse;
+            entity.physics.angle = (mouse - entity.physics.position).angle();
+        // }
     }
 
     Ok(())
@@ -91,18 +100,18 @@ pub fn handle_upgrade_packet(
         && entity.stats.alive == AliveState::Alive
     {
         if upgrade_type == 0 {
-            let upgrade: BodyIdentity = (*entity.display.upgrades.body.get(upgrade_idx).ok_or(true)?)
-                .try_into().unwrap();
-
-            entity.display.body_identity = upgrade;
-            entity.physics.absorption_factor = entity.display.body_identity.absorption_factor;
-            entity.display.upgrades.body.clear();
+            if let Some(upgrade) = entity.display.upgrades.body.get(upgrade_idx) {
+                let upgrade: BodyIdentity = (*upgrade).try_into().unwrap();
+                entity.display.body_identity = upgrade;
+                entity.physics.absorption_factor = entity.display.body_identity.absorption_factor;
+                entity.display.upgrades.body.clear();
+            }
         } else if upgrade_type == 1 {
-            let upgrade: TurretStructure = (*entity.display.upgrades.turret.get(upgrade_idx).ok_or(true)?)
-                .try_into().unwrap();
-
-            entity.display.turret_identity = upgrade;
-            entity.display.upgrades.turret.clear();
+            if let Some(upgrade) = entity.display.upgrades.turret.get(upgrade_idx) {
+                let upgrade: TurretStructure = (*upgrade).try_into().unwrap();
+                entity.display.turret_identity = upgrade;
+                entity.display.upgrades.turret.clear();
+            }
         }
     }
 
@@ -118,16 +127,38 @@ pub fn form_update_packet(
 
     self_entity.take_census(&mut codec, true);
 
-    let entities_len = entities.iter().filter(|(&id, e)| {
-        id != self_entity.id && e.borrow_mut().stats.alive != AliveState::Uninitialized
-    }).count() as u64;
+    let ids: Vec<u32> = self_entity.display.surroundings.clone().into_iter().filter(|&id| {
+        if id == self_entity.id { return false; }
 
-    codec.encode_varuint(entities_len);
-    for (id, entity) in entities.iter() {
-        if self_entity.id == *id { continue; }
+        if let Some(entity) = entities.get(&id) {
+            entity.borrow_mut().stats.alive != AliveState::Uninitialized
+        } else {
+            false
+        }
+    }).collect();
 
-        let entity = &entity.borrow_mut();
+    codec.encode_varuint(ids.len() as u64);
+    for id in ids.iter() {
+        let entity = &entities.get(id).unwrap().borrow_mut();
         entity.take_census(&mut codec, false);
+    }
+
+    codec
+}
+
+pub fn form_notification_packet(
+    self_entity: &mut Entity
+) -> BinaryCodec {
+    let mut codec = BinaryCodec::new();
+    codec.encode_varuint(ClientboundPackets::Notifications as u64);
+
+    codec.encode_varuint(self_entity.display.notifications.len() as u64);
+    while let Some(notification) = self_entity.display.notifications.pop() {
+        codec.encode_string(notification.message);
+        codec.encode_varuint(notification.color.0 as u64);
+        codec.encode_varuint(notification.color.1 as u64);
+        codec.encode_varuint(notification.color.2 as u64);
+        codec.encode_varuint(notification.lifetime);
     }
 
     codec
