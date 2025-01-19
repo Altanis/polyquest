@@ -1,5 +1,5 @@
-use gloo::{console::console, utils::window};
-use shared::{fuzzy_compare, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use gloo::utils::window;
+use shared::{lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
 
 use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, ElementType, Events, GenerateTranslationScript, HoverEffects, OnClickScript, UiElement}, translate};
@@ -13,7 +13,7 @@ pub struct Modal {
     raw_transform: Transform,
     fill: Color,
     events: Events,
-    dimensions: Interpolatable<Vector2D<f32>>,
+    dimensions: Interpolatable<Vector2D>,
     children: Vec<Box<dyn UiElement>>,
     deletion: bool,
     opacity: Interpolatable<f32>,
@@ -113,14 +113,14 @@ impl UiElement for Modal {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D) -> bool {
         let mut to_delete = false;
 
         context.save();
         context.reset_transform();
         context.fill_style(Color(0, 0, 0));
         context.global_alpha(0.6);
-        context.fill_rect(0, 0, context.get_width(), context.get_height());
+        context.fill_rect(0.0, 0.0, context.get_width() as f32, context.get_height() as f32);
         context.restore();
 
         if !self.deletion && let Some(t) = (self.transform.generate_translation)(dimensions) {
@@ -167,7 +167,7 @@ impl UiElement for Modal {
 
         if self.dimensions.value.partial_eq(self.dimensions.target, 100.0) {
             self.opacity.value = lerp!(self.opacity.value, self.opacity.target, 0.2);
-            let opacity = self.opacity.value as f64;
+            let opacity = self.opacity.value;
 
             for child in self.get_mut_children().iter_mut() {
                 context.save();
@@ -231,7 +231,7 @@ impl Modal {
         self
     }
 
-    pub fn with_dimensions(mut self, dimensions: Vector2D<f32>) -> Modal {
+    pub fn with_dimensions(mut self, dimensions: Vector2D) -> Modal {
         self.dimensions = Interpolatable::new(dimensions);
         self.dimensions.value = Vector2D::ZERO;
 
@@ -257,7 +257,7 @@ impl Modal {
         let close = Button::new()
             .with_fill(Color::RED)
             .with_dimensions(Vector2D::new(50.0, 50.0))
-            .with_transform(translate!(self.dimensions.target.x as f64, 0.0))
+            .with_transform(translate!(self.dimensions.target.x, 0.0))
             .with_events(Events::default()
                 .with_hover_effects(vec![
                     HoverEffects::Inflation(1.1),

@@ -3,27 +3,24 @@ use crate::{fuzzy_compare, lerp, rand};
 use rand::Rng;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
-pub struct Vector2D<T> {
-    pub x: T,
-    pub y: T,
+pub struct Vector2D {
+    pub x: f32,
+    pub y: f32,
 }
 
-impl<T: Copy> Vector2D<T> {
+impl Vector2D {
     /// Constructs a new vector from Cartesian (x, y) coordinates.
-    pub fn new(x: T, y: T) -> Vector2D<T> {
+    pub fn new(x: f32, y: f32) -> Vector2D {
         Vector2D { x, y }
     }
 
     /// Gets a vector from a scalar value.
-    pub fn from_scalar(x: T) -> Vector2D<T> {
+    pub fn from_scalar(x: f32) -> Vector2D {
         Vector2D::new(x, x)
     }
 }
 
-impl<T: Copy> Neg for Vector2D<T>
-where
-    T: Neg<Output = T>,
-{
+impl Neg for Vector2D {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -31,10 +28,7 @@ where
     }
 }
 
-impl<T: Copy> Add for Vector2D<T>
-where
-    T: Add<Output = T>,
-{
+impl Add for Vector2D {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -42,20 +36,14 @@ where
     }
 }
 
-impl<T> AddAssign for Vector2D<T>
-where
-    T: AddAssign,
-{
+impl AddAssign for Vector2D {
     fn add_assign(&mut self, rhs: Self) {
         self.x += rhs.x;
         self.y += rhs.y;
     }
 }
 
-impl<T: Copy> Sub for Vector2D<T>
-where
-    T: Sub<Output = T>,
-{
+impl Sub for Vector2D {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -63,42 +51,33 @@ where
     }
 }
 
-impl<T> SubAssign for Vector2D<T>
-where
-    T: SubAssign,
-{
+impl SubAssign for Vector2D {
     fn sub_assign(&mut self, rhs: Self) {
         self.x -= rhs.x;
         self.y -= rhs.y;
     }
 }
 
-impl<T> Mul<T> for Vector2D<T>
-where
-    T: Mul<Output = T> + Copy,
-{
+impl Mul<f32> for Vector2D {
     type Output = Self;
 
-    fn mul(self, rhs: T) -> Self::Output {
+    fn mul(self, rhs: f32) -> Self::Output {
         Vector2D::new(self.x * rhs, self.y * rhs)
     }
 }
 
-impl<T> MulAssign<T> for Vector2D<T>
-where
-    T: MulAssign + Copy,
-{
-    fn mul_assign(&mut self, rhs: T) {
+impl MulAssign<f32> for Vector2D {
+    fn mul_assign(&mut self, rhs: f32) {
         self.x *= rhs;
         self.y *= rhs;
     }
 }
 
-impl Vector2D<f32> {
-    pub const ZERO: Vector2D<f32> = Vector2D { x: 0.0, y: 0.0 };
+impl Vector2D {
+    pub const ZERO: Vector2D = Vector2D { x: 0.0, y: 0.0 };
 
     /// Constructs a new vector from polar (r, theta) coordinates.
-    pub fn from_polar(radius: f32, theta: f32) -> Vector2D<f32> {
+    pub fn from_polar(radius: f32, theta: f32) -> Vector2D {
         Vector2D::new(radius * theta.cos(), radius * theta.sin())
     }
 
@@ -113,13 +92,13 @@ impl Vector2D<f32> {
     }
 
     /// Lerps a vector towards another one.
-    pub fn lerp_towards(&mut self, other: Vector2D<f32>, factor: f32) {
+    pub fn lerp_towards(&mut self, other: Vector2D, factor: f32) {
         self.x = lerp!(self.x, other.x, factor);
         self.y = lerp!(self.y, other.y, factor);
     }
 
     /// Creates a random vector in bounds of [min, max].
-    pub fn from_random(min: f32, max: f32) -> Vector2D<f32> {
+    pub fn from_random(min: f32, max: f32) -> Vector2D {
         Vector2D::new(rand!(min, max), rand!(min, max))
     }
 
@@ -134,17 +113,17 @@ impl Vector2D<f32> {
     }    
 
     /// Gets the distance of the vector from another vector.
-    pub fn distance(self, other: Vector2D<f32>) -> f32 {
+    pub fn distance(self, other: Vector2D) -> f32 {
         (other - self).magnitude()
     }
 
     /// Gets the distance squared of the vector from another vector.
-    pub fn distance_squared(self, other: Vector2D<f32>) -> f32 {
+    pub fn distance_squared(self, other: Vector2D) -> f32 {
         (other - self).magnitude_squared()
     }
 
     /// Checks if two vectors are nearly equivalent.
-    pub fn partial_eq(self, other: Vector2D<f32>, tolerance: f32) -> bool {
+    pub fn partial_eq(self, other: Vector2D, tolerance: f32) -> bool {
         fuzzy_compare!(self.x, other.x, tolerance) && fuzzy_compare!(self.y, other.y, tolerance)   
     }
 

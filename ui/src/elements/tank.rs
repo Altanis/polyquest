@@ -17,6 +17,7 @@ pub struct Tank {
     destroyed: bool,
     body_identity: BodyIdentity,
     turret_structure: TurretStructure,
+    stroke: f32,
     ticks: u64
 }
 
@@ -35,6 +36,7 @@ impl Default for Tank {
             destroyed: Default::default(),
             body_identity: get_body_base_identity(),
             turret_structure: get_turret_base_identity(),
+            stroke: STROKE_SIZE,
             ticks: Default::default(),
         }
     }
@@ -122,7 +124,7 @@ impl UiElement for Tank {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D) -> bool {
         self.ticks += 1;
         self.is_animating = false;
 
@@ -144,10 +146,10 @@ impl UiElement for Tank {
         context.save();
         context.set_transform(&self.transform);
         self.raw_transform = context.get_transform();
-        context.global_alpha(self.opacity.value as f64);
+        context.global_alpha(self.opacity.value);
 
-        Tank::render_turrets(context, self.radius, &self.turret_structure, &vec![Interpolatable::new(1.0); self.turret_structure.turrets.len()]);
-        Tank::render_body(context, &self.body_identity, self.radius, PLAYER_FILL, PLAYER_STROKE);
+        Tank::render_turrets(context, self.stroke, self.radius, &self.turret_structure, &vec![Interpolatable::new(1.0); self.turret_structure.turrets.len()]);
+        Tank::render_body(context, self.stroke, &self.body_identity, self.radius, PLAYER_FILL, PLAYER_STROKE);
         
         if DEBUG {
             context.save();
@@ -193,11 +195,12 @@ impl Tank {
         }
     }
 
-    pub fn render_turrets(context: &mut Canvas2d, radius: f32, turret_structure: &TurretStructure, turret_lengths: &[Interpolatable<f32>]) {
+    pub fn render_turrets(context: &mut Canvas2d, stroke: f32, radius: f32, turret_structure: &TurretStructure, turret_lengths: &[Interpolatable<f32>]) {
         context.save();
+
         context.fill_style(TURRET_FILL);
         context.stroke_style(TURRET_STROKE);
-        context.set_stroke_size(STROKE_SIZE);
+        context.set_stroke_size(stroke);
 
         let size_factor = radius / FICTITIOUS_TANK_RADIUS;
 
@@ -269,8 +272,10 @@ impl Tank {
         context.restore();
     }
 
-    pub fn render_body(context: &mut Canvas2d, body_identity: &BodyIdentity, radius: f32, fill: Color, stroke: Color) {
+    pub fn render_body(context: &mut Canvas2d, stroke_size: f32, body_identity: &BodyIdentity, radius: f32, fill: Color, stroke: Color) {
         context.save();
+
+        context.set_stroke_size(stroke_size);
 
         for &hint in body_identity.render_hints.iter() {
             match hint {
@@ -299,9 +304,8 @@ impl Tank {
 
         context.fill_style(fill);
         context.stroke_style(stroke);
-        context.set_stroke_size(STROKE_SIZE);
         
-        context.begin_arc(0.0, 0.0, radius as f64, std::f64::consts::TAU);
+        context.begin_arc(0.0, 0.0, radius, std::f32::consts::TAU);
         context.fill();
         context.stroke();
 
@@ -325,6 +329,11 @@ impl Tank {
 
     pub fn with_radius(mut self, radius: f32) -> Tank {
         self.radius = radius;
+        self
+    }
+
+    pub fn with_stroke(mut self, stroke: f32) -> Tank {
+        self.stroke = stroke;
         self
     }
 

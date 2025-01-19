@@ -190,7 +190,7 @@ pub struct Notification {
     pub color: Color,
     pub lifetime: u64,
     pub opacity: Interpolatable<f32>,
-    pub position: Interpolatable<Vector2D<f32>>
+    pub position: Interpolatable<Vector2D>
 }
 
 #[derive(Default, Clone)]

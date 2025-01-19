@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::{bool, connection::packets::Inputs, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, MAX_STAT_INVESTMENT}, theme::{STROKE_INTENSITY, STROKE_SIZE}, turret::{TurretIdentityIds, TurretStructure}}, lerp, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, vec2::Vector2D}};
+use shared::{bool, connection::packets::Inputs, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, FICTITIOUS_TANK_RADIUS, MAX_STAT_INVESTMENT}, theme::{STROKE_INTENSITY, STROKE_SIZE}, turret::{TurretIdentityIds, TurretStructure}}, lerp, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect, tank::Tank}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::sound::Sound};
 use rand::Rng;
@@ -35,7 +35,7 @@ impl Default for GamePhase {
 
 #[derive(Debug, Clone, PartialEq)]
 struct Shape {
-    position: Vector2D<f32>,
+    position: Vector2D,
     color: Color,
     radius: f32,
     angle: f32,
@@ -153,7 +153,7 @@ impl GamePhase {
             );
 
         let continue_button = Button::new()
-            .with_id("continue_button")
+            .with_id(&format!("continue_button_{}", phase))
             .with_fill(Color::GREEN)
             .with_dimensions(Vector2D::new(200.0, 75.0))
             .with_transform(translate!(0.0, 100.0))
@@ -229,7 +229,7 @@ impl GamePhase {
                     )
             )]);
 
-        let buttons: [(Vector2D<f32>, Color, &str, Box<OnClickScript>); 2] = [
+        let buttons: [(Vector2D, Color, &str, Box<OnClickScript>); 2] = [
             (
                 Vector2D::ZERO,
                 Color::GRAY, "{icon}\u{f013}",
@@ -267,7 +267,7 @@ impl GamePhase {
                                 .with_box_stroke((7.0, Color::BLACK))
                                 .with_dimensions(Vector2D::new(50.0, 50.0))
                                 .with_fill(Color::WHITE)
-                                .with_transform(translate!(350.0, 180.0 + (i as f64 * 75.0)))
+                                .with_transform(translate!(350.0, 180.0 + (i as f32 * 75.0)))
                                 .with_value(checked)
                                 .with_events(Events::default()
                                     .with_on_click(Box::new(move |_| {
@@ -287,7 +287,7 @@ impl GamePhase {
                                 .with_fill(Color::WHITE)
                                 .with_font(36.0)
                                 .with_stroke(Color::BLACK)
-                                .with_transform(translate!(550.0, 191.0 + (i as f64 * 75.0)))
+                                .with_transform(translate!(550.0, 191.0 + (i as f32 * 75.0)))
                                 .with_events(Events::default().with_hoverable(false));
 
                             children.push(Box::new(checkbox));
@@ -425,19 +425,19 @@ impl GamePhase {
                     .with_id("nametag")
                     .with_text(world.game.self_entity.display.name.clone())
                     .with_fill(Color::WHITE)
-                    .with_font(72.0)
+                    .with_font(36.0)
                     .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 - 145.0))
+                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y - 72.5))
                     .with_events(Events::default().with_hoverable(false))
             ));
     
             elements.push(Box::new(
                 ProgressBar::new()
                     .with_id("score_bar")
-                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 - 100.0))
+                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y - 50.0))
                     .with_fill(BAR_BACKGROUND)
                     .with_accent(SCORE_BAR_FOREGROUND)
-                    .with_dimensions(Vector2D::new(600.0, 40.0))
+                    .with_dimensions(Vector2D::new(300.0, 20.0))
                     .with_value(5.0)
                     .with_max(10.0)
                     .with_children(vec![Box::new(
@@ -445,22 +445,25 @@ impl GamePhase {
                             .with_id("score_bar_text")
                             .with_text(format!("Score: {}", to_locale!(score)))
                             .with_fill(Color::WHITE)
-                            .with_font(32.0)
+                            .with_font(16.0)
                             .with_stroke(Color::BLACK)
                             .with_events(Events::default().with_hoverable(false))
                         )
                     ])
             ));
     
+            let score_min = get_min_score_from_level(level);
+            let score_max = get_min_score_from_level(level + 1);
+
             elements.push(Box::new(
                 ProgressBar::new()
                     .with_id("level_bar")
-                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 - 50.0))
+                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y - 25.0))
                     .with_fill(BAR_BACKGROUND)
                     .with_accent(LEVEL_BAR_FOREGROUND)
-                    .with_dimensions(Vector2D::new(850.0, 50.0))
-                    .with_value(score as f32)
-                    .with_max(get_min_score_from_level(level + 1) as f32)
+                    .with_dimensions(Vector2D::new(425.0, 25.0))
+                    .with_value((score.max(score_min) - score_min) as f32)
+                    .with_max((score_max - score_min) as f32)
                     .with_children(vec![Box::new(
                         Label::new()
                             .with_id("level_bar_text")
@@ -469,7 +472,7 @@ impl GamePhase {
                                 generate_identity(world.game.self_entity.display.body_identity.id, world.game.self_entity.display.turret_identity.id)
                             ))
                             .with_fill(Color::WHITE)
-                            .with_font(38.0)
+                            .with_font(19.0)
                             .with_stroke(Color::BLACK)
                             .with_events(Events::default().with_hoverable(false))
                         )
@@ -478,10 +481,10 @@ impl GamePhase {
         }
 
         'stats: {
-            let (stat_width, stat_height) = (400.0_f64, 40.0_f64);
+            let (stat_width, stat_height) = (200.0, 20.0);
             let upgrades_center = Vector2D::new(
-                266.6 + (stat_width / 2.0 + dimensions.x as f64 / 100.0) / 10.0,
-                (dimensions.y as f64 - (UpgradeStats::COUNT as f64 * 45.0) - 40.0)
+                133.3 + (stat_width / 2.0 + dimensions.x / 50.0) / 5.0,
+                (dimensions.y - (UpgradeStats::COUNT as f32 * 22.5) - 20.0)
             );
     
             let available_stat_points = world.game.self_entity.display.available_stat_points;
@@ -492,13 +495,13 @@ impl GamePhase {
                     Rect::new()
                         .with_id("stats_div")
                         .with_transform(translate!(
-                            upgrades_center.x - (stat_width + 80.0) / 2.0,
-                            upgrades_center.y - 50.0
+                            upgrades_center.x - stat_width / 2.0 - 35.0,
+                            upgrades_center.y - 25.0
                         ))
                         .with_fill(Color::BLACK)
                         .with_stroke(5.0)
                         .with_roundness(5.0)
-                        .with_dimensions(Vector2D::new(stat_width as f32 + 80.0, 75.0 + (UpgradeStats::COUNT as f32 * 45.0)))
+                        .with_dimensions(Vector2D::new(stat_width + 40.0, 37.5 + (UpgradeStats::COUNT as f32 * 22.5)))
                         .with_opacity(0.2)
                         .with_events(Events::default()
                             .with_deletion_effects(vec![DeletionEffects::Disappear])
@@ -510,9 +513,9 @@ impl GamePhase {
                         .with_id("upgrades_text")
                         .with_text(format!("x{}", available_stat_points))
                         .with_fill(Color::WHITE)
-                        .with_font(36.0)
+                        .with_font(18.0)
                         .with_stroke(Color::BLACK)
-                        .with_transform(translate!(upgrades_center.x, upgrades_center.y))
+                        .with_transform(translate!(upgrades_center.x - 15.0, upgrades_center.y))
                         .with_events(Events::default()
                             .with_deletion_effects(vec![DeletionEffects::Disappear])
                         )
@@ -526,12 +529,12 @@ impl GamePhase {
                         ProgressBar::new()
                             .with_id(&format!("upgrade_stat-{}", i))
                             .with_transform(translate!(
-                                266.6,
-                                (upgrades_center.y + 40.0) + (i as f64 * 45.0)
+                                133.3,
+                                (upgrades_center.y + 20.0) + (i as f32 * 22.5)
                             ))
                             .with_fill(BAR_BACKGROUND)
                             .with_accent(color)
-                            .with_dimensions(Vector2D::new(stat_width as f32, stat_height as f32))
+                            .with_dimensions(Vector2D::new(stat_width, stat_height))
                             .with_value(value as f32)
                             .with_max(MAX_STAT_INVESTMENT as f32)
                             .with_children(vec![Box::new(
@@ -539,7 +542,7 @@ impl GamePhase {
                                     .with_id(&format!("upgrade_stat_text-{}", i))
                                     .with_text(format!("{}", stat))
                                     .with_fill(Color::WHITE)
-                                    .with_font(24.0)
+                                    .with_font(12.0)
                                     .with_stroke(Color::BLACK)
                                     .with_events(Events::default()
                                         .with_hoverable(false)
@@ -551,9 +554,9 @@ impl GamePhase {
                                         .with_id(&format!("upgrade_stat_number-{}", i))
                                         .with_text(format!("[{}]", i + 1))
                                         .with_fill(Color::WHITE)
-                                        .with_font(18.0)
+                                        .with_font(9.0)
                                         .with_stroke(Color::BLACK)
-                                        .with_transform(translate!(stat_width / 2.0 - 40.0, -2.0))
+                                        .with_transform(translate!(stat_width / 2.0 - 20.0, -1.0))
                                         .with_events(Events::default()
                                             .with_hoverable(false)
                                             .with_deletion_effects(vec![DeletionEffects::Disappear]))
@@ -569,13 +572,13 @@ impl GamePhase {
                         Button::new()
                             .with_id(&format!("upgrade-button-{}", i))
                             .with_fill(if available_stat_points > 0 && value < MAX_STAT_INVESTMENT { color } else { Color::SOFT_GRAY })
-                            .with_dimensions(Vector2D::new(40.0, 40.0))
+                            .with_dimensions(Vector2D::new(20.0, 20.0))
                             .with_transform(translate!(
-                                266.6 + stat_width / 2.0 + 32.5,
-                                (upgrades_center.y + 40.0) + (i as f64 * 45.0)
+                                133.3 + stat_width / 2.0 + 16.25,
+                                (upgrades_center.y + 20.0) + (i as f32 * 22.5)
                             ))
                             .with_roundness(100.0)
-                            .with_stroke((4.5, None))
+                            .with_stroke((2.5, None))
                             .with_events(Events::default()
                                 .with_hoverable(available_stat_points > 0 && value < MAX_STAT_INVESTMENT)
                                 .with_hover_effects(vec![
@@ -602,8 +605,8 @@ impl GamePhase {
                                     .with_text("+".to_string())
                                     .with_fill(Color::WHITE)
                                     .with_stroke(Color::BLACK)
-                                    .with_font(32.0)
-                                    .with_transform(translate!(0.0, 10.0))
+                                    .with_font(16.0)
+                                    .with_transform(translate!(0.0, 5.0))
                                     .with_events(Events::default()
                                         .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
                                         .with_deletion_effects(vec![DeletionEffects::Disappear])
@@ -617,10 +620,10 @@ impl GamePhase {
                 Button::new()
                     .with_id("toggle-upgrade-stats")
                     .with_fill(Color::SOFT_GRAY)
-                    .with_dimensions(Vector2D::new(50.0, 40.0 + (UpgradeStats::COUNT as f32 * 50.0)))
+                    .with_dimensions(Vector2D::new(25.0, 20.0 + (UpgradeStats::COUNT as f32 * 25.0)))
                     .with_transform(translate!(
-                        -10.0,
-                        upgrades_center.y + 170.0
+                        -5.0,
+                        upgrades_center.y + 85.0
                     ))
                     .with_events(Events::default()
                         .with_hover_effects(vec![
@@ -640,21 +643,21 @@ impl GamePhase {
         }
 
         'upgrades: {
-            let position: Vector2D<f32> = Vector2D::new(dimensions.x / 70.0, 100.0);
-            let dimensions = Vector2D::new(700.0, 500.0);
+            let position: Vector2D = Vector2D::new(dimensions.x / 35.0, 50.0);
+            let dimensions = Vector2D::new(350.0, 250.0);
 
             if !world.game.self_entity.display.upgrades.is_empty() {
-                // elements.push(Box::new(
-                //     Rect::new()
-                //         .with_id("upgrades_div")
-                //         .with_transform(translate!(position.x as f64, position.y as f64))
-                //         .with_fill(Color::BLACK)
-                //         .with_stroke(10.0)
-                //         .with_roundness(5.0)
-                //         .with_dimensions(dimensions)
-                //         .with_opacity(0.2)
-                //         .with_events(Events::default().with_deletion_effects(vec![DeletionEffects::Disappear]))
-                // ));
+                elements.push(Box::new(
+                    Rect::new()
+                        .with_id("upgrades_div")
+                        .with_transform(translate!(position.x as f32 - 25.0, position.y as f32 - 15.0))
+                        .with_fill(Color::BLACK)
+                        .with_stroke(10.0)
+                        .with_roundness(5.0)
+                        .with_dimensions(dimensions)
+                        .with_opacity(0.2)
+                        .with_events(Events::default().with_deletion_effects(vec![DeletionEffects::Disappear]))
+                ));
 
                 let is_body_upgrades = world.game.self_entity.display.upgrades.contains(&-1);
 
@@ -673,21 +676,21 @@ impl GamePhase {
                     );
 
                     let upgrade_position = position + Vector2D::new(
-                        75.0 + (i % 3) as f32 * 200.0,
-                        75.0 + (200.0 * (i / 3) as f32)
+                        37.5 + (i % 3) as f32 * 112.5,
+                        50.0 + (120.0 * (i / 3) as f32)
                     );
 
                     elements.push(Box::new(
                         Button::new()
-                            .with_id(&format!("{}-upgrade-button-{}", if is_body_upgrades { "body" } else { "turret" }, i))
+                            .with_id(&format!("{}-upgrade-button-{}-{}", if is_body_upgrades { "body" } else { "turret" }, upgrade, i))
                             .with_fill(color)
-                            .with_dimensions(Vector2D::new(175.0, 175.0))
+                            .with_dimensions(Vector2D::new(100.0, 100.0))
                             .with_transform(translate!(
-                                upgrade_position.x as f64,
-                                upgrade_position.y as f64
+                                upgrade_position.x,
+                                upgrade_position.y
                             ))
                             .with_roundness(1.0)
-                            .with_stroke((7.5, Some(Color(85, 85, 85))))
+                            .with_stroke((3.5, Some(Color(85, 85, 85))))
                             .with_events(Events::default()
                                 .with_hoverable(true)
                                 .with_hover_effects(vec![
@@ -717,9 +720,10 @@ impl GamePhase {
                             .with_children(vec![
                                 Box::new(
                                     Tank::new()
-                                        .with_id(&format!("upgrade-tank-icon-{}", i))
-                                        .with_transform(translate!(0.0, -5.0))
-                                        .with_radius(35.0)
+                                        .with_id(&format!("upgrade-tank-icon-{}-{}", upgrade, i))
+                                        .with_transform(translate!(0.0, -2.5))
+                                        .with_radius(18.0)
+                                        .with_stroke(STROKE_SIZE * (18.0 / FICTITIOUS_TANK_RADIUS))
                                         .with_body_identity(if is_body_upgrades {
                                             std::convert::TryInto::<BodyIdentity>::try_into(
                                                 std::convert::TryInto::<BodyIdentityIds>::try_into(upgrade as usize).unwrap()
@@ -741,7 +745,7 @@ impl GamePhase {
                                 ),
                                 Box::new(
                                     Label::new()
-                                        .with_id(&format!("body-button-text-{}", i))
+                                        .with_id(&format!("body-button-text-{}-{}", upgrade, i))
                                         .with_text(if is_body_upgrades {
                                             format!("{}", std::convert::TryInto::<BodyIdentityIds>::try_into(upgrade as usize).unwrap())
                                         } else {
@@ -749,8 +753,8 @@ impl GamePhase {
                                         })
                                         .with_fill(Color::WHITE)
                                         .with_stroke(Color::BLACK)
-                                        .with_font(28.0)
-                                        .with_transform(translate!(0.0, 175.0 / 2.0 - 10.0))
+                                        .with_font(18.0)
+                                        .with_transform(translate!(0.0, 100.0 / 2.0 - 5.0))
                                         .with_events(Events::default()
                                             .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
                                             .with_deletion_effects(vec![DeletionEffects::Disappear])
@@ -767,7 +771,7 @@ impl GamePhase {
 
     pub fn render_game(world: &mut World, delta_average: f64, is_dead: bool, dt: f32) {
         world.renderer.canvas2d.fill_style(OUTBOUNDS_FILL);
-        world.renderer.canvas2d.fill_rect(0, 0, world.renderer.canvas2d.get_width(), world.renderer.canvas2d.get_height());
+        world.renderer.canvas2d.fill_rect(0.0, 0.0, world.renderer.canvas2d.get_width() as f32, world.renderer.canvas2d.get_height() as f32);
 
         world.renderer.canvas2d.save();
 
@@ -827,8 +831,8 @@ impl GamePhase {
 
         world.renderer.canvas2d.save();
         world.renderer.canvas2d.fill_style(Color::BLACK);
-        world.renderer.canvas2d.global_alpha(world.renderer.backdrop_opacity.value as f64);
-        world.renderer.canvas2d.fill_rect(0, 0, world.renderer.canvas2d.get_width(), world.renderer.canvas2d.get_height());
+        world.renderer.canvas2d.global_alpha(world.renderer.backdrop_opacity.value);
+        world.renderer.canvas2d.fill_rect(0.0, 0.0, world.renderer.canvas2d.get_width() as f32, world.renderer.canvas2d.get_height() as f32);
         world.renderer.canvas2d.restore();
 
 
@@ -859,7 +863,7 @@ impl GamePhase {
     fn render_grid(context: &mut Canvas2d, fov: f32, arena_size: f32) {
         context.save();
 
-        context.global_alpha(GRID_ALPHA as f64);
+        context.global_alpha(GRID_ALPHA);
         context.stroke_style(GRID_COLOR);
         context.set_stroke_size(1.0 / fov);
 
@@ -929,7 +933,7 @@ impl GamePhase {
             let height = font + (font / 5.0);
 
             context.save();
-            context.global_alpha(0.6 * notif.opacity.value as f64);
+            context.global_alpha(0.6 * notif.opacity.value);
             context.fill_style(notif.color);
             context.stroke_style(Color::blend_colors(notif.color, Color::BLACK, STROKE_INTENSITY));
             context.set_stroke_size(STROKE_SIZE);
@@ -948,7 +952,7 @@ impl GamePhase {
             context.restore();
 
             context.save();
-            context.global_alpha(notif.opacity.value as f64);
+            context.global_alpha(notif.opacity.value);
             context.translate(notif.position.value.x, notif.position.value.y + height / 4.0);
             context.stroke_text(&notif.message);
             context.fill_text(&notif.message);
@@ -971,9 +975,9 @@ impl GamePhase {
                     .with_id("death_starter")
                     .with_text("You were killed by".to_string())
                     .with_fill(Color::WHITE)
-                    .with_font(36.0)
+                    .with_font(18.0)
                     .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 - 200.0))
+                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y / 2.0 - 100.0))
                     .with_events(Events::default().with_hoverable(false))
             ),
             Box::new(
@@ -981,9 +985,9 @@ impl GamePhase {
                     .with_id("killer_name")
                     .with_text("ALTANIS!".to_string())
                     .with_fill(Color::WHITE)
-                    .with_font(48.0)
+                    .with_font(24.0)
                     .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 - 140.0))
+                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y / 2.0 - 70.0))
                     .with_events(Events::default().with_hoverable(false))
             ),
             Box::new(
@@ -991,9 +995,9 @@ impl GamePhase {
                     .with_id("score_tag")
                     .with_text("Score:".to_string())
                     .with_fill(Color::WHITE)
-                    .with_font(42.0)
+                    .with_font(21.0)
                     .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x as f64 / 2.0 - 150.0, dimensions.y as f64 / 2.0 - 60.0))
+                    .with_transform(translate!(dimensions.x / 2.0 - 75.0, dimensions.y / 2.0 - 30.0))
                     .with_events(Events::default().with_hoverable(false))
                     .with_align("right")
             ),
@@ -1002,9 +1006,9 @@ impl GamePhase {
                     .with_id("score_value")
                     .with_text(to_locale!(world.game.self_entity.display.score.value as u32))
                     .with_fill(Color::WHITE)
-                    .with_font(42.0)
+                    .with_font(21.0)
                     .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 - 60.0))
+                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y / 2.0 - 30.0))
                     .with_events(Events::default().with_hoverable(false))
                     .with_align("center")
             ),
@@ -1013,9 +1017,9 @@ impl GamePhase {
                     .with_id("kills_tag")
                     .with_text("Kills:".to_string())
                     .with_fill(Color::WHITE)
-                    .with_font(42.0)
+                    .with_font(21.0)
                     .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x as f64 / 2.0 - 150.0, dimensions.y as f64 / 2.0))
+                    .with_transform(translate!(dimensions.x / 2.0 - 75.0, dimensions.y / 2.0))
                     .with_events(Events::default().with_hoverable(false))
                     .with_align("right")
             ),
@@ -1024,9 +1028,9 @@ impl GamePhase {
                     .with_id("kills_value")
                     .with_text(world.game.self_entity.display.kills.to_string())
                     .with_fill(Color::WHITE)
-                    .with_font(42.0)
+                    .with_font(21.0)
                     .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0))
+                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y / 2.0))
                     .with_events(Events::default().with_hoverable(false))
                     .with_align("center")
             ),
@@ -1035,9 +1039,9 @@ impl GamePhase {
                     .with_id("time_alive_tag")
                     .with_text("Time Alive:".to_string())
                     .with_fill(Color::WHITE)
-                    .with_font(42.0)
+                    .with_font(21.0)
                     .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x as f64 / 2.0 - 150.0, dimensions.y as f64 / 2.0 + 60.0))
+                    .with_transform(translate!(dimensions.x / 2.0 - 75.0, dimensions.y / 2.0 + 30.0))
                     .with_events(Events::default().with_hoverable(false))
                     .with_align("right")
             ),
@@ -1046,9 +1050,9 @@ impl GamePhase {
                     .with_id("time_alive_value")
                     .with_text(prettify_ms!(world.game.self_entity.stats.life_timestamps.1 - world.game.self_entity.stats.life_timestamps.0))
                     .with_fill(Color::WHITE)
-                    .with_font(42.0)
+                    .with_font(21.0)
                     .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 + 60.0))
+                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y / 2.0 + 30.0))
                     .with_events(Events::default().with_hoverable(false))
                     .with_align("center")
             ),
@@ -1056,8 +1060,8 @@ impl GamePhase {
                 Button::new()
                     .with_id("start_button")
                     .with_fill(Color::GREEN)
-                    .with_dimensions(Vector2D::new(200.0, 75.0))
-                    .with_transform(translate!(dimensions.x as f64 / 2.0, dimensions.y as f64 / 2.0 + 200.0))
+                    .with_dimensions(Vector2D::new(150.0, 50.0))
+                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y / 2.0 + 100.0))
                     .with_events(Events::default()
                         .with_hover_effects(vec![
                             HoverEffects::Inflation(1.1),
@@ -1075,9 +1079,9 @@ impl GamePhase {
                             .with_id("cont_text")
                             .with_text("Continue".to_string())
                             .with_fill(Color::WHITE)
-                            .with_font(32.0)
+                            .with_font(24.0)
                             .with_stroke(Color::BLACK)
-                            .with_transform(translate!(0.0, 10.0))
+                            .with_transform(translate!(0.0, 7.5))
                             .with_events(Events::default()
                                 .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
                             )

@@ -13,7 +13,7 @@ pub struct Rect {
     roundness: f32,
     events: Events,
     children: Vec<Box<dyn UiElement>>,
-    dimensions: Vector2D<f32>,
+    dimensions: Vector2D,
     destroyed: bool,
     opacity: Interpolatable<f32>
 }
@@ -80,7 +80,7 @@ impl UiElement for Rect {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, _: Vector2D<f32>) -> bool {
+    fn render(&mut self, context: &mut Canvas2d, _: Vector2D) -> bool {
         context.save();
         context.set_transform(&self.transform);
         context.fill_style(self.fill);
@@ -90,11 +90,11 @@ impl UiElement for Rect {
         }
 
         self.opacity.value = lerp!(self.opacity.value, self.opacity.target, 0.2);
-        context.global_alpha(self.opacity.value as f64);
+        context.global_alpha(self.opacity.value);
         
         self.raw_transform = context.get_transform();
 
-        context.begin_round_rect(0.0, 0.0, self.dimensions.x as f64, self.dimensions.y as f64, self.roundness as f64);
+        context.begin_round_rect(0.0, 0.0, self.dimensions.x, self.dimensions.y, self.roundness);
         context.fill();
         context.stroke();
 
@@ -149,7 +149,7 @@ impl Rect {
         self
     }
 
-    pub fn with_dimensions(mut self, dimensions: Vector2D<f32>) -> Rect {
+    pub fn with_dimensions(mut self, dimensions: Vector2D) -> Rect {
         self.dimensions = dimensions;
         self
     }

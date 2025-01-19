@@ -15,7 +15,7 @@ pub struct Label {
     fill: Color,
     stroke: Option<Color>,
     text: String,
-    dimensions: Vector2D<f32>,
+    dimensions: Vector2D,
     z_index: i32,
     effects: Option<TextEffects>,
     children: Vec<Box<dyn UiElement>>,
@@ -132,7 +132,7 @@ impl UiElement for Label {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D) -> bool {
         self.ticks += 1;
         self.is_animating = false;
 
@@ -193,7 +193,7 @@ impl UiElement for Label {
 
             context.save();
             context.set_transform(&self.transform);
-            context.global_alpha(self.opacity.value as f64);
+            context.global_alpha(self.opacity.value);
 
             if text_len != 1 {
                 context.translate(
@@ -221,7 +221,7 @@ impl UiElement for Label {
     
             if stroke_size != 0.0 {
                 context.stroke_style(self.stroke.unwrap());
-                context.set_stroke_size(stroke_size as f64);
+                context.set_stroke_size(stroke_size);
                 context.stroke_text(partial);
             }
     
@@ -373,7 +373,7 @@ impl Label {
         self
     }
 
-    pub fn with_dimensions(mut self, dimensions: Vector2D<f32>) -> Label {
+    pub fn with_dimensions(mut self, dimensions: Vector2D) -> Label {
         self.dimensions = dimensions;
         self
     }

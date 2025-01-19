@@ -7,7 +7,7 @@ use crate::world::{get_world, World};
 
 use super::packets::{handle_notification_packet, handle_update_packet};
 
-const IS_PROD: bool = false;
+const IS_PROD: bool = true;
 const URL: &str = if IS_PROD {
     "ws://108.29.192.90:8080/ws"
 } else {

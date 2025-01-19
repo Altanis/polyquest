@@ -1,4 +1,4 @@
-use gloo::{console::console, utils::window};
+use gloo::utils::window;
 use shared::utils::{color::Color, vec2::Vector2D};
 use web_sys::MouseEvent;
 
@@ -10,7 +10,7 @@ pub struct Body {
     transform: Transform,
     fill: Color,
     events: Events,
-    dimensions: Vector2D<f32>,
+    dimensions: Vector2D,
     children: Vec<Box<dyn UiElement>>
 }
 
@@ -82,10 +82,10 @@ impl UiElement for Body {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, _: Vector2D<f32>) -> bool {
+    fn render(&mut self, context: &mut Canvas2d, _: Vector2D) -> bool {
         context.save();
         context.fill_style(self.fill);
-        context.fill_rect(0, 0, context.get_width(), context.get_height());
+        context.fill_rect(0.0, 0.0, context.get_width() as f32, context.get_height() as f32);
         context.restore();
 
         context.save();

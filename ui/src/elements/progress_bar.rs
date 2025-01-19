@@ -9,7 +9,7 @@ pub struct ProgressBar {
     raw_transform: Transform,
     fill: Color,
     accent: Color,
-    dimensions: Vector2D<f32>,
+    dimensions: Vector2D,
     z_index: i32,
     children: Vec<Box<dyn UiElement>>,
     events: Events,
@@ -125,7 +125,7 @@ impl UiElement for ProgressBar {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D) -> bool {
         self.ticks += 1;
         self.is_animating = false;
 
@@ -150,7 +150,7 @@ impl UiElement for ProgressBar {
         context.save();
         context.set_transform(&self.transform);
         self.raw_transform = context.get_transform();
-        context.global_alpha(self.opacity.value as f64);
+        context.global_alpha(self.opacity.value);
         
         context.set_line_cap("round");
 
@@ -247,7 +247,7 @@ impl ProgressBar {
         self
     }
 
-    pub fn with_dimensions(mut self, dimensions: Vector2D<f32>) -> ProgressBar {
+    pub fn with_dimensions(mut self, dimensions: Vector2D) -> ProgressBar {
         self.dimensions = dimensions;
         self
     }

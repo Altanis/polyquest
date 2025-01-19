@@ -90,7 +90,7 @@ impl SpatialHashGrid {
     }
 
     /// Insert an entity.
-    pub fn insert(&mut self, id: u32, position: Vector2D<f32>, radius: f32) {
+    pub fn insert(&mut self, id: u32, position: Vector2D, radius: f32) {
         let dimensions = radius * 2.0;
 
         let sx = (position.x as u32) >> self.shift;
@@ -123,7 +123,7 @@ impl SpatialHashGrid {
     }
 
     /// Retrieve entities in a circular region.
-    pub fn query_radius(&self, entity_id: u32, position: Vector2D<f32>, radius: f32) -> Vec<u32> {
+    pub fn query_radius(&self, entity_id: u32, position: Vector2D, radius: f32) -> Vec<u32> {
         let mut result: Vec<u32> = Vec::new();
 
         let dimensions = radius * 2.0;
@@ -162,7 +162,7 @@ impl SpatialHashGrid {
     pub fn query_rect(
         &self,
         entity_id: u32,
-        position: Vector2D<f32>,
+        position: Vector2D,
         width: f32,
         height: f32,
     ) -> Vec<u32> {
@@ -199,7 +199,7 @@ impl SpatialHashGrid {
     }
 
     /// Reinsert an entity into the grid.
-    pub fn reinsert(&mut self, id: u32, position: Vector2D<f32>, radius: f32) {
+    pub fn reinsert(&mut self, id: u32, position: Vector2D, radius: f32) {
         self.delete(id);
         self.insert(id, position, radius)
     }

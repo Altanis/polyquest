@@ -29,10 +29,10 @@ impl Game {
 
 #[derive(Debug, Default, Clone, New)]
 pub struct PhysicsComponent {
-    pub position: Interpolatable<Vector2D<f32>>,
-    pub velocity: Interpolatable<Vector2D<f32>>,
+    pub position: Interpolatable<Vector2D>,
+    pub velocity: Interpolatable<Vector2D>,
     pub angle: Interpolatable<f32>,
-    pub mouse: Vector2D<f32>,
+    pub mouse: Vector2D,
 
     pub inputs: InputFlags,
     pub auto_fire: bool
@@ -241,7 +241,7 @@ impl Entity {
         let context = &mut world.renderer.canvas2d;
 
         context.save();
-        context.global_alpha(entity.stats.health_bar_opacity.value as f64);
+        context.global_alpha(entity.stats.health_bar_opacity.value);
         context.translate(
             entity.physics.position.value.x + entity.physics.velocity.value.x, 
             entity.physics.position.value.y + entity.physics.velocity.value.y + entity.display.radius.value + 20.0

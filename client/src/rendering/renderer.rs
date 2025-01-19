@@ -21,7 +21,7 @@ pub struct TimeInformation {
 pub struct Renderer {
     pub canvas2d: Canvas2d,
     pub gl: WebGl,
-    pub mouse: Vector2D<f32>,
+    pub mouse: Vector2D,
     pub time: TimeInformation,
     pub phase: GamePhase,
     previous_phase: GamePhase,
@@ -203,7 +203,7 @@ impl Renderer {
             world.renderer.canvas2d.save();
             world.renderer.canvas2d.global_composite_operation("destination-in");
             world.renderer.canvas2d.fill_style(Color::WHITE);
-            world.renderer.canvas2d.begin_arc(dimensions.x / 2.0, dimensions.y / 2.0, world.renderer.phase_switch_radius.value, std::f64::consts::TAU);
+            world.renderer.canvas2d.begin_arc(dimensions.x / 2.0, dimensions.y / 2.0, world.renderer.phase_switch_radius.value, std::f32::consts::TAU);
             world.renderer.canvas2d.fill();
             world.renderer.canvas2d.restore();
     
@@ -291,7 +291,6 @@ impl Renderer {
         world.renderer.canvas2d.scale(factor, factor);
         world.renderer.canvas2d.translate(-dimensions.x / (2.0 * factor), -dimensions.y / (2.0 * factor));
 
-
         world.renderer.canvas2d.save();
         world.renderer.canvas2d.reset_transform();
         GamePhase::render_game(world, delta_average, is_dead, dt);
@@ -299,6 +298,8 @@ impl Renderer {
 
         world.renderer.body.render_children(&mut world.renderer.canvas2d);
         world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
+        
+        world.renderer.canvas2d.scale(0.5, 0.5);
         world.renderer.fps_counter.render(&mut world.renderer.canvas2d, dimensions);
         
         world.renderer.canvas2d.restore();

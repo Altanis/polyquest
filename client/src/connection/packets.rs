@@ -16,7 +16,7 @@ pub fn form_spawn_packet(
 
 pub fn form_input_packet(
     flags: InputFlags,
-    mouse: Vector2D<f32>
+    mouse: Vector2D
 ) -> BinaryCodec {
     let mut codec = BinaryCodec::new();
     codec.encode_varuint(ServerboundPackets::Input as u64);

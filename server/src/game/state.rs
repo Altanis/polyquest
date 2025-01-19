@@ -43,7 +43,7 @@ impl GameState {
         self.counter
     }
 
-    pub fn get_random_position(&self) -> Vector2D<f32> {
+    pub fn get_random_position(&self) -> Vector2D {
         Vector2D::ZERO
     }
 

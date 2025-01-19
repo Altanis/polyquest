@@ -16,11 +16,11 @@ pub enum AliveState {
 
 #[derive(Clone)]
 pub struct PhysicsComponent {
-    pub position: Vector2D<f32>,
-    pub velocity: Vector2D<f32>,
-    pub additional_velocity: Vector2D<f32>,
+    pub position: Vector2D,
+    pub velocity: Vector2D,
+    pub additional_velocity: Vector2D,
     pub angle: f32,
-    pub mouse: Vector2D<f32>,
+    pub mouse: Vector2D,
     pub inputs: InputFlags,
     pub has_moved: bool,
     pub collidable: bool,
@@ -106,7 +106,7 @@ pub enum EntityConstruction {
         damage: f32,
         radius: f32,
         angle: f32,
-        position: Vector2D<f32>,
+        position: Vector2D,
         lifetime: isize,
         owners: Ownership,
         turret_idx: isize,

@@ -72,7 +72,7 @@ impl Entity {
         context.rotate(std::f32::consts::FRAC_PI_2);
 
         match self.display.entity_type {
-            EntityType::Bullet => context.begin_arc(0.0, 0.0, self.display.radius.value as f64, std::f64::consts::TAU),
+            EntityType::Bullet => context.begin_arc(0.0, 0.0, self.display.radius.value, std::f32::consts::TAU),
             EntityType::Drone => context.begin_triangle(self.display.radius.value),
             EntityType::Trap => context.begin_star(3, self.display.radius.value / 1.5, self.display.radius.value * 1.75),
             _ => unreachable!("Non-projectile entity attempted rendering.")
@@ -97,7 +97,7 @@ impl Entity {
             self.physics.position.value.y + self.physics.velocity.value.y
         );
         context.rotate(self.physics.angle.value);
-        context.global_alpha(self.display.opacity.value as f64);
+        context.global_alpha(self.display.opacity.value);
         context.set_stroke_size(STROKE_SIZE);
 
         self.render_projectile_body(context, is_friendly);

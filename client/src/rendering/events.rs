@@ -163,7 +163,6 @@ pub fn on_mousemove(world: &mut World, event: MouseEvent) {
     }
 
     let context = &mut world.renderer.canvas2d;
-    is_hovering = true;
     context.set_cursor(if is_hovering { "pointer" } else { "default" });
 
     world.game.self_entity.physics.mouse = point - (world.renderer.canvas2d.get_dimensions() * (1.0 / 2.0));

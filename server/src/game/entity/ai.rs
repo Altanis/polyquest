@@ -12,17 +12,17 @@ pub enum AIState {
     /// The AI is locked onto a target.
     Active(u32),
     /// The AI is being possessed by an actor (i.e., a mouse).
-    Possessed(Vector2D<f32>)
+    Possessed(Vector2D)
 }
 
 #[derive(Default, Clone)]
 pub struct AI {
     /// The aim of the AI.
-    pub aim: Vector2D<f32>,
+    pub aim: Vector2D,
     /// The speed of the entity the AI is a part of.
     pub speed: f32,
     /// The final movement vector after a timestep.
-    pub movement: Vector2D<f32>,
+    pub movement: Vector2D,
     /// The state of the AI.
     pub state: AIState,
     /// The entity which owns the AI.
@@ -41,7 +41,7 @@ impl AI {
         }
     }
 
-    fn get_target(&mut self, entities: &EntityDataStructure, position: Vector2D<f32>, surroundings: Vec<u32>) -> Option<u32> {
+    fn get_target(&mut self, entities: &EntityDataStructure, position: Vector2D, surroundings: Vec<u32>) -> Option<u32> {
         if let AIState::Active(id) = self.state {
             if !surroundings.contains(&id) {
                 self.state = AIState::Idle;
@@ -84,7 +84,7 @@ impl AI {
         None
     }
 
-    pub fn tick(&mut self, entities: &EntityDataStructure, position: Vector2D<f32>, surroundings: Vec<u32>) {
+    pub fn tick(&mut self, entities: &EntityDataStructure, position: Vector2D, surroundings: Vec<u32>) {
         if let AIState::Possessed(mouse) = self.state {
             self.aim = mouse;
             self.movement = Vector2D::from_polar(1.0, (self.aim - position).angle());

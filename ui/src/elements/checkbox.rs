@@ -12,7 +12,7 @@ pub struct Checkbox {
     fill: Interpolatable<Color>,
     accent: Color,
     box_stroke: (f32, Color),
-    dimensions: Interpolatable<Vector2D<f32>>,
+    dimensions: Interpolatable<Vector2D>,
     z_index: i32,
 
     value: bool,
@@ -129,7 +129,7 @@ impl UiElement for Checkbox {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D) -> bool {
         self.ticks += 1;
         self.is_animating = false;
 
@@ -163,7 +163,7 @@ impl UiElement for Checkbox {
         context.save();
         context.set_transform(&self.transform);
         self.raw_transform = context.get_transform();
-        context.global_alpha(self.opacity.value as f64);
+        context.global_alpha(self.opacity.value);
 
         context.fill_style(self.fill.value);
         context.set_stroke_size(self.box_stroke.0);
@@ -291,7 +291,7 @@ impl Checkbox {
         self
     }
 
-    pub fn with_dimensions(mut self, dimensions: Vector2D<f32>) -> Checkbox {
+    pub fn with_dimensions(mut self, dimensions: Vector2D) -> Checkbox {
         self.dimensions = Interpolatable::new(dimensions);
         self
     }

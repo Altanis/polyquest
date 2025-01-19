@@ -8,7 +8,7 @@ pub struct Button {
     raw_transform: Transform,
     fill: Interpolatable<Color>,
     stroke: (f32, Option<Color>),
-    dimensions: Interpolatable<Vector2D<f32>>,
+    dimensions: Interpolatable<Vector2D>,
     roundness: f32,
     angle: Interpolatable<f32>,
     events: Events,
@@ -128,7 +128,7 @@ impl UiElement for Button {
         )
     }
     
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D) -> bool {
         self.ticks += 1;
         self.is_animating = false;
 
@@ -167,7 +167,7 @@ impl UiElement for Button {
         context.save();
         context.set_transform(&self.transform.value);
         context.rotate(self.angle.value);
-        context.global_alpha(self.opacity.value as f64);
+        context.global_alpha(self.opacity.value);
 
         self.raw_transform = context.get_transform();
 
@@ -341,7 +341,7 @@ impl Button {
         self
     }
 
-    pub fn with_dimensions(mut self, dimensions: Vector2D<f32>) -> Button {
+    pub fn with_dimensions(mut self, dimensions: Vector2D) -> Button {
         self.dimensions = Interpolatable::new(dimensions);
         self
     }

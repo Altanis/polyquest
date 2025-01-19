@@ -112,12 +112,12 @@ impl Entity {
     }
 
     fn render_tank_turrets(&self, context: &mut Canvas2d, is_self: bool) {
-        Tank::render_turrets(context, self.display.radius.value, &self.display.turret_identity, &self.display.turret_lengths);
+        Tank::render_turrets(context, STROKE_SIZE, self.display.radius.value, &self.display.turret_identity, &self.display.turret_lengths);
     }
 
     fn render_tank_body(&self, context: &mut Canvas2d, is_self: bool) {
         let (fill, stroke) = self.compute_body_fill(is_self);
-        Tank::render_body(context, &self.display.body_identity, self.display.radius.value, fill, stroke);
+        Tank::render_body(context, STROKE_SIZE, &self.display.body_identity, self.display.radius.value, fill, stroke);
     }
 
     pub fn render_tank(&mut self, context: &mut Canvas2d, is_friendly: bool, dt: f32) {
@@ -133,7 +133,7 @@ impl Entity {
             self.physics.position.value.y + self.physics.velocity.value.y
         );
         context.rotate(self.physics.angle.value);
-        context.global_alpha(self.display.opacity.value as f64);
+        context.global_alpha(self.display.opacity.value);
         context.set_stroke_size(STROKE_SIZE);
 
         self.render_tank_turrets(context, is_friendly);

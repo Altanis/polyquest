@@ -34,7 +34,7 @@ pub trait UiElement {
     fn set_clicked(&mut self, val: bool, event: &MouseEvent);
 
     fn get_bounding_rect(&self) -> BoundingRect;
-    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D<f32>) -> bool;
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D) -> bool;
     fn destroy(&mut self);
 
     fn has_animation_state(&self) -> bool;
@@ -42,19 +42,19 @@ pub trait UiElement {
 
 #[derive(Default, Debug, Clone)]
 pub struct BoundingRect {
-    pub position: Vector2D<f32>,
-    pub dimensions: Vector2D<f32>
+    pub position: Vector2D,
+    pub dimensions: Vector2D
 }
 
 impl BoundingRect {
-    pub fn new(position: Vector2D<f32>, dimensions: Vector2D<f32>) -> BoundingRect {
+    pub fn new(position: Vector2D, dimensions: Vector2D) -> BoundingRect {
         BoundingRect {
             position,
             dimensions
         }
     }
 
-    pub fn intersects(&self, point: Vector2D<f32>) -> bool {
+    pub fn intersects(&self, point: Vector2D) -> bool {
         let within_x = point.x >= self.position.x && point.x <= self.position.x + self.dimensions.x;
         let within_y = point.y >= self.position.y && point.y <= self.position.y + self.dimensions.y;
         within_x && within_y
@@ -67,7 +67,7 @@ impl BoundingRect {
         context.stroke_style(Color::RED);
         context.set_stroke_size(5.0);
 
-        context.begin_arc(0.0, 0.0, 5.0, std::f64::consts::TAU);
+        context.begin_arc(0.0, 0.0, 5.0, std::f32::consts::TAU);
         context.fill();
 
         context.stroke_rect(0.0, 0.0, self.dimensions.x, self.dimensions.y);
@@ -136,13 +136,13 @@ pub enum DeletionEffects {
 pub type RenderingScript = dyn Fn(&Canvas2d);
 pub type OnClickScript = dyn Fn(Box<&dyn UiElement>);
 
-pub trait GenerateTranslationScript: Fn(Vector2D<f32>) -> Option<Vector2D<f32>> + Send + Sync + 'static {
+pub trait GenerateTranslationScript: Fn(Vector2D) -> Option<Vector2D> + Send + Sync + 'static {
     fn clone_box(&self) -> Box<dyn GenerateTranslationScript>;
 }
 
 impl<T> GenerateTranslationScript for T
 where
-    T: Fn(Vector2D<f32>) -> Option<Vector2D<f32>> + Clone + Send + Sync + 'static,
+    T: Fn(Vector2D) -> Option<Vector2D> + Clone + Send + Sync + 'static,
 {
     fn clone_box(&self) -> Box<dyn GenerateTranslationScript> {
         Box::new(self.clone())
