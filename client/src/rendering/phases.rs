@@ -2,16 +2,16 @@ use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::{bool, connection::packets::Inputs, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, FICTITIOUS_TANK_RADIUS, MAX_STAT_INVESTMENT}, theme::{STROKE_INTENSITY, STROKE_SIZE}, turret::{TurretIdentityIds, TurretStructure}}, lerp, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, vec2::Vector2D}};
+use shared::{bool, connection::packets::{Inputs, ServerboundPackets}, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, FICTITIOUS_TANK_RADIUS, MAX_STAT_INVESTMENT}, theme::{LEADER_ARROW_COLOR, MINIMAP_FILL, MINIMAP_PADDING, MINIMAP_PLAYER_FILL, MINIMAP_SIZE, MINIMAP_STROKE, STROKE_INTENSITY, STROKE_SIZE}, turret::{TurretIdentityIds, TurretStructure}}, lerp, lerp_angle, normalize_angle, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
-use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect, tank::Tank}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::sound::Sound};
+use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect, tank::Tank, tooltip::Tooltip}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::sound::Sound};
 use rand::Rng;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement};
 use crate::{connection::{packets, socket::ConnectionState}, game::entity::base::{Entity, HealthState}, storage_get, storage_set, world::{get_world, World}};
 use shared::game::theme::{BAR_BACKGROUND, GRID_ALPHA, GRID_COLOR, GRID_SIZE, INBOUNDS_FILL, LEVEL_BAR_FOREGROUND, OUTBOUNDS_FILL, SCORE_BAR_FOREGROUND, UPGRADE_STAT_COLORS};
 
-use self::packets::{form_input_packet, form_stats_packet, form_upgrade_packet};
+use self::packets::{form_input_packet, form_ping_packet, form_stats_packet, form_upgrade_packet};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum GamePhase {
@@ -211,7 +211,7 @@ impl GamePhase {
                             let mut world = get_world();
 
                             world.sounds.get_mut_sound("button_click").play();
-                            world.connection.send_message(packets::form_spawn_packet(name));
+                            world.connection.send_message(packets::form_spawn_packet(name), ServerboundPackets::Spawn);
                         }
                     });
                 }))
@@ -594,8 +594,8 @@ impl GamePhase {
                                         .unwrap();
         
                                     spawn_local(async move {
-                                        let world = get_world();
-                                        world.connection.send_message(form_stats_packet(i));
+                                        let mut world = get_world();
+                                        world.connection.send_message(form_stats_packet(i), ServerboundPackets::Stats);
                                     });
                                 }))
                             )
@@ -660,6 +660,7 @@ impl GamePhase {
                 ));
 
                 let is_body_upgrades = world.game.self_entity.display.upgrades.contains(&-1);
+                let upgrades_count = world.game.self_entity.display.upgrades.len();
 
                 let turret_structure = world.game.self_entity.display.turret_identity.clone();
                 let body_structure = world.game.self_entity.display.body_identity.clone();
@@ -678,6 +679,30 @@ impl GamePhase {
                     let upgrade_position = position + Vector2D::new(
                         37.5 + (i % 3) as f32 * 112.5,
                         50.0 + (120.0 * (i / 3) as f32)
+                    );
+
+                    let description = (if is_body_upgrades {
+                        std::convert::TryInto::<BodyIdentity>::try_into(
+                            std::convert::TryInto::<BodyIdentityIds>::try_into(upgrade as usize).unwrap()
+                        ).unwrap().description
+                    } else {
+                        std::convert::TryInto::<TurretStructure>::try_into(
+                            std::convert::TryInto::<TurretIdentityIds>::try_into(upgrade as usize).unwrap()
+                        ).unwrap().description
+                    }).to_string();
+                    
+                    let len = description.len();
+                    let midpoint = len / 2;
+                    
+                    let split_point = description[..midpoint]
+                        .rfind(' ')
+                        .or_else(|| description[midpoint..].find(' ').map(|idx| idx + midpoint))
+                        .unwrap_or(midpoint);
+                    
+                    let description = format!(
+                        "{}\n{}",
+                        &description[..split_point].trim_end(),
+                        &description[split_point..].trim_start()
                     );
 
                     elements.push(Box::new(
@@ -712,10 +737,35 @@ impl GamePhase {
                                     };
 
                                     spawn_local(async move {
-                                        let world = get_world();
-                                        world.connection.send_message(form_upgrade_packet(upgrade_type, i));
+                                        let mut world = get_world();
+                                        world.connection.send_message(form_upgrade_packet(upgrade_type, i), ServerboundPackets::Upgrade);
                                     });
                                 }))
+                                .with_hovering_elements(vec![
+                                    Box::new(
+                                        Rect::new()
+                                            .with_id(&format!("{}-upgrade-button-{}-{}-tooltip", if is_body_upgrades { "body" } else { "turret" }, upgrade, i))
+                                            .with_transform(translate!(position.x as f32 - 25.0, position.y as f32 + dimensions.y))
+                                            .with_fill(Color::BLACK)
+                                            .with_stroke(10.0)
+                                            .with_roundness(5.0)
+                                            .with_dimensions(Vector2D::new(dimensions.x, 60.0))
+                                            .with_opacity(0.2)
+                                            .with_events(Events::default().with_deletion_effects(vec![DeletionEffects::Disappear]))
+                                            .with_children(vec![
+                                                Box::new(
+                                                    Label::new()
+                                                        .with_id(&format!("{}-upgrade-button-{}-{}-tooltip-text", if is_body_upgrades { "body" } else { "turret" }, upgrade, i))
+                                                        .with_text(description)
+                                                        .with_fill(Color::WHITE)
+                                                        .with_font(18.0)
+                                                        .with_stroke(Color::BLACK)
+                                                        .with_transform(translate!(position.x - 50.0 + dimensions.x / 2.0, 25.0))
+                                                        .with_events(Events::default().with_hoverable(false))
+                                                )
+                                            ])
+                                    )
+                                ])
                             )
                             .with_children(vec![
                                 Box::new(
@@ -753,7 +803,7 @@ impl GamePhase {
                                         })
                                         .with_fill(Color::WHITE)
                                         .with_stroke(Color::BLACK)
-                                        .with_font(18.0)
+                                        .with_font(16.0)
                                         .with_transform(translate!(0.0, 100.0 / 2.0 - 5.0))
                                         .with_events(Events::default()
                                             .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
@@ -766,25 +816,98 @@ impl GamePhase {
             }
         }
 
+        'leaderboard: {
+            let (entry_bar_width, entry_bar_height) = (175.0, 15.0);
+            let (leaderboard_width, leaderboard_height) = (
+                entry_bar_width + 50.0, 
+                200.0 + ((entry_bar_height + 10.0) * world.game.leaderboard.entries.len() as f32)
+            );
+
+            elements.push(Box::new(
+                Rect::new()
+                    .with_id("leaderboard_div")
+                    .with_transform(translate!(
+                        dimensions.x - leaderboard_width - 30.0,
+                        30.0
+                    ))
+                    .with_fill(Color::BLACK)
+                    .with_stroke(5.0)
+                    .with_roundness(5.0)
+                    .with_dimensions(Vector2D::new(leaderboard_width, leaderboard_height))
+                    .with_opacity(0.2)
+            ));
+
+            elements.push(Box::new(
+                Label::new()
+                    .with_id("leaderboard_title")
+                    .with_text("Leaderboard".to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(18.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(
+                        (dimensions.x - leaderboard_width - 30.0) + leaderboard_width / 2.0,
+                        60.0
+                    ))
+            ));
+
+            let max_score = world.game.leaderboard.entries[0].0;
+            for (i, (score, name, body_identity, turret_identity)) in world.game.leaderboard.entries.iter().enumerate() {
+                elements.push(Box::new(
+                    ProgressBar::new()
+                        .with_id(&format!("leaderboard-bar-{}", i))
+                        .with_transform(translate!(
+                            (dimensions.x - leaderboard_width - 30.0) + leaderboard_width / 2.0,
+                            80.0 + (i as f32 * (entry_bar_height + 5.0))
+                        ))
+                        .with_fill(BAR_BACKGROUND)
+                        .with_accent(SCORE_BAR_FOREGROUND)
+                        .with_dimensions(Vector2D::new(entry_bar_width, entry_bar_height))
+                        .with_value(*score as f32)
+                        .with_max(max_score as f32)
+                        .with_children(vec![Box::new(
+                            Label::new()
+                                .with_id(&format!("leaderboard-text-{}", i))
+                                .with_text(format!("{} – {}", 
+                                    name,
+                                    prettify_score!(*score as f32)
+                                ))
+                                .with_fill(Color::WHITE)
+                                .with_font(12.0)
+                                .with_stroke(Color::BLACK)
+                                .with_events(Events::default().with_hoverable(false))
+                            ),
+                            Box::new(
+                                Tank::new()
+                                    .with_id(&format!("leaderboard-tank-{}", i))
+                                    .with_transform(translate!(entry_bar_width / 2.0 - (entry_bar_height / 2.0), -4.0))
+                                    .with_radius(entry_bar_height / 2.0)
+                                    .with_stroke(STROKE_SIZE * (entry_bar_height / 2.0 / FICTITIOUS_TANK_RADIUS))
+                                    .with_body_identity(std::convert::TryInto::<BodyIdentity>::try_into(*body_identity).unwrap())
+                                    .with_turret_structure(std::convert::TryInto::<TurretStructure>::try_into(*turret_identity).unwrap())
+                                    .with_angle(std::f32::consts::PI)
+                            )
+                        ])
+                ));
+            }
+        }
+
         elements
     }
 
     pub fn render_game(world: &mut World, delta_average: f64, is_dead: bool, dt: f32) {
         world.renderer.canvas2d.fill_style(OUTBOUNDS_FILL);
-        world.renderer.canvas2d.fill_rect(0.0, 0.0, world.renderer.canvas2d.get_width() as f32, world.renderer.canvas2d.get_height() as f32);
+        world.renderer.canvas2d.fill_rect(0.0, 0.0, world.renderer.canvas2d.get_width(), world.renderer.canvas2d.get_height());
 
         world.renderer.canvas2d.save();
 
         world.game.self_entity.lerp_all(dt, true);
 
-        GamePhase::render_minimap(&mut world.renderer.canvas2d);
-
         world.renderer.canvas2d.save();
 
         let factor = window().device_pixel_ratio() as f32;
-        let (screen_width, screen_height) = (world.renderer.canvas2d.get_width() as f32 / factor, world.renderer.canvas2d.get_height() as f32 / factor);
+        let (screen_width, screen_height) = (world.renderer.canvas2d.get_width() / factor, world.renderer.canvas2d.get_height() / factor);
 
-        world.renderer.canvas2d.translate(world.renderer.canvas2d.get_width() as f32 / 2.0, world.renderer.canvas2d.get_height() as f32 / 2.0);
+        world.renderer.canvas2d.translate(world.renderer.canvas2d.get_width() / 2.0, world.renderer.canvas2d.get_height() / 2.0);
         world.renderer.canvas2d.scale(factor * world.game.self_entity.display.fov.value, factor * world.game.self_entity.display.fov.value);
         world.renderer.canvas2d.translate(
             -world.game.self_entity.physics.position.value.x, 
@@ -824,19 +947,25 @@ impl GamePhase {
         world.renderer.canvas2d.restore();
         world.renderer.canvas2d.restore();
 
+        GamePhase::render_notifications(world, dt);
+
+        GamePhase::render_minimap(
+            &mut world.renderer.canvas2d,
+            world.game.self_entity.physics.position.value
+        );
+
+        if !is_dead && world.game.leaderboard.angle.target != -13.0 {
+            GamePhase::render_leader_arrow(world, dt);
+        }
+        
         world.renderer.canvas2d.save();
 
         world.renderer.backdrop_opacity.target = if is_dead { 0.6 } else { 0.0 };
         world.renderer.backdrop_opacity.value = lerp!(world.renderer.backdrop_opacity.value, world.renderer.backdrop_opacity.target, 0.2 * dt);
 
-        world.renderer.canvas2d.save();
         world.renderer.canvas2d.fill_style(Color::BLACK);
         world.renderer.canvas2d.global_alpha(world.renderer.backdrop_opacity.value);
-        world.renderer.canvas2d.fill_rect(0.0, 0.0, world.renderer.canvas2d.get_width() as f32, world.renderer.canvas2d.get_height() as f32);
-        world.renderer.canvas2d.restore();
-
-
-        GamePhase::render_notifications(world, dt);
+        world.renderer.canvas2d.fill_rect(0.0, 0.0, world.renderer.canvas2d.get_width(), world.renderer.canvas2d.get_height());
 
         world.renderer.canvas2d.restore();
     }
@@ -853,11 +982,35 @@ impl GamePhase {
         world.connection.send_message(form_input_packet(
             world.game.self_entity.physics.inputs, 
             mouse
-        ));
+        ), ServerboundPackets::Input);
+
+        if world.renderer.time.ticks % 60 == 0 {
+            world.connection.send_message(form_ping_packet(), ServerboundPackets::Ping);
+        }
     }
 
-    fn render_minimap(context: &mut Canvas2d) {
+    fn render_minimap(context: &mut Canvas2d, position: Vector2D) {
+        context.save();
 
+        context.translate(
+            context.get_width() - MINIMAP_PADDING - MINIMAP_SIZE, 
+            context.get_height() - MINIMAP_PADDING - MINIMAP_SIZE
+        );
+
+        context.fill_style(MINIMAP_FILL);
+        context.stroke_style(MINIMAP_STROKE);
+        context.set_stroke_size(MINIMAP_SIZE * (5.0 / 250.0));
+
+        context.begin_round_rect(0.0, 0.0, MINIMAP_SIZE, MINIMAP_SIZE, 5.0);
+        context.fill();
+        context.stroke();
+
+        let minimap_position = position * (MINIMAP_SIZE / ARENA_SIZE);
+        context.fill_style(MINIMAP_PLAYER_FILL);
+        context.begin_arc(minimap_position.x, minimap_position.y, 5.0, std::f32::consts::TAU);
+        context.fill();
+
+        context.restore();
     }
 
     fn render_grid(context: &mut Canvas2d, fov: f32, arena_size: f32) {
@@ -890,7 +1043,7 @@ impl GamePhase {
         for (i, notif) in world.game.self_entity.display.notifications.iter_mut().rev().enumerate() {
             if notif.position.direction == 1.0 {
                 notif.position.value = Vector2D::new(
-                    world.renderer.canvas2d.get_width() as f32 / 2.0,
+                    world.renderer.canvas2d.get_width() / 2.0,
                     50.0 + (i as f32 * 75.0)
                 );
 
@@ -898,7 +1051,7 @@ impl GamePhase {
             }
 
             notif.position.target = Vector2D::new(
-                world.renderer.canvas2d.get_width() as f32 / 2.0,
+                world.renderer.canvas2d.get_width() / 2.0,
                 50.0 + (i as f32 * 75.0)
             );
 
@@ -965,6 +1118,114 @@ impl GamePhase {
         for deletion in deletions {
             world.game.self_entity.display.notifications.remove(deletion);
         }
+    }
+
+    fn render_leader_arrow(world: &mut World, dt: f32) {
+        world.renderer.canvas2d.save();
+        let screen_dimensions = world.renderer.canvas2d.get_dimensions();
+        
+        world.renderer.canvas2d.fill_style(LEADER_ARROW_COLOR);
+        world.renderer.canvas2d.global_alpha(0.3);
+        world.renderer.canvas2d.set_stroke_size(10.0);
+
+        let center = screen_dimensions * (1.0 / 2.0);
+        let ray_length = center.max();
+        let end = center + Vector2D::from_polar(ray_length, world.game.leaderboard.angle.value);
+        let slope = (world.game.leaderboard.angle.value).tan();
+
+        world.game.leaderboard.intersection.target = if slope.abs() > (screen_dimensions.y / screen_dimensions.x) {
+            Vector2D::new(if end.y > center.y {
+                center.x + (screen_dimensions.y - center.y) / slope
+            } else {
+                center.x - center.y / slope
+            }, if end.y > center.y {
+                screen_dimensions.y
+            } else {
+                0.0
+            })
+        } else {
+            Vector2D::new(if end.x > center.x {
+                screen_dimensions.x
+            } else {
+                0.0
+            }, if end.x > center.x {
+                center.y + (screen_dimensions.x - center.x) * slope
+            } else {
+                center.y - center.x * slope
+            })
+        } + Vector2D::new(
+            50.0 * if end.x > center.x { -1.0 } else { 1.0 },
+            50.0 * if end.y > center.y { -1.0 } else { 1.0 }
+        );
+
+        world.game.leaderboard.intersection.value.lerp_towards(world.game.leaderboard.intersection.target, 0.15 * dt);
+        world.game.leaderboard.angle.value = lerp_angle!(
+            world.game.leaderboard.angle.value,
+            world.game.leaderboard.angle.target,
+            0.15 * dt
+        );
+
+        world.renderer.canvas2d.begin_path();
+        let intersection = &world.game.leaderboard.intersection.value;
+        let angle = world.game.leaderboard.angle.value;
+        let arrow_size = 100.0;
+
+        let (sin_minus, cos_minus) = (angle - std::f32::consts::PI / 6.0).sin_cos();
+        let point1 = Vector2D::new(
+            intersection.x - arrow_size * cos_minus,
+            intersection.y - arrow_size * sin_minus,
+        );
+
+        let (sin_plus, cos_plus) = (angle + std::f32::consts::PI / 6.0).sin_cos();
+        let point2 = Vector2D::new(
+            intersection.x - arrow_size * cos_plus,
+            intersection.y - arrow_size * sin_plus,
+        );
+
+        world.renderer.canvas2d.move_to(intersection.x, intersection.y);
+        world.renderer.canvas2d.line_to(point1.x, point1.y);
+        world.renderer.canvas2d.move_to(intersection.x, intersection.y);
+        world.renderer.canvas2d.line_to(point2.x, point2.y);
+        world.renderer.canvas2d.move_to(point1.x, point1.y);
+        world.renderer.canvas2d.line_to(point2.x, point2.y);
+        world.renderer.canvas2d.line_to(intersection.x, intersection.y);
+
+        world.renderer.canvas2d.fill();
+
+        world.renderer.canvas2d.set_font("28px Ubuntu");
+        world.renderer.canvas2d.fill_style(Color::WHITE);
+        world.renderer.canvas2d.stroke_style(Color::BLACK);
+        world.renderer.canvas2d.set_stroke_size(28.0 / 5.0);
+        world.renderer.canvas2d.global_alpha(0.95);
+
+        let midpoint = Vector2D::new(
+            (point1.x + point2.x) / 2.0,
+            (point1.y + point2.y) / 2.0
+        );
+        
+        let mut dir_vector = midpoint - *intersection;
+        let padding_distance = 15.0;
+        let padded_midpoint = if dir_vector.magnitude() > 0.0 {
+            dir_vector.normalize();
+            midpoint + dir_vector * padding_distance
+        } else {
+            midpoint
+        };
+        
+        let delta_x = point2.x - point1.x;
+        let delta_y = point2.y - point1.y;
+        let text_angle = delta_y.atan2(delta_x);
+        
+        world.renderer.canvas2d.translate(padded_midpoint.x, padded_midpoint.y);
+        world.renderer.canvas2d.rotate(text_angle);
+        
+        world.renderer.canvas2d.set_text_align("center");
+        world.renderer.canvas2d.set_text_baseline("alphabetic");
+        
+        world.renderer.canvas2d.stroke_text("LEADER");
+        world.renderer.canvas2d.fill_text("LEADER");
+        
+        world.renderer.canvas2d.restore();
     }
 
     pub fn generate_death_elements(world: &mut World) -> Vec<Box<dyn UiElement>> {

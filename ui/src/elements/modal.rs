@@ -28,6 +28,10 @@ impl UiElement for Modal {
         self.id.clone()
     }
 
+    fn get_events(&self) -> &Events {
+        &self.events
+    }
+    
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
@@ -38,6 +42,10 @@ impl UiElement for Modal {
 
     fn get_transform(&self) -> &Transform {
         &self.transform
+    }
+
+    fn set_opacity(&mut self, opacity: f32) {
+        self.opacity.target = opacity;
     }
 
     fn get_z_index(&self) -> i32 {
@@ -120,7 +128,7 @@ impl UiElement for Modal {
         context.reset_transform();
         context.fill_style(Color(0, 0, 0));
         context.global_alpha(0.6);
-        context.fill_rect(0.0, 0.0, context.get_width() as f32, context.get_height() as f32);
+        context.fill_rect(0.0, 0.0, context.get_width(), context.get_height());
         context.restore();
 
         if !self.deletion && let Some(t) = (self.transform.generate_translation)(dimensions) {

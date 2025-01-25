@@ -11,9 +11,18 @@ use crate::{rendering::phases::GamePhase, world::World};
 use shared::game::theme::{ENEMY_FILL, ENEMY_STROKE, PLAYER_FILL, PLAYER_STROKE, SMASHER_GUARD_FILL, SMASHER_GUARD_STROKE, STROKE_SIZE, TURRET_FILL, TURRET_STROKE};
 
 #[derive(Debug, Default)]
+pub struct LeaderboardState {
+    pub entries: Vec<(usize, String, BodyIdentityIds, TurretIdentityIds)>,
+    pub angle: Interpolatable<f32>,
+    pub intersection: Interpolatable<Vector2D>
+}
+
+#[derive(Debug, Default)]
 pub struct Game {
     pub surroundings: HashMap<u32, Entity>,
     pub self_entity: Entity,
+    pub leaderboard: LeaderboardState,
+
     pub arena_size: f32
 }
 

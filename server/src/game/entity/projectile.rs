@@ -1,4 +1,4 @@
-use shared::{connection::packets::{CensusProperties, Inputs}, game::entity::EntityType, normalize_angle, utils::{codec::BinaryCodec, consts::FRICTION, vec2::Vector2D}};
+use shared::{connection::packets::{CensusProperties, Inputs}, normalize_angle, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION}, vec2::Vector2D}};
 use strum::IntoEnumIterator;
 
 use crate::game::state::EntityDataStructure;
@@ -67,8 +67,11 @@ impl Entity {
 
         self.physics.velocity *= 1.0 - FRICTION;
         self.physics.position += self.physics.velocity + self.physics.additional_velocity;
-
         self.physics.angle = normalize_angle!(self.physics.angle);
+        
+        if self.physics.bound_to_walls {
+            self.physics.position.constrain(0.0, ARENA_SIZE);
+        }
 
         constructions
     }

@@ -33,7 +33,9 @@ pub struct BodyIdentity {
     /// The multiplier for body damage.
     pub body_damage: f32,
     /// The absorption factor of the tank.
-    pub absorption_factor: f32
+    pub absorption_factor: f32,
+    /// A description of the body.
+    pub description: &'static str
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, num_enum::TryFromPrimitive)]
@@ -86,7 +88,8 @@ pub fn get_body_base_identity() -> BodyIdentity {
         speed: 1.0,
         max_health: 50.0,
         body_damage: 1.0,
-        absorption_factor: 1.0
+        absorption_factor: 1.0,
+        description: "Null and void."
     }
 }
 
@@ -103,8 +106,9 @@ pub fn get_body_smasher_identity() -> BodyIdentity {
         invisibility_rate: -1.0,
         fov: 0.9,
         speed: 1.0,
-        max_health: 50.0,
-        body_damage: 1.0,
-        absorption_factor: 0.95
+        max_health: 55.0,
+        body_damage: 1.2,
+        absorption_factor: 0.95,
+        description: "Takes less knockback, has slightly increased FOV and body damage."
     }
 }

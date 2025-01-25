@@ -9,7 +9,9 @@ pub const PORT: u16 = 8080;
 pub const FPS: u64 = 25;
 pub const MSPT: u64 = 1000 / FPS;
 pub const CELL_SIZE: u32 = 7;
+
 pub const SPAWN_INVINCIBILITY_TIME: u64 = 30 * FPS;
+pub const LEADER_ARROW_VIEW: f32 = 1000.0;
 
 pub struct Server {
     pub game_server: GameServer,

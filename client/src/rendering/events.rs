@@ -1,6 +1,6 @@
 use gloo::console::console;
 use gloo_utils::{body, document, window};
-use shared::{connection::packets::Inputs, game::entity::{Notification, MAX_STAT_INVESTMENT}, utils::{color::Color, vec2::Vector2D}};
+use shared::{connection::packets::{Inputs, ServerboundPackets}, game::entity::{Notification, MAX_STAT_INVESTMENT}, utils::{color::Color, vec2::Vector2D}};
 use ui::{core::{ElementType, UiElement}, get_element_by_id_and_cast};
 use web_sys::{wasm_bindgen::JsCast, BeforeUnloadEvent, HtmlInputElement, KeyboardEvent, MouseEvent};
 use crate::{connection::packets, world::World};
@@ -214,9 +214,13 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
             let name = get_element_by_id_and_cast!("text_input", HtmlInputElement)
                 .value();
 
-            if let GamePhase::Home(_) = world.renderer.phase && !name.is_empty() {
+            if let GamePhase::Home(_) = world.renderer.phase {
                 world.sounds.get_mut_sound("button_click").play();
-                world.connection.send_message(packets::form_spawn_packet(name));
+                world.connection.send_message(packets::form_spawn_packet(if name.is_empty() {
+                    "unnamed".to_string()
+                } else {
+                    name
+                }), ServerboundPackets::Spawn);
             }
         },
         Ok(KeyCode::KeyW) | Ok(KeyCode::ArrowUp) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Up),
@@ -233,7 +237,7 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
             if world.game.self_entity.display.stat_investments[i] < MAX_STAT_INVESTMENT
                 && world.game.self_entity.display.available_stat_points > 0 
             {
-                world.connection.send_message(form_stats_packet(i));
+                world.connection.send_message(form_stats_packet(i), ServerboundPackets::Stats);
             }
         },
         _ => ()

@@ -19,20 +19,21 @@ Todo:
 - [x] fix hovering occurring everywhere
 - [x] fix progress bars not being accurate
 - [x] fix no re-rendering when hovering over ui element
-- [ ] soundtrack for ingame fails
-- [ ] bound drones to walls
-- [ ] required name field
-- [ ] continue button needs to be moved along to click
-- [ ] close button for tank upgrades
-- [ ] audio tracks interfere cuz theyre on the dom
-- [ ] hovering tooltip
-- [ ] minimap
-- [ ] mspt counter
-- [ ] leaderboard
-- [ ] leader arrow
+- [x] soundtrack for ingame fails
+- [x] bound drones to walls
+- [x] required name field
+- [x] hovering tooltip
+- [x] minimap
+- [x] mspt counter / latency
+- [x] leaderboard
+- [x] leader arrow
+- [ ] ai targets tanks
 - [ ] finish tanks
 - [ ] clans
 - [ ] global + local chat (or maybe clan-specific chats)
+- [ ] find better audio tracks
+- [ ] audio tracks interfere cuz theyre on the dom
+- [ ] close button for tank upgrades
 - [ ] keybinds for stat upgrades
 - [ ] on death, make spectate button which clears ui and allows u to roam
 

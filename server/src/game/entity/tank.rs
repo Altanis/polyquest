@@ -67,7 +67,9 @@ impl Entity {
             self.physics.velocity *= 1.0 - FRICTION;
             self.physics.position += self.physics.velocity;
     
-            self.physics.position.constrain(0.0, ARENA_SIZE);
+            if self.physics.bound_to_walls {
+                self.physics.position.constrain(0.0, ARENA_SIZE);
+            }
     
             self.update_display();
         } else if let Some(killer) = self.display.killer && let Some(entity) = entities.get(&killer.into()) {
@@ -153,6 +155,11 @@ impl Entity {
                     EntityType::Bullet => None,
                     EntityType::Drone => Some(AI::new(self.id, false)),
                     EntityType::Trap => None,
+                    _ => unreachable!("invalid projectile type")
+                },
+                bound_to_walls: match projectile_type {
+                    EntityType::Drone => true,
+                    EntityType::Bullet | EntityType::Trap => false,
                     _ => unreachable!("invalid projectile type")
                 },
                 projectile_type

@@ -7,8 +7,7 @@ use web_sys::HtmlAudioElement;
 
 #[derive(Default)]
 pub struct SoundHolder {
-    sounds: HashMap<&'static str, Sound>,
-    pub can_play: bool
+    sounds: HashMap<&'static str, Sound>
 }
 
 impl SoundHolder {
@@ -19,8 +18,7 @@ impl SoundHolder {
         }
 
         SoundHolder {
-            sounds: hm_sounds,
-            can_play: false
+            sounds: hm_sounds
         }
     }
 
@@ -96,6 +94,10 @@ impl Sound {
     }
 
     pub fn play(&self) {
+        if self.is_disabled() {
+            return;
+        }
+
         let _ = self.file.dataset().set("playing", "1");
         let _ = self.file.play();
     }

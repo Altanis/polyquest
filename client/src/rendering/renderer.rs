@@ -12,7 +12,7 @@ use super::phases::GamePhase;
 
 #[derive(Default)]
 pub struct TimeInformation {
-    ticks: u32,
+    pub ticks: u32,
     start_time: f64,
     last_render: f64,
     deltas: VecDeque<f64>
@@ -53,8 +53,9 @@ impl Renderer {
                 .with_fill(Color::WHITE)
                 .with_font(28.0)
                 .with_stroke(Color::BLACK)
-                .with_transform(translate!(75.0, 35.0))
-                .with_events(Events::default().with_hoverable(false)),
+                .with_transform(translate!(10.0, 35.0))
+                .with_events(Events::default().with_hoverable(false))
+                .with_align("left"),
             phase_switch: None,
             phase_switch_radius
         }
@@ -78,9 +79,7 @@ impl Renderer {
 
         let dimensions = world.renderer.canvas2d.get_dimensions();
 
-        if !world.sounds.can_play && window().navigator().user_activation().has_been_active() {
-            world.sounds.can_play = true;
-
+        if window().navigator().user_activation().has_been_active() {
             match world.renderer.phase {
                 GamePhase::Lore(_) => {
                     world.sounds.get_mut_sound("soundtrack_lore").play();
@@ -92,7 +91,7 @@ impl Renderer {
                     world.sounds.get_mut_sound("soundtrack_home").play();
                     world.sounds.get_mut_sound("soundtrack_game").stop();
                 },
-                GamePhase::Game => {
+                GamePhase::Game | GamePhase::Death => {
                     world.sounds.get_mut_sound("soundtrack_lore").stop();
                     world.sounds.get_mut_sound("soundtrack_home").stop();
                     world.sounds.get_mut_sound("soundtrack_game").play();
@@ -196,6 +195,18 @@ impl Renderer {
             GamePhase::Death => Renderer::render_game(world, delta_average, true)
         }
 
+        world.connection.latency.value = lerp!(world.connection.latency.value, world.connection.latency.target, 0.15 * dt as f64);
+        world.connection.mspt.value = lerp!(world.connection.mspt.value, world.connection.mspt.target, 0.15 * dt);
+
+        world.renderer.fps_counter.set_text(
+            format!(
+                "{:.1} FPS / {:.1} ms / {:.1} mspt", 
+                1000.0 / delta_average,
+                world.connection.latency.value,
+                world.connection.mspt.value
+            )
+        );
+
         if world.renderer.phase_switch_radius.direction != 0.0 {
             world.renderer.canvas2d.save();
             world.renderer.canvas2d.reset_transform();
@@ -244,7 +255,6 @@ impl Renderer {
         world.renderer.body.render_children(&mut world.renderer.canvas2d);
         world.renderer.canvas2d.restore();
 
-        world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
         world.renderer.fps_counter.render(&mut world.renderer.canvas2d, dimensions);
     }
 
@@ -270,7 +280,6 @@ impl Renderer {
         world.renderer.body.render_children(&mut world.renderer.canvas2d);
         world.renderer.canvas2d.restore();
 
-        world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
         world.renderer.fps_counter.render(&mut world.renderer.canvas2d, dimensions);
     }
 
@@ -297,7 +306,6 @@ impl Renderer {
         world.renderer.canvas2d.restore();
 
         world.renderer.body.render_children(&mut world.renderer.canvas2d);
-        world.renderer.fps_counter.set_text(format!("{:.1} FPS", 1000.0 / delta_average));
         
         world.renderer.canvas2d.scale(0.5, 0.5);
         world.renderer.fps_counter.render(&mut world.renderer.canvas2d, dimensions);

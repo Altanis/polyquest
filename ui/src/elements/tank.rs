@@ -8,6 +8,7 @@ pub struct Tank {
     id: String,
     transform: Transform,
     raw_transform: Transform,
+    angle: f32,
     radius: f32,
     z_index: i32,
     children: Vec<Box<dyn UiElement>>,
@@ -27,6 +28,7 @@ impl Default for Tank {
             id: String::default(),
             transform: Default::default(),
             raw_transform: Default::default(),
+            angle: 0.0,
             radius: Default::default(),
             z_index: Default::default(),
             children: Default::default(),
@@ -51,6 +53,10 @@ impl UiElement for Tank {
         self.id.clone()
     }
 
+    fn get_events(&self) -> &Events {
+        &self.events
+    }
+    
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
@@ -61,6 +67,10 @@ impl UiElement for Tank {
 
     fn get_transform(&self) -> &Transform {
         &self.transform
+    }
+
+    fn set_opacity(&mut self, opacity: f32) {
+        self.opacity.target = opacity;
     }
 
     fn get_z_index(&self) -> i32 {
@@ -134,6 +144,14 @@ impl UiElement for Tank {
 
         if self.events.is_hovering {
             self.on_hover();
+
+            for child in self.events.hovering_elements.iter_mut() {
+                if self.events.is_hovering {
+                    child.render(context, dimensions);
+                } else {
+                    child.destroy();
+                }
+            }
         } else if !self.destroyed {
             self.opacity.target = self.opacity.original;
             if !fuzzy_compare!(self.opacity.value, self.opacity.target, 1e-1) {
@@ -147,6 +165,7 @@ impl UiElement for Tank {
         context.set_transform(&self.transform);
         self.raw_transform = context.get_transform();
         context.global_alpha(self.opacity.value);
+        context.rotate(self.angle);
 
         Tank::render_turrets(context, self.stroke, self.radius, &self.turret_structure, &vec![Interpolatable::new(1.0); self.turret_structure.turrets.len()]);
         Tank::render_body(context, self.stroke, &self.body_identity, self.radius, PLAYER_FILL, PLAYER_STROKE);
@@ -329,6 +348,11 @@ impl Tank {
 
     pub fn with_radius(mut self, radius: f32) -> Tank {
         self.radius = radius;
+        self
+    }
+
+    pub fn with_angle(mut self, angle: f32) -> Tank {
+        self.angle = angle;
         self
     }
 

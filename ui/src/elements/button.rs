@@ -52,6 +52,10 @@ impl UiElement for Button {
         self.id.clone()
     }
 
+    fn get_events(&self) -> &Events {
+        &self.events
+    }
+
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
@@ -62,6 +66,10 @@ impl UiElement for Button {
 
     fn get_transform(&self) -> &Transform {
         &self.transform.value
+    }
+
+    fn set_opacity(&mut self, opacity: f32) {
+        self.opacity.target = opacity;
     }
     
     fn get_z_index(&self) -> i32 {
@@ -136,6 +144,14 @@ impl UiElement for Button {
 
         if self.events.is_hovering {
             shake_lerp_factor = self.on_hover();
+
+            for child in self.events.hovering_elements.iter_mut() {
+                if self.events.is_hovering {
+                    child.render(context, dimensions);
+                } else {
+                    child.destroy();
+                }
+            }
         } else if !self.destroyed {
             self.fill.target = self.fill.original;
             self.dimensions.target = self.dimensions.original;
@@ -206,6 +222,14 @@ impl UiElement for Button {
             child.render(context, dimensions);
         }
 
+        if let Some(tooltip) = &mut self.events.tooltip {
+            if !self.events.is_hovering {
+                tooltip.destroy();
+            }
+
+            tooltip.render(context, dimensions);
+        }
+
         context.restore();
 
         if DEBUG {
@@ -226,6 +250,14 @@ impl UiElement for Button {
 
         for child in self.children.iter_mut() {
             child.destroy();
+        }
+
+        for child in self.events.hovering_elements.iter_mut() {
+            child.destroy();
+        }
+
+        if let Some(tooltip) = &mut self.events.tooltip {
+            tooltip.destroy();
         }
     }
 

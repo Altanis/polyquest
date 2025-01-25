@@ -34,7 +34,8 @@ impl GameServer {
 pub struct GameState {
     pub entities: EntityDataStructure,
     pub shg: SpatialHashGrid,
-    pub counter: u32
+    pub counter: u32,
+    pub mspt: f32
 }
 
 impl GameState {
@@ -108,6 +109,9 @@ impl GameState {
 
     pub fn tick(&mut self) {
         let ids: Vec<_> = self.entities.keys().copied().collect();
+
+        let mspt = std::time::Instant::now();
+
         for id in ids {
             // let dt = {
             //     let entity = self.get_entity(id).unwrap();
@@ -148,5 +152,7 @@ impl GameState {
                 }
             }
         }
+
+        self.mspt = mspt.elapsed().as_millis_f32();
     }
 }

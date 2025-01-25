@@ -141,8 +141,8 @@ impl WebGl {
     }
 
     fn draw_crc2d(&self, context: &Canvas2d) {
-        self.canvas.set_width(context.get_width());
-        self.canvas.set_height(context.get_height());
+        self.canvas.set_width(context.get_width() as u32);
+        self.canvas.set_height(context.get_height() as u32);
 
         self.ctx.tex_image_2d_with_u32_and_u32_and_canvas(
             WebGlRenderingContext::TEXTURE_2D,
@@ -184,7 +184,7 @@ impl WebGl {
         gl.uniform1i(texture_loc.as_ref(), 0);
         gl.uniform1f(time_loc.as_ref(), time as f32);
         self.draw_crc2d(context);
-        gl.uniform2fv_with_f32_array(resolution_loc.as_ref(), &[context.get_width() as f32, context.get_height() as f32]);
+        gl.uniform2fv_with_f32_array(resolution_loc.as_ref(), &[context.get_width(), context.get_height()]);
         gl.viewport(0, 0, context.get_width() as i32, context.get_height() as i32);
     
         gl.clear_color(0.0, 0.0, 0.0, 1.0);

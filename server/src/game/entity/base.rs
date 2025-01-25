@@ -1,4 +1,4 @@
-use std::{collections::HashSet, num::NonZeroU32, time::Instant};
+use std::{collections::HashSet, num::NonZeroU32};
 use derive_new::new as New;
 use shared::{game::{body::{get_body_base_identity, BodyIdentity}, entity::{get_min_score_from_level, EntityType, InputFlags, Notification, Ownership, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, turret::{get_turret_base_identity, TurretStructure}}, utils::{codec::BinaryCodec, color::Color, consts::MAX_LEVEL, vec2::Vector2D}};
 use strum::EnumCount;
@@ -27,7 +27,8 @@ pub struct PhysicsComponent {
     pub absorption_factor: f32,
     pub push_factor: f32,
     pub collisions: HashSet<u32>,
-    pub ai: Option<AI>
+    pub ai: Option<AI>,
+    pub bound_to_walls: bool
 }
 
 #[derive(Clone)]
@@ -112,7 +113,8 @@ pub enum EntityConstruction {
         turret_idx: isize,
         kb_factors: (f32, f32),
         ai: Option<AI>,
-        projectile_type: EntityType
+        projectile_type: EntityType,
+        bound_to_walls: bool
     },
     TankConstruction
 }
@@ -133,7 +135,8 @@ impl Entity {
                 absorption_factor: get_body_base_identity().absorption_factor,
                 push_factor: 8.0,
                 collisions: HashSet::new(),
-                ai: None
+                ai: None,
+                bound_to_walls: true
             },
             display: DisplayComponent {
                 name: "".to_string(),
@@ -353,7 +356,8 @@ impl Entity {
             turret_idx,
             kb_factors,
             ai,
-            projectile_type
+            projectile_type,
+            bound_to_walls
         } = construction else { panic!("impossibility"); };
 
         Entity {
@@ -370,7 +374,8 @@ impl Entity {
                 absorption_factor: kb_factors.0,
                 push_factor: kb_factors.1,
                 collisions: HashSet::new(),
-                ai
+                ai,
+                bound_to_walls
             },
             display: DisplayComponent {
                 name: "".to_string(),

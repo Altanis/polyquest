@@ -5,9 +5,11 @@ use axum::{
     response::IntoResponse
 };
 use futures::{stream::SplitSink, SinkExt, StreamExt};
-use shared::{connection::packets::ServerboundPackets, utils::codec::BinaryCodec};
+use shared::{connection::packets::ServerboundPackets, game::entity::EntityType, utils::codec::BinaryCodec};
 
-use crate::{game::entity::base::Entity, server::{Server, ServerGuard, WrappedServer}};
+use crate::{game::entity::base::{AliveState, Entity}, server::{Server, ServerGuard, WrappedServer}};
+
+use self::packets::form_server_info_packet;
 
 use super::packets;
 
@@ -53,6 +55,14 @@ impl WebSocketServer {
 
         while let Some(Ok(message)) = receiver.next().await {
             let mut full_server = server.lock().await;
+            
+            if let Message::Binary(ref data) = message && let Some(&header) = data.first()
+                && header.try_into() == Ok(ServerboundPackets::Ping)
+            {
+                let client = full_server.ws_server.clients.get_mut(&id).unwrap();
+                let _ = client.sender.send(Message::Binary(packets::form_pong_packet().out())).await;
+            }
+
             if let Err(ban) = WebSocketServer::handle_message(&mut full_server, message, id) {
                 WebSocketServer::close_client(&mut full_server, id, ban);
             }
@@ -71,7 +81,8 @@ impl WebSocketServer {
                     ServerboundPackets::Spawn => packets::handle_spawn_packet(full_server, id, codec),
                     ServerboundPackets::Input => packets::handle_input_packet(full_server, id, codec),
                     ServerboundPackets::Stats => packets::handle_stats_packet(full_server, id, codec),
-                    ServerboundPackets::Upgrade => packets::handle_upgrade_packet(full_server, id, codec)
+                    ServerboundPackets::Upgrade => packets::handle_upgrade_packet(full_server, id, codec),
+                    ServerboundPackets::Ping => Ok(())
                 }
             },
             Message::Close(_) => Err(false),
@@ -90,12 +101,47 @@ impl WebSocketServer {
     pub async fn tick(full_server: &mut Server) {
         full_server.ws_server.ticks += 1;
 
+        let game_server = full_server.game_server.get_server();
+        let mut leaderboard: Vec<_> = game_server.entities
+            .values()
+            .filter(|e| e.borrow().display.entity_type == EntityType::Player && e.borrow().stats.alive == AliveState::Alive)
+            .collect::<Vec<_>>();
+
+        leaderboard.sort_by_key(|e| std::cmp::Reverse(e.borrow().display.score));
+
+        let leaderboard: Vec<_> = leaderboard
+            .into_iter()
+            .take(10)
+            .map(|e| {
+                let e = e.borrow();
+                (
+                    e.display.score,
+                    e.display.name.clone(),
+                    e.display.body_identity.id,
+                    e.display.turret_identity.id,
+                    e.physics.position
+                )
+            })
+            .collect();
+
         for (id, ws_client) in full_server.ws_server.clients.iter_mut() {
             let mut outgoing_packets = {
+                let (reference_position, reference_fov) = {
+                    let Some(entity) = full_server.game_server.get_server().get_entity(*id) else { continue; };
+                    (entity.physics.position, entity.display.fov)
+                };
+
+                let server_info_packet = form_server_info_packet(
+                    full_server.game_server.get_server(), 
+                    &leaderboard,
+                    reference_position, reference_fov
+                );
+
                 let Some(mut entity) = full_server.game_server.get_server().get_entity(*id) else { continue; };
-                let packets = entity.connection.outgoing_packets.clone();
+                let mut packets = entity.connection.outgoing_packets.clone();
                 entity.connection.outgoing_packets.clear();
 
+                packets.append(&mut vec![server_info_packet]);
                 packets
             };
 

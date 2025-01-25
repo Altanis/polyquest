@@ -28,6 +28,10 @@ impl UiElement for Rect {
         self.id.clone()
     }
 
+    fn get_events(&self) -> &Events {
+        &self.events
+    }
+    
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
@@ -38,6 +42,10 @@ impl UiElement for Rect {
 
     fn get_transform(&self) -> &Transform {
         &self.transform
+    }
+
+    fn set_opacity(&mut self, opacity: f32) {
+        self.opacity.target = opacity;
     }
 
     fn get_z_index(&self) -> i32 {
@@ -80,7 +88,7 @@ impl UiElement for Rect {
         )
     }
 
-    fn render(&mut self, context: &mut Canvas2d, _: Vector2D) -> bool {
+    fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D) -> bool {
         context.save();
         context.set_transform(&self.transform);
         context.fill_style(self.fill);
@@ -97,6 +105,10 @@ impl UiElement for Rect {
         context.begin_round_rect(0.0, 0.0, self.dimensions.x, self.dimensions.y, self.roundness);
         context.fill();
         context.stroke();
+
+        for child in self.children.iter_mut() {
+            child.render(context, dimensions);
+        }
 
         context.restore();
 

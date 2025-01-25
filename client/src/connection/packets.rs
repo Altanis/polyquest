@@ -1,5 +1,5 @@
 use gloo::console::console;
-use shared::{connection::packets::ServerboundPackets, game::entity::{InputFlags, Notification}, utils::{codec::BinaryCodec, color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
+use shared::{connection::packets::ServerboundPackets, game::{body::BodyIdentityIds, entity::{InputFlags, Notification}, turret::TurretIdentityIds}, normalize_angle, utils::{codec::BinaryCodec, color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
 
 use crate::{game::entity::base::{Entity, HealthState}, world::{get_world, World}};
 
@@ -41,6 +41,13 @@ pub fn form_upgrade_packet(upgrade_type: usize, stat: usize) -> BinaryCodec {
     codec.encode_varuint(ServerboundPackets::Upgrade as u64);
     codec.encode_varuint(upgrade_type as u64);
     codec.encode_varuint(stat as u64);
+
+    codec
+}
+
+pub fn form_ping_packet() -> BinaryCodec {
+    let mut codec = BinaryCodec::new();
+    codec.encode_varuint(ServerboundPackets::Ping as u64);
 
     codec
 }
@@ -89,4 +96,31 @@ pub fn handle_notification_packet(
             ..Default::default()
         });
     }
+}
+
+pub fn handle_server_info_packet(
+    world: &mut World,
+    mut codec: BinaryCodec
+) {
+    let mspt = codec.decode_f32().unwrap();
+    world.connection.mspt.target = mspt;
+
+    let leaderboard_length = codec.decode_varuint().unwrap() as usize;
+    world.game.leaderboard.entries = Vec::with_capacity(leaderboard_length);
+
+    for _ in 0..leaderboard_length {
+        let score = codec.decode_varuint().unwrap() as usize;
+        let name = codec.decode_string().unwrap();
+        let body_identity: BodyIdentityIds = (codec.decode_varuint().unwrap() as usize).try_into().unwrap();
+        let turret_identity: TurretIdentityIds = (codec.decode_varuint().unwrap() as usize).try_into().unwrap();
+
+        world.game.leaderboard.entries.push((score, name, body_identity, turret_identity));
+    }
+
+    let angle = codec.decode_f32().unwrap();
+    world.game.leaderboard.angle.target = if angle == -13.0 {
+        -13.0
+    } else {
+        normalize_angle!(angle + std::f32::consts::PI)
+    };
 }

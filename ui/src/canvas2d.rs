@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use gloo::utils::{document, window};
 use shared::{rand, utils::{color::Color, vec2::Vector2D}};
 use web_sys::{wasm_bindgen::JsCast, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
@@ -140,7 +142,7 @@ impl Transform {
     }
 
     pub fn get_rotation(&self) -> f64 {
-        self.a().atan2(self.b())
+        self.b().atan2(self.a())
     }
 
     pub fn translate(&self, tx: f32, ty: f32) -> Transform {
@@ -192,6 +194,21 @@ impl Transform {
     }
 }
 
+impl std::fmt::Display for Transform {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "[{}, {}, {}, {}, {}, {}]",
+            self.a(),
+            self.b(),
+            self.c(),
+            self.d(),
+            self.e(),
+            self.f()
+        )
+    }
+}
+
 pub struct Canvas2d {
     canvas: HtmlCanvasElement,
     ctx: CanvasRenderingContext2d
@@ -233,16 +250,16 @@ impl Canvas2d {
         let _ = self.canvas.style().set_property("cursor", style);
     }
 
-    pub fn get_width(&self) -> u32 {
-        self.canvas.width()
+    pub fn get_width(&self) -> f32 {
+        self.canvas.width() as f32
     }
     
-    pub fn get_height(&self) -> u32 {
-        self.canvas.height()
+    pub fn get_height(&self) -> f32 {
+        self.canvas.height() as f32
     }
 
     pub fn get_dimensions(&self) -> Vector2D {
-        Vector2D::new(self.get_width() as f32, self.get_height() as f32)
+        Vector2D::new(self.get_width(), self.get_height())
     }
 
     pub fn save(&self) {
@@ -324,6 +341,10 @@ impl Canvas2d {
 
     pub fn set_text_align(&self, align: &str) {
         self.ctx.set_text_align(align);
+    }
+
+    pub fn set_text_baseline(&self, baseline: &str) {
+        self.ctx.set_text_baseline(baseline);
     }
 
     pub fn stroke_text(&self, text: &str) {
@@ -417,7 +438,7 @@ impl Canvas2d {
 
     pub fn rotate(&self, r: f32) {
         let _ = self.ctx.rotate(r.into());
-    }   
+    }
 
     pub fn set_image_smoothing(&self, smooth: bool) {
         self.ctx.set_image_smoothing_enabled(smooth);

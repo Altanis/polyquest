@@ -23,6 +23,10 @@ impl UiElement for Body {
         self.id.clone()
     }
 
+    fn get_events(&self) -> &Events {
+        &self.events
+    }
+    
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
@@ -35,6 +39,8 @@ impl UiElement for Body {
         &self.transform
     }
 
+    fn set_opacity(&mut self, _: f32) {}
+
     fn get_z_index(&self) -> i32 {
         1
     }
@@ -46,7 +52,17 @@ impl UiElement for Body {
     fn set_clicked(&mut self, _: bool, _: &MouseEvent) {}
 
     fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
-        self.children.sort_by_key(|child| child.get_z_index());
+        self.children.sort_by(|a, b| {
+            let z_index_cmp = a.get_z_index().cmp(&b.get_z_index());
+            if z_index_cmp == std::cmp::Ordering::Equal {
+                let a_hovering = a.get_events().is_hovering;
+                let b_hovering = b.get_events().is_hovering;
+                a_hovering.cmp(&b_hovering)
+            } else {
+                z_index_cmp
+            }
+        });
+
         &mut self.children
     }
 
@@ -85,7 +101,7 @@ impl UiElement for Body {
     fn render(&mut self, context: &mut Canvas2d, _: Vector2D) -> bool {
         context.save();
         context.fill_style(self.fill);
-        context.fill_rect(0.0, 0.0, context.get_width() as f32, context.get_height() as f32);
+        context.fill_rect(0.0, 0.0, context.get_width(), context.get_height());
         context.restore();
 
         context.save();

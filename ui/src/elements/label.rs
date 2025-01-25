@@ -61,6 +61,10 @@ impl UiElement for Label {
         self.id.clone()
     }
 
+    fn get_events(&self) -> &Events {
+        &self.events
+    }
+    
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
@@ -71,6 +75,11 @@ impl UiElement for Label {
 
     fn get_transform(&self) -> &Transform {
         &self.transform
+    }
+
+    fn set_opacity(&mut self, opacity: f32) {
+        self.opacity.target = opacity;
+        self.opacity.value = opacity;
     }
 
     fn get_z_index(&self) -> i32 {
@@ -157,6 +166,14 @@ impl UiElement for Label {
 
         if self.events.is_hovering {
             shake_lerp_factor = self.on_hover();
+
+            for child in self.events.hovering_elements.iter_mut() {
+                if self.events.is_hovering {
+                    child.render(context, dimensions);
+                } else {
+                    child.destroy();
+                }
+            }
         } else if !self.destroyed {
             self.font.target = self.font.original;
             self.angle.target = self.angle.original;

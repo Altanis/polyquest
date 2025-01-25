@@ -1,17 +1,20 @@
-#[derive(Debug, Clone, num_enum::TryFromPrimitive)]
+#[derive(Debug, Clone, PartialEq, num_enum::TryFromPrimitive)]
 #[repr(u8)]
 pub enum ServerboundPackets {
     Spawn    = 0x0,
     Input    = 0x1,
     Stats    = 0x2,
-    Upgrade  = 0x3
+    Upgrade  = 0x3,
+    Ping     = 0x4
 }
 
 #[derive(Debug, Clone, num_enum::TryFromPrimitive)]
 #[repr(u8)]
 pub enum ClientboundPackets {
     Update         = 0x0,
-    Notifications  = 0x1
+    Notifications  = 0x1,
+    Pong           = 0x2,
+    ServerInfo     = 0x3
 }
 
 #[derive(Debug, Clone, Copy, strum_macros::EnumIter)]

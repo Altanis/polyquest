@@ -1,5 +1,5 @@
-use shared::{connection::packets::ClientboundPackets, game::{body::BodyIdentity, entity::{get_min_score_from_level, InputFlags, MAX_STAT_INVESTMENT}, turret::TurretStructure}, utils::{codec::BinaryCodec, consts::{SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
-use crate::{game::{entity::base::{AliveState, Entity}, state::EntityDataStructure}, server::ServerGuard};
+use shared::{connection::packets::ClientboundPackets, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{get_min_score_from_level, InputFlags, MAX_STAT_INVESTMENT}, turret::{TurretIdentityIds, TurretStructure}}, utils::{codec::BinaryCodec, consts::{SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
+use crate::{game::{entity::base::{AliveState, Entity}, state::{EntityDataStructure, GameState}}, server::{ServerGuard, LEADER_ARROW_VIEW}};
 
 pub fn handle_spawn_packet(
     full_server: &mut ServerGuard, 
@@ -7,7 +7,8 @@ pub fn handle_spawn_packet(
     mut codec: BinaryCodec
 ) -> Result<(), bool> {
     let game_server = full_server.game_server.get_server();
-    let name = codec.decode_string().ok_or(true)?;
+    let mut name = codec.decode_string().ok_or(true)?;
+    name.truncate(16);
 
     let random_position = game_server.get_random_position();
     if let Some(mut entity) = game_server.get_entity(id) && entity.stats.alive != AliveState::Alive {
@@ -160,6 +161,42 @@ pub fn form_notification_packet(
         codec.encode_varuint(notification.color.2 as u64);
         codec.encode_varuint(notification.lifetime);
     }
+
+    codec
+}
+
+pub fn form_pong_packet() -> BinaryCodec {
+    let mut codec = BinaryCodec::new();
+    codec.encode_varuint(ClientboundPackets::Pong as u64);
+
+    codec
+}
+
+pub fn form_server_info_packet(
+    state: &GameState, 
+    leaderboard: &[(usize, String, BodyIdentityIds, TurretIdentityIds, Vector2D)], 
+    reference_position: Vector2D, reference_fov: f32
+) -> BinaryCodec {
+    let mut codec = BinaryCodec::new();
+    codec.encode_varuint(ClientboundPackets::ServerInfo as u64);
+    
+    codec.encode_f32(state.mspt);
+
+    codec.encode_varuint(leaderboard.len() as u64);
+    for (score, name, body_identity, turret_identity, _) in leaderboard.iter() {
+        codec.encode_varuint(*score as u64);
+        codec.encode_string(name.clone());
+        codec.encode_varuint(*body_identity as u64);
+        codec.encode_varuint(*turret_identity as u64);
+    }
+
+    codec.encode_f32(if let Some((_, _, _, _, position)) = leaderboard.first() 
+        && position.distance(reference_position) > LEADER_ARROW_VIEW * reference_fov
+    {
+        (reference_position - *position).angle()
+    } else {
+        -13.0
+    });
 
     codec
 }

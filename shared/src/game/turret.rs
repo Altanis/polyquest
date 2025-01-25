@@ -93,7 +93,8 @@ pub struct TurretStructure {
     pub id: TurretIdentityIds,
     pub turrets: Vec<TurretIdentity>,
     pub level_requirement: usize,
-    pub upgrades: Vec<TurretIdentityIds>
+    pub upgrades: Vec<TurretIdentityIds>,
+    pub description: &'static str
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, num_enum::TryFromPrimitive)]
@@ -153,7 +154,8 @@ pub fn get_turret_base_identity() -> TurretStructure {
         id: TurretIdentityIds::Base,
         turrets: vec![],
         level_requirement: 0,
-        upgrades: vec![TurretIdentityIds::Mono, TurretIdentityIds::Spawner, TurretIdentityIds::Warden]
+        upgrades: vec![TurretIdentityIds::Mono, TurretIdentityIds::Spawner, TurretIdentityIds::Warden],
+        description: "Null and void."
     }
 }
 
@@ -189,7 +191,8 @@ pub fn get_turret_mono_identity() -> TurretStructure {
             }
         ],
         level_requirement: 0,
-        upgrades: vec![TurretIdentityIds::Couplet, TurretIdentityIds::Flurry, TurretIdentityIds::Flank, TurretIdentityIds::Sniper, TurretIdentityIds::Pounder]
+        upgrades: vec![TurretIdentityIds::Couplet, TurretIdentityIds::Flurry, TurretIdentityIds::Flank, TurretIdentityIds::Sniper, TurretIdentityIds::Pounder],
+        description: "Shoots bullets."
     }
 }
 
@@ -225,7 +228,8 @@ pub fn get_turret_spawner_identity() -> TurretStructure {
             }
         ],
         level_requirement: 0,
-        upgrades: vec![]
+        upgrades: vec![],
+        description: "Shoots AI/user controlled drones."
     }
 }
 
@@ -261,7 +265,8 @@ pub fn get_turret_warden_identity() -> TurretStructure {
             }
         ],
         level_requirement: 0,
-        upgrades: vec![]
+        upgrades: vec![],
+        description: "Shoots persistent traps."
     }
 }
 
@@ -323,7 +328,8 @@ pub fn get_turret_couplet_identity() -> TurretStructure {
             }
         ],
         level_requirement: 15,
-        upgrades: vec![]
+        upgrades: vec![],
+        description: "Fires two bullets successively."
     }
 }
 
@@ -359,7 +365,8 @@ pub fn get_turret_flurry_identity() -> TurretStructure {
             }
         ],
         level_requirement: 15,
-        upgrades: vec![]
+        upgrades: vec![],
+        description: "High bullet spread and reload for less damage."
     }
 }
 
@@ -421,7 +428,8 @@ pub fn get_turret_flank_identity() -> TurretStructure {
             }
         ],
         level_requirement: 15,
-        upgrades: vec![]
+        upgrades: vec![],
+        description: "Two diametrically opposed barrels."
     }
 }
 
@@ -457,7 +465,8 @@ pub fn get_turret_sniper_identity() -> TurretStructure {
             }
         ],
         level_requirement: 15,
-        upgrades: vec![]
+        upgrades: vec![],
+        description: "Shoots fast bullets with low reload."
     }
 }
 
@@ -493,6 +502,7 @@ pub fn get_turret_pounder_identity() -> TurretStructure {
             }
         ],
         level_requirement: 15,
-        upgrades: vec![]
+        upgrades: vec![],
+        description: "Shoots strong bullets with low reload."
     }
 }

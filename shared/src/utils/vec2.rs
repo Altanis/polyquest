@@ -132,6 +132,11 @@ impl Vector2D {
         self.x.min(self.y)
     }
 
+    /// Returns the larger component.
+    pub fn max(&self) -> f32 {
+        self.x.max(self.y)
+    }
+
     /// Normalizes the vector to have a magnitude of 1 (unit vector).
     /// If the vector's magnitude is 0, it does nothing.
     pub fn normalize(&mut self) {

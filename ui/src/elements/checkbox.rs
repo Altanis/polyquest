@@ -58,6 +58,10 @@ impl UiElement for Checkbox {
         self.id.clone()
     }
 
+    fn get_events(&self) -> &Events {
+        &self.events
+    }
+    
     fn get_mut_events(&mut self) -> &mut Events {
         &mut self.events
     }
@@ -68,6 +72,10 @@ impl UiElement for Checkbox {
 
     fn get_transform(&self) -> &Transform {
         &self.transform
+    }
+
+    fn set_opacity(&mut self, opacity: f32) {
+        self.opacity.target = opacity;
     }
 
     fn get_z_index(&self) -> i32 {
@@ -135,6 +143,14 @@ impl UiElement for Checkbox {
 
         if self.events.is_hovering {
             self.on_hover();
+
+            for child in self.events.hovering_elements.iter_mut() {
+                if self.events.is_hovering {
+                    child.render(context, dimensions);
+                } else {
+                    child.destroy();
+                }
+            }
         } else if !self.destroyed {
             self.fill.target = self.fill.original;
             self.dimensions.target = self.dimensions.original;

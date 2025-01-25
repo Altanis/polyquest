@@ -1,6 +1,6 @@
 use shared::utils::{color::Color, vec2::Vector2D};
 use web_sys::MouseEvent;
-use crate::canvas2d::{Canvas2d, Transform};
+use crate::{canvas2d::{Canvas2d, Transform}, elements::tooltip::Tooltip};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum ElementType {
@@ -10,6 +10,7 @@ pub enum ElementType {
     Label,
     Modal,
     ProgressBar,
+    Tooltip,
     Rect,
     Tank
 }
@@ -18,10 +19,12 @@ pub trait UiElement {
     fn get_identity(&self) -> ElementType;
     fn get_id(&self) -> String;
 
+    fn get_events(&self) -> &Events;
     fn get_mut_events(&mut self) -> &mut Events;
 
     fn set_transform(&mut self, transform: Transform);
     fn get_transform(&self) -> &Transform;
+    fn set_opacity(&mut self, opacity: f32);
 
     fn get_z_index(&self) -> i32;
 
@@ -82,7 +85,9 @@ pub struct Events {
     pub is_clicked: bool,
     pub hover_effects: Vec<HoverEffects>,
     pub deletion_effects: Vec<DeletionEffects>,
-    pub on_click: Option<Box<OnClickScript>>
+    pub on_click: Option<Box<OnClickScript>>,
+    pub tooltip: Option<Box<Tooltip>>,
+    pub hovering_elements: Vec<Box<dyn UiElement>>
 }
 
 impl Default for Events {
@@ -93,7 +98,9 @@ impl Default for Events {
             is_clicked: false,
             hover_effects: vec![],
             deletion_effects: vec![],
-            on_click: None
+            on_click: None,
+            tooltip: None,
+            hovering_elements: vec![]
         }
     }
 }
@@ -116,6 +123,16 @@ impl Events {
 
     pub fn with_on_click(mut self, click_fn: Box<OnClickScript>) -> Events {
         self.on_click = Some(click_fn);
+        self
+    }
+
+    pub fn with_tooltip(mut self, tooltip: Tooltip) -> Events {
+        self.tooltip = Some(Box::new(tooltip));
+        self
+    }
+
+    pub fn with_hovering_elements(mut self, hovering_elements: Vec<Box<dyn UiElement>>) -> Events {
+        self.hovering_elements = hovering_elements;
         self
     }
 }

@@ -1,13 +1,14 @@
 use gloo::console::console;
-use shared::{connection::packets::ClientboundPackets, utils::codec::BinaryCodec};
+use gloo_utils::window;
+use shared::{connection::packets::{ClientboundPackets, ServerboundPackets}, utils::{codec::BinaryCodec, interpolatable::Interpolatable}};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{js_sys::{ArrayBuffer, Uint8Array}, wasm_bindgen::{prelude::Closure, JsCast}, BinaryType, Event, MessageEvent, Performance, WebSocket};
 
 use crate::world::{get_world, World};
 
-use super::packets::{handle_notification_packet, handle_update_packet};
+use super::packets::{handle_notification_packet, handle_server_info_packet, handle_update_packet};
 
-const IS_PROD: bool = true;
+const IS_PROD: bool = false;
 const URL: &str = if IS_PROD {
     "ws://108.29.192.90:8080/ws"
 } else {
@@ -25,11 +26,11 @@ pub enum ConnectionState {
 
 pub struct Connection {
     pub state: ConnectionState,
-    pub latency: f32,
-    pub mspt: f32,
+    pub latency: Interpolatable<f64>,
+    pub mspt: Interpolatable<f32>,
 
     retries: usize,
-    last_ping: f64,
+    last_ping: Vec<f64>,
     
     socket: WebSocket
 }
@@ -42,10 +43,10 @@ impl Connection {
 
         let connection = Connection { 
             state: ConnectionState::Connecting,
-            latency: 0.0,
-            mspt: 0.0,
+            latency: Interpolatable::new(0.0),
+            mspt: Interpolatable::new(0.0),
             retries: 0,
-            last_ping: 0.0,
+            last_ping: vec![],
             socket 
         };
 
@@ -129,11 +130,20 @@ impl Connection {
         let header: ClientboundPackets = (codec.decode_varuint().unwrap() as u8).try_into().unwrap();
         match header {
             ClientboundPackets::Update => handle_update_packet(world, codec),
-            ClientboundPackets::Notifications => handle_notification_packet(world, codec)
+            ClientboundPackets::Notifications => handle_notification_packet(world, codec),
+            ClientboundPackets::Pong => {
+                world.connection.latency.target = window().performance().unwrap().now() 
+                    - world.connection.last_ping.pop().unwrap_or(0.0);
+            },
+            ClientboundPackets::ServerInfo => handle_server_info_packet(world, codec)
         }
     }
 
-    pub fn send_message(&self, data: BinaryCodec) {
+    pub fn send_message(&mut self, data: BinaryCodec, packet_type: ServerboundPackets) {
+        if packet_type == ServerboundPackets::Ping {
+            self.last_ping.push(window().performance().unwrap().now());
+        }
+
         let _ = self.socket.send_with_u8_array(data.out().as_slice());
     }
 }
