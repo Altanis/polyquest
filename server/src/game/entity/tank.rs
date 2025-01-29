@@ -59,7 +59,7 @@ impl Entity {
                 self.physics.has_moved = true;
             }
 
-            constructions.append(&mut self.handle_shooting(self.is_shooting()));
+            constructions.append(&mut self.handle_shooting());
     
             movement.set_magnitude(self.stats.speed);
             self.physics.velocity += movement;
@@ -90,19 +90,28 @@ impl Entity {
         self.physics.inputs.is_set(Inputs::Shoot)
     }
 
-    fn handle_shooting(&mut self, shooting: bool) -> Vec<EntityConstruction> {
+    pub fn is_repelling(&self) -> bool {
+        self.physics.inputs.is_set(Inputs::Repel)
+    }
+
+    fn handle_shooting(&mut self) -> Vec<EntityConstruction> {
         let mut constructions = vec![];
+        let (is_shooting, is_repelling) = (self.is_shooting(), self.is_repelling());
 
         for (i, turret) in self.display.turret_identity.turrets.iter_mut().enumerate() {
             let projectile_type = turret.projectile_identity.projectile_type;
 
-            if !turret.can_fire(self.stats.reload, shooting || turret.force_shoot) { continue; }
+            if !turret.can_fire(self.stats.reload, turret.force_shoot || if turret.repel_to_shoot {
+                is_repelling
+            } else {
+                is_shooting
+            }) { continue; }
 
             if turret.max_projectiles != -1 && turret.projectiles_spawned >= turret.max_projectiles { continue; }
             turret.projectiles_spawned += 1;
 
             let base_speed = (20.0 
-                + (3.0 * self.display.stat_investments[UpgradeStats::ProjectileSpeed as usize] as f32))
+                + (1.5 * self.display.stat_investments[UpgradeStats::ProjectileSpeed as usize] as f32))
                 * turret.projectile_identity.speed;
 
             let initial_speed = base_speed + 20.0 - rand!(0.0, 1.0) * turret.projectile_identity.scatter_rate;
@@ -112,7 +121,7 @@ impl Entity {
             let damage = (7.0 + self.display.stat_investments[UpgradeStats::ProjectileDamage as usize] as f32 * 3.0)
                 * turret.projectile_identity.damage;
 
-            let radius = (turret.width / 2.0) * (self.display.radius / FICTITIOUS_TANK_RADIUS);
+            let radius = (turret.width / 2.0) * (self.display.radius / FICTITIOUS_TANK_RADIUS) * turret.projectile_identity.size_factor;
 
             let projectile_angle = self.physics.angle + turret.angle + (std::f32::consts::PI / 180.0)
                 * turret.projectile_identity.scatter_rate
@@ -143,9 +152,9 @@ impl Entity {
                 radius,
                 position,
                 lifetime: match projectile_type {
-                    EntityType::Bullet => (turret.projectile_identity.lifetime * 72) as isize,
+                    EntityType::Bullet => (turret.projectile_identity.lifetime * 72.0) as isize,
                     EntityType::Drone => -1,
-                    EntityType::Trap => (turret.projectile_identity.lifetime * 75) as isize,
+                    EntityType::Trap => (turret.projectile_identity.lifetime * 75.0) as isize,
                     _ => unreachable!("invalid projectile type")
                 },
                 owners: Ownership::from_single_owner(self.id),
@@ -153,7 +162,7 @@ impl Entity {
                 kb_factors: (turret.projectile_identity.absorption_factor, push_factor),
                 ai: match projectile_type {
                     EntityType::Bullet => None,
-                    EntityType::Drone => Some(AI::new(self.id, false)),
+                    EntityType::Drone => Some(AI::new(Ownership::from_single_owner(self.id), false)),
                     EntityType::Trap => None,
                     _ => unreachable!("invalid projectile type")
                 },
@@ -170,16 +179,16 @@ impl Entity {
     }
 
     fn update_display(&mut self) {
-        let is_shooting = self.physics.inputs.is_set(Inputs::Shoot);
+        let is_shooting = self.is_shooting();
 
         // Invisibility
-        if self.physics.velocity.is_zero(3.0) && !is_shooting {
-            if self.display.body_identity.invisibility_rate != -1.0 && self.display.opacity > 0.0 {
-                self.display.opacity -= self.display.body_identity.invisibility_rate;
+        if self.physics.velocity.is_zero(5.0) && !is_shooting {
+            if self.display.turret_identity.invisibility_rate != -1.0 && self.display.opacity > 0.0 {
+                self.display.opacity -= self.display.turret_identity.invisibility_rate;
                 self.display.opacity = self.display.opacity.clamp(0.0, 1.0);
             }
-        } else if self.display.body_identity.invisibility_rate != -1.0 && self.display.opacity < 1.0 {
-            self.display.opacity += self.display.body_identity.invisibility_rate;
+        } else if self.display.turret_identity.invisibility_rate != -1.0 && self.display.opacity < 1.0 {
+            self.display.opacity += self.display.turret_identity.invisibility_rate;
             self.display.opacity = self.display.opacity.clamp(0.0, 1.0);
         }
 
@@ -229,7 +238,7 @@ impl Entity {
             / 1.015_f32.powf((self.display.level - 1) as f32);
 
         // FoV
-        self.display.fov = (0.55 * self.display.body_identity.fov) / 1.01f32.powf((self.display.level as f32 - 1.0) / 2.0);
+        self.display.fov = (0.55 * self.display.turret_identity.fov) / 1.01f32.powf((self.display.level as f32 - 1.0) / 2.0);
     }
 
     pub fn take_tank_census(&self, codec: &mut BinaryCodec, is_self: bool) {

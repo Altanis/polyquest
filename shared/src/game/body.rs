@@ -16,16 +16,10 @@ pub struct BodyIdentity {
     pub id: BodyIdentityIds, 
     /// Hints as to how to render the body.
     pub render_hints: Vec<BodyRenderingHints>,
-    /// Message to notify with upon upgrade.
-    pub upgrade_message: &'static str,
     /// The level requirement for the body.
     pub level_requirement: usize,
     /// The bodies the current body can upgrade to.
     pub upgrades: Vec<BodyIdentityIds>,
-    /// The rate at which the opacity decreases per tick.
-    pub invisibility_rate: f32,
-    /// The FoV factor of the body.
-    pub fov: f32,
     /// The inherent speed of the tank.
     pub speed: f32,
     /// The (base) maximum health of the body.
@@ -80,11 +74,8 @@ pub fn get_body_base_identity() -> BodyIdentity {
     BodyIdentity {
         id: BodyIdentityIds::Base,
         render_hints: vec![],
-        upgrade_message: "",
         level_requirement: 0,
         upgrades: vec![BodyIdentityIds::Smasher],
-        invisibility_rate: -1.0,
-        fov: 1.0,
         speed: 1.0,
         max_health: 50.0,
         body_damage: 1.0,
@@ -100,15 +91,12 @@ pub fn get_body_smasher_identity() -> BodyIdentity {
             thickness: 1.15,
             sides: 6
         }],
-        upgrade_message: "",
         level_requirement: 0,
         upgrades: vec![],
-        invisibility_rate: -1.0,
-        fov: 0.9,
         speed: 1.0,
         max_health: 55.0,
         body_damage: 1.2,
         absorption_factor: 0.95,
-        description: "Takes less knockback, has slightly increased FOV and body damage."
+        description: "Takes less knockback and slightly increased health/body damage."
     }
 }

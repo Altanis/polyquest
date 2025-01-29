@@ -27,15 +27,26 @@ Todo:
 - [x] mspt counter / latency
 - [x] leaderboard
 - [x] leader arrow
-- [ ] ai targets tanks
+    - [x] too small distance to make inviisble
+- [x] ai targets tanks
+- [x] killing drones fucks up projectile count
 - [ ] finish tanks
+- [ ] finish bodies
 - [ ] clans
 - [ ] global + local chat (or maybe clan-specific chats)
-- [ ] find better audio tracks
+- [ ] fix leader arrow
+- [ ] find better audio tracks (stable audio)
 - [ ] audio tracks interfere cuz theyre on the dom
 - [ ] close button for tank upgrades
 - [ ] keybinds for stat upgrades
+- [ ] remove health regen as an upgrade
 - [ ] on death, make spectate button which clears ui and allows u to roam
+- [ ] laser tank branch
+- [ ] tutorial screen
+
+-- SHOULD BE DONE BY FEBRUARY BREAK ^^ --
+
+then, make polyquest features:
 
 Ideas:
 - tank ideas:

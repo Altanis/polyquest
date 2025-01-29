@@ -36,11 +36,11 @@ pub fn form_stats_packet(stat: usize) -> BinaryCodec {
     codec
 }
 
-pub fn form_upgrade_packet(upgrade_type: usize, stat: usize) -> BinaryCodec {
+pub fn form_upgrade_packet(upgrade_type: usize, tank: usize) -> BinaryCodec {
     let mut codec = BinaryCodec::new();
     codec.encode_varuint(ServerboundPackets::Upgrade as u64);
     codec.encode_varuint(upgrade_type as u64);
-    codec.encode_varuint(stat as u64);
+    codec.encode_varuint(tank as u64);
 
     codec
 }
@@ -118,9 +118,10 @@ pub fn handle_server_info_packet(
     }
 
     let angle = codec.decode_f32().unwrap();
-    world.game.leaderboard.angle.target = if angle == -13.0 {
-        -13.0
-    } else {
-        normalize_angle!(angle + std::f32::consts::PI)
-    };
+
+    if angle != -13.0 {
+        world.game.leaderboard.angle.target = normalize_angle!(angle + std::f32::consts::PI);
+    }
+
+    world.game.leaderboard.arrow_opacity.target = if angle == -13.0 { 0.0 } else { 1.0 };
 }

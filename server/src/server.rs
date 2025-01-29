@@ -11,7 +11,7 @@ pub const MSPT: u64 = 1000 / FPS;
 pub const CELL_SIZE: u32 = 7;
 
 pub const SPAWN_INVINCIBILITY_TIME: u64 = 30 * FPS;
-pub const LEADER_ARROW_VIEW: f32 = 1000.0;
+pub const LEADER_ARROW_VIEW: f32 = 1920.0 * 1.5;
 
 pub struct Server {
     pub game_server: GameServer,

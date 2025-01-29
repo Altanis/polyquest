@@ -16,7 +16,7 @@ impl Entity {
         }
 
         if let Some(ai) = &mut self.physics.ai
-            && let Some(owner) = entities.get(&self.display.owners.deep.unwrap().get())
+            && let Some(owner) = entities.get(&self.display.owners.unwrap().deep)
         {
             let owner = owner.borrow_mut();
             let is_shooting = owner.is_shooting();
@@ -104,7 +104,7 @@ impl Entity {
                 CensusProperties::Opacity => codec.encode_f32(self.display.opacity),
                 CensusProperties::Radius => codec.encode_f32(self.display.radius),
                 CensusProperties::Owners => {
-                    let (shallow, deep) = self.display.owners.to_tuple();
+                    let (shallow, deep) = self.display.owners.unwrap().to_tuple();
                     codec.encode_varuint(shallow as u64);
                     codec.encode_varuint(deep as u64);
                     codec.encode_varuint(self.display.turret_idx as u64);

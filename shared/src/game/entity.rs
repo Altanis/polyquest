@@ -134,14 +134,14 @@ pub fn generate_identity(body: BodyIdentityIds, turret: TurretIdentityIds) -> St
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Ownership {
     /// The immediate cause of creation.
-    pub shallow: Option<NonZeroU32>,
-    /// The ultimate cause of creation
-    pub deep: Option<NonZeroU32>
+    pub shallow: u32,
+    /// The ultimate cause of creation.
+    pub deep: u32
 }
 
 impl Ownership {
     pub fn new(shallow: u32, deep: u32) -> Ownership {
-        Ownership { shallow: NonZeroU32::new(shallow), deep: NonZeroU32::new(deep) }
+        Ownership { shallow, deep }
     }
 
     pub fn from_single_owner(owner: u32) -> Ownership {
@@ -149,38 +149,11 @@ impl Ownership {
     }
 
     pub fn to_tuple(&self) -> (u32, u32) {
-        (match self.shallow {
-            None => 0,
-            Some(n) => n.into()
-        },
-        match self.deep {
-            None => 0,
-            Some(n) => n.into()
-        })
+        (self.shallow, self.deep)
     }
 
     pub fn has_owner(&self, owner: u32) -> bool {
-        self.shallow.is_some() && self.deep.is_some() &&
-        (
-            self.shallow == NonZeroU32::new(owner) ||
-            self.deep == NonZeroU32::new(owner)
-        )
-    }
-
-    pub fn is_related(&self, other: u32, other_ownership: Ownership) -> bool {
-        self.shallow == NonZeroU32::new(other)
-            || self.deep == NonZeroU32::new(other)
-            || other_ownership.shallow == NonZeroU32::new(other)
-            || other_ownership.deep == NonZeroU32::new(other)
-            || (self.shallow == other_ownership.shallow && self.shallow.is_some())
-            || (self.shallow == other_ownership.deep && self.shallow.is_some())
-            || (self.deep == other_ownership.shallow && self.deep.is_some())
-            || (self.deep == other_ownership.deep && self.deep.is_some())
-    }
-
-    /// Whether or not the two owners are the same.
-    pub fn has_singular_owner(&self) -> bool {
-        self.shallow.is_some() && self.shallow == self.deep
+        self.shallow == owner || self.deep == owner
     }
 }
 

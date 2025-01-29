@@ -14,7 +14,8 @@ use shared::game::theme::{ENEMY_FILL, ENEMY_STROKE, PLAYER_FILL, PLAYER_STROKE, 
 pub struct LeaderboardState {
     pub entries: Vec<(usize, String, BodyIdentityIds, TurretIdentityIds)>,
     pub angle: Interpolatable<f32>,
-    pub intersection: Interpolatable<Vector2D>
+    pub intersection: Interpolatable<Vector2D>,
+    pub arrow_opacity: Interpolatable<f32>
 }
 
 #[derive(Debug, Default)]
@@ -186,7 +187,7 @@ impl Entity {
                             if is_friendly {
                                 world.game.self_entity.display.turret_lengths[turret_idx.unwrap()].target = 0.75;
                             } else {
-                                shooter = entity.display.owners.deep;
+                                shooter = Some(entity.display.owners.deep);
                             }
                         }
         
@@ -197,7 +198,7 @@ impl Entity {
                 (shooter, turret_idx)
             };
 
-            if let Some(shooter) = shooter && let Some(entity) = world.game.surroundings.get_mut(&shooter.get()) {
+            if let Some(shooter) = shooter && let Some(entity) = world.game.surroundings.get_mut(&shooter) {
                 entity.display.turret_lengths[turret_idx.unwrap()].target = 0.75;
             }
         }

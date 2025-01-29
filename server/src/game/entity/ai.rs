@@ -1,7 +1,9 @@
 use core::f32;
-use shared::utils::vec2::Vector2D;
+use shared::{game::entity::{EntityType, Ownership}, utils::vec2::Vector2D};
 
 use crate::game::state::EntityDataStructure;
+
+use super::base::AliveState;
 
 /// The state of the AI.
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
@@ -26,16 +28,16 @@ pub struct AI {
     /// The state of the AI.
     pub state: AIState,
     /// The entity which owns the AI.
-    pub owner: u32,
+    pub ownership: Ownership,
     /// Whether or not the entity predicts its target's movements.
     pub prediction: bool,
 
 }
 
 impl AI {
-    pub fn new(owner: u32, prediction: bool) -> AI {
+    pub fn new(ownership: Ownership, prediction: bool) -> AI {
         AI {
-            owner,
+            ownership,
             prediction,
             ..Default::default()
         }
@@ -43,7 +45,7 @@ impl AI {
 
     fn get_target(&mut self, entities: &EntityDataStructure, position: Vector2D, surroundings: Vec<u32>) -> Option<u32> {
         if let AIState::Active(id) = self.state {
-            if !surroundings.contains(&id) {
+            if !surroundings.contains(&id) || entities.get(&id).is_none() {
                 self.state = AIState::Idle;
             } else {
                 return Some(id);
@@ -52,8 +54,21 @@ impl AI {
 
         let mut surroundings = surroundings
             .iter()
-            .filter(|&&id| id == self.owner)
-            .map(|id| entities.get(id).unwrap().borrow_mut());
+            .filter(|&&id| !self.ownership.has_owner(id) && entities.get(&id).is_some())
+            .map(|id| entities.get(id).unwrap().borrow_mut())
+            .filter(|entity| {
+                if entity.stats.alive != AliveState::Alive || !matches!(entity.display.entity_type, EntityType::Player) {
+                    return false;
+                } else if let Some(owners) = entity.display.owners {                    
+                    if self.ownership.has_owner(owners.shallow) || self.ownership.has_owner(owners.deep)
+                        || owners.has_owner(self.ownership.shallow) || owners.has_owner(self.ownership.deep)
+                    {
+                        return false;
+                    }
+                }
+
+                true
+            });
 
         if self.state == AIState::Idle {
             let (mut min_distance, mut id) = {
@@ -66,10 +81,6 @@ impl AI {
             };
 
             for entity in surroundings {
-                if entity.display.owners.has_owner(self.owner) {
-                    continue;
-                }
-
                 let distance = entity.physics.position.distance(position);
                 if min_distance > distance {
                     min_distance = distance;

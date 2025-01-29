@@ -97,6 +97,8 @@ pub fn handle_upgrade_packet(
         return Err(true);
     }
 
+    let mut deletions = vec![];
+
     if let Some(mut entity) = game_server.get_entity(id) 
         && entity.stats.alive == AliveState::Alive
     {
@@ -108,12 +110,20 @@ pub fn handle_upgrade_packet(
                 entity.display.upgrades.body.clear();
             }
         } else if upgrade_type == 1 {
-            if let Some(upgrade) = entity.display.upgrades.turret.get(upgrade_idx) {
-                let upgrade: TurretStructure = (*upgrade).try_into().unwrap();
+            if let Some(upgrade) = entity.display.upgrades.turret.get(upgrade_idx).cloned() {
+                if matches!(entity.display.turret_identity.id, TurretIdentityIds::Spawner | TurretIdentityIds::Overseer) {
+                    deletions = std::mem::take(&mut entity.display.owned_entities);
+                }
+
+                let upgrade: TurretStructure = upgrade.try_into().unwrap();
                 entity.display.turret_identity = upgrade;
                 entity.display.upgrades.turret.clear();
             }
         }
+    }
+    
+    while let Some(deletion) = deletions.pop() {
+        game_server.delete_entity(deletion);
     }
 
     Ok(())

@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::{bool, connection::packets::{Inputs, ServerboundPackets}, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{generate_identity, get_level_from_score, get_min_score_from_level, UpgradeStats, FICTITIOUS_TANK_RADIUS, MAX_STAT_INVESTMENT}, theme::{LEADER_ARROW_COLOR, MINIMAP_FILL, MINIMAP_PADDING, MINIMAP_PLAYER_FILL, MINIMAP_SIZE, MINIMAP_STROKE, STROKE_INTENSITY, STROKE_SIZE}, turret::{TurretIdentityIds, TurretStructure}}, lerp, lerp_angle, normalize_angle, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
+use shared::{bool, connection::packets::{Inputs, ServerboundPackets}, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{generate_identity, get_level_from_score, get_min_score_from_level, Notification, UpgradeStats, FICTITIOUS_TANK_RADIUS, MAX_STAT_INVESTMENT}, theme::{LEADER_ARROW_COLOR, MINIMAP_FILL, MINIMAP_PADDING, MINIMAP_PLAYER_FILL, MINIMAP_SIZE, MINIMAP_STROKE, STROKE_INTENSITY, STROKE_SIZE}, turret::{TurretIdentityIds, TurretStructure}}, lerp, lerp_angle, normalize_angle, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect, tank::Tank, tooltip::Tooltip}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::sound::Sound};
 use rand::Rng;
@@ -644,7 +644,7 @@ impl GamePhase {
 
         'upgrades: {
             let position: Vector2D = Vector2D::new(dimensions.x / 35.0, 50.0);
-            let dimensions = Vector2D::new(350.0, 250.0);
+            let dimensions = Vector2D::new(460.0, 250.0);
 
             if !world.game.self_entity.display.upgrades.is_empty() {
                 elements.push(Box::new(
@@ -671,14 +671,14 @@ impl GamePhase {
                     }
 
                     let color = Color::blend_colors(
-                        UPGRADE_STAT_COLORS[(i + 3) % UpgradeStats::COUNT], 
+                        UPGRADE_STAT_COLORS[(i + 4) % UpgradeStats::COUNT], 
                         Color::BLACK, 
                         0.05
                     );
 
                     let upgrade_position = position + Vector2D::new(
-                        37.5 + (i % 3) as f32 * 112.5,
-                        50.0 + (120.0 * (i / 3) as f32)
+                        37.5 + (i % 4) as f32 * 112.5,
+                        50.0 + (120.0 * (i / 4) as f32)
                     );
 
                     let description = (if is_body_upgrades {
@@ -724,21 +724,32 @@ impl GamePhase {
                                 ])
                                 .with_deletion_effects(vec![DeletionEffects::Disappear])
                                 .with_on_click(Box::new(|button| {
-                                    let i = button.get_id()
-                                        .split('-')
-                                        .last()
-                                        .and_then(|s| s.parse::<usize>().ok())
-                                        .unwrap();
+                                    let id = button.get_id();
+                                    let parts: Vec<&str> = id.split('-').collect();
+                                    let upgrade_type = if parts[0] == "body" { 0 } else { 1 };
+                                    let identity_id = parts[3].parse::<usize>().unwrap();
+                                    let i = parts[4].parse::<usize>().unwrap();
 
-                                    let upgrade_type = if button.get_id().split('-').next().unwrap() == "body" {
-                                        0
+                                    let upgrade_message = (if upgrade_type == 0 {
+                                        ""
                                     } else {
-                                        1
-                                    };
+                                        std::convert::TryInto::<TurretStructure>::try_into(
+                                            std::convert::TryInto::<TurretIdentityIds>::try_into(identity_id).unwrap()
+                                        ).unwrap().upgrade_message
+                                    });
 
                                     spawn_local(async move {
                                         let mut world = get_world();
                                         world.connection.send_message(form_upgrade_packet(upgrade_type, i), ServerboundPackets::Upgrade);
+                                        
+                                        if !upgrade_message.is_empty() {
+                                            world.game.self_entity.display.notifications.push(Notification {
+                                                message: upgrade_message.to_string(),
+                                                color: Color::BLACK,
+                                                lifetime: 150,
+                                                ..Default::default()
+                                            });
+                                        }
                                     });
                                 }))
                                 .with_hovering_elements(vec![
@@ -820,7 +831,7 @@ impl GamePhase {
             let (entry_bar_width, entry_bar_height) = (175.0, 15.0);
             let (leaderboard_width, leaderboard_height) = (
                 entry_bar_width + 50.0, 
-                200.0 + ((entry_bar_height + 10.0) * world.game.leaderboard.entries.len() as f32)
+                250.0
             );
 
             elements.push(Box::new(
@@ -887,6 +898,7 @@ impl GamePhase {
                                     .with_angle(std::f32::consts::PI)
                             )
                         ])
+                        .with_events(Events::default().with_hoverable(false))
                 ));
             }
         }
@@ -954,7 +966,7 @@ impl GamePhase {
             world.game.self_entity.physics.position.value
         );
 
-        if !is_dead && world.game.leaderboard.angle.target != -13.0 {
+        if !is_dead {
             GamePhase::render_leader_arrow(world, dt);
         }
         
@@ -992,14 +1004,20 @@ impl GamePhase {
     fn render_minimap(context: &mut Canvas2d, position: Vector2D) {
         context.save();
 
+        let factor = window().device_pixel_ratio() as f32;
+        let (screen_width, screen_height) = (context.get_width() / factor, context.get_height() / factor);
+
+        context.translate(context.get_width() / 2.0, context.get_height() / 2.0);
+        context.scale(factor, factor);
+
         context.translate(
-            context.get_width() - MINIMAP_PADDING - MINIMAP_SIZE, 
-            context.get_height() - MINIMAP_PADDING - MINIMAP_SIZE
+            screen_width / 2.0 - MINIMAP_PADDING - MINIMAP_SIZE, 
+            screen_height / 2.0 - MINIMAP_PADDING - MINIMAP_SIZE
         );
 
         context.fill_style(MINIMAP_FILL);
         context.stroke_style(MINIMAP_STROKE);
-        context.set_stroke_size(MINIMAP_SIZE * (5.0 / 250.0));
+        context.set_stroke_size(MINIMAP_SIZE * (3.5 / 175.0));
 
         context.begin_round_rect(0.0, 0.0, MINIMAP_SIZE, MINIMAP_SIZE, 5.0);
         context.fill();
@@ -1007,7 +1025,7 @@ impl GamePhase {
 
         let minimap_position = position * (MINIMAP_SIZE / ARENA_SIZE);
         context.fill_style(MINIMAP_PLAYER_FILL);
-        context.begin_arc(minimap_position.x, minimap_position.y, 5.0, std::f32::consts::TAU);
+        context.begin_arc(minimap_position.x, minimap_position.y, 2.5, std::f32::consts::TAU);
         context.fill();
 
         context.restore();
@@ -1037,22 +1055,30 @@ impl GamePhase {
     }
 
     fn render_notifications(world: &mut World, dt: f32) {
+        world.renderer.canvas2d.save();
+        let factor = window().device_pixel_ratio() as f32;
+        let (screen_width, screen_height) = (world.renderer.canvas2d.get_width() / factor, world.renderer.canvas2d.get_height() / factor);
+
+        world.renderer.canvas2d.translate(world.renderer.canvas2d.get_width() / 2.0, world.renderer.canvas2d.get_height() / 2.0);
+        world.renderer.canvas2d.scale(factor, factor);
+        world.renderer.canvas2d.translate(-world.renderer.canvas2d.get_width() / (2.0 * factor), -world.renderer.canvas2d.get_height() / (2.0 * factor));
+
         let length = world.game.self_entity.display.notifications.len();
         let mut deletions = vec![];
 
         for (i, notif) in world.game.self_entity.display.notifications.iter_mut().rev().enumerate() {
             if notif.position.direction == 1.0 {
                 notif.position.value = Vector2D::new(
-                    world.renderer.canvas2d.get_width() / 2.0,
-                    50.0 + (i as f32 * 75.0)
+                    screen_width / 2.0,
+                    25.0 + (i as f32 * 37.5)
                 );
 
                 notif.position.direction = -1.0;
             }
 
             notif.position.target = Vector2D::new(
-                world.renderer.canvas2d.get_width() / 2.0,
-                50.0 + (i as f32 * 75.0)
+                screen_width / 2.0,
+                25.0 + (i as f32 * 37.5)
             );
 
             notif.opacity.target = if notif.lifetime > 0 { 1.0 } else { 0.0 };
@@ -1074,7 +1100,7 @@ impl GamePhase {
             
             context.save();
             
-            let font = 40.0;
+            let font = 20.0;
             context.set_miter_limit(2.0);
             context.fill_style(Color::WHITE);
             context.stroke_style(Color::BLACK);
@@ -1082,8 +1108,8 @@ impl GamePhase {
             context.set_font(&format!("bold {}px Ubuntu", font));
             context.set_stroke_size(font / 5.0);
 
-            let width = context.measure_text(&notif.message).width();
-            let height = font + (font / 5.0);
+            let width = (context.measure_text(&notif.message).width()) as f32;
+            let height = (font + (font / 5.0));
 
             context.save();
             context.global_alpha(0.6 * notif.opacity.value);
@@ -1091,15 +1117,15 @@ impl GamePhase {
             context.stroke_style(Color::blend_colors(notif.color, Color::BLACK, STROKE_INTENSITY));
             context.set_stroke_size(STROKE_SIZE);
             context.fill_rect(
-                notif.position.value.x - width as f32 / 2.0 - 25.0, 
+                notif.position.value.x - width / 2.0 - 25.0 / 2.0,
                 notif.position.value.y - height / 2.0,
-                width as f32 + 50.0,
+                width + 25.0,
                 height
             );
             context.stroke_rect(
-                notif.position.value.x - width as f32 / 2.0 - 25.0, 
+                notif.position.value.x - width / 2.0 - 25.0 / 2.0, 
                 notif.position.value.y - height / 2.0,
-                width as f32 + 50.0,
+                width + 25.0,
                 height
             );
             context.restore();
@@ -1118,14 +1144,30 @@ impl GamePhase {
         for deletion in deletions {
             world.game.self_entity.display.notifications.remove(deletion);
         }
+
+        world.renderer.canvas2d.restore();
     }
 
     fn render_leader_arrow(world: &mut World, dt: f32) {
+        world.game.leaderboard.intersection.value.lerp_towards(world.game.leaderboard.intersection.target, 0.15 * dt);
+        
+        world.game.leaderboard.angle.value = lerp_angle!(
+            world.game.leaderboard.angle.value,
+            world.game.leaderboard.angle.target,
+            0.15 * dt
+        );
+
+        world.game.leaderboard.arrow_opacity.value = lerp_angle!(
+            world.game.leaderboard.arrow_opacity.value,
+            world.game.leaderboard.arrow_opacity.target,
+            0.15 * dt
+        );
+
         world.renderer.canvas2d.save();
         let screen_dimensions = world.renderer.canvas2d.get_dimensions();
         
         world.renderer.canvas2d.fill_style(LEADER_ARROW_COLOR);
-        world.renderer.canvas2d.global_alpha(0.3);
+        world.renderer.canvas2d.global_alpha(0.3 * world.game.leaderboard.arrow_opacity.value);
         world.renderer.canvas2d.set_stroke_size(10.0);
 
         let center = screen_dimensions * (1.0 / 2.0);
@@ -1156,13 +1198,6 @@ impl GamePhase {
         } + Vector2D::new(
             50.0 * if end.x > center.x { -1.0 } else { 1.0 },
             50.0 * if end.y > center.y { -1.0 } else { 1.0 }
-        );
-
-        world.game.leaderboard.intersection.value.lerp_towards(world.game.leaderboard.intersection.target, 0.15 * dt);
-        world.game.leaderboard.angle.value = lerp_angle!(
-            world.game.leaderboard.angle.value,
-            world.game.leaderboard.angle.target,
-            0.15 * dt
         );
 
         world.renderer.canvas2d.begin_path();
@@ -1196,7 +1231,7 @@ impl GamePhase {
         world.renderer.canvas2d.fill_style(Color::WHITE);
         world.renderer.canvas2d.stroke_style(Color::BLACK);
         world.renderer.canvas2d.set_stroke_size(28.0 / 5.0);
-        world.renderer.canvas2d.global_alpha(0.95);
+        world.renderer.canvas2d.global_alpha(0.95 * world.game.leaderboard.arrow_opacity.value);
 
         let midpoint = Vector2D::new(
             (point1.x + point2.x) / 2.0,
@@ -1234,21 +1269,11 @@ impl GamePhase {
             Box::new(
                 Label::new()
                     .with_id("death_starter")
-                    .with_text("You were killed by".to_string())
-                    .with_fill(Color::WHITE)
-                    .with_font(18.0)
-                    .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y / 2.0 - 100.0))
-                    .with_events(Events::default().with_hoverable(false))
-            ),
-            Box::new(
-                Label::new()
-                    .with_id("killer_name")
-                    .with_text("ALTANIS!".to_string())
+                    .with_text("You died!".to_string())
                     .with_fill(Color::WHITE)
                     .with_font(24.0)
                     .with_stroke(Color::BLACK)
-                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y / 2.0 - 70.0))
+                    .with_transform(translate!(dimensions.x / 2.0, dimensions.y / 2.0 - 100.0))
                     .with_events(Events::default().with_hoverable(false))
             ),
             Box::new(

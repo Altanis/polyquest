@@ -50,8 +50,8 @@ impl Entity {
                 CensusProperties::Opacity => self.display.opacity.target = codec.decode_f32().unwrap(),
                 CensusProperties::Radius => self.display.radius.target = codec.decode_f32().unwrap(),
                 CensusProperties::Owners => {
-                    self.display.owners.shallow = NonZeroU32::new(codec.decode_varuint().unwrap() as u32);
-                    self.display.owners.deep = NonZeroU32::new(codec.decode_varuint().unwrap() as u32);
+                    self.display.owners.shallow = codec.decode_varuint().unwrap() as u32;
+                    self.display.owners.deep = codec.decode_varuint().unwrap() as u32;
                     self.display.turret_index = codec.decode_varuint().unwrap() as usize;
                 },
                 CensusProperties::Ticks => self.time.server_ticks = codec.decode_varuint().unwrap(),

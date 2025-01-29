@@ -46,7 +46,7 @@ pub const HIGH_HEALTH_BAR: Color = Color::from_numeric(0x15FF00);
 pub const MINIMAP_STROKE: Color = Color::from_numeric(0x555555);
 pub const MINIMAP_FILL: Color = Color::from_numeric(0xCDCDCD);
 pub const MINIMAP_PLAYER_FILL: Color = Color::from_numeric(0x000000);
-pub const MINIMAP_SIZE: f32 = 350.0;
-pub const MINIMAP_PADDING: f32 = 30.0;
+pub const MINIMAP_SIZE: f32 = 175.0;
+pub const MINIMAP_PADDING: f32 = 15.0;
 
 pub const LEADER_ARROW_COLOR: Color = Color::BLACK;

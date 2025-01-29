@@ -53,7 +53,7 @@ pub struct DisplayComponent {
     pub body_identity: BodyIdentity,
     pub turret_identity: TurretStructure,
     pub turret_idx: isize,
-    pub owners: Ownership,
+    pub owners: Option<Ownership>,
     pub owned_entities: Vec<u32>,
     pub radius: f32
 }
@@ -155,7 +155,7 @@ impl Entity {
                 body_identity: get_body_base_identity(),
                 turret_identity: get_turret_base_identity(),
                 turret_idx: -1,
-                owners: Ownership::from_single_owner(0),
+                owners: None,
                 owned_entities: vec![],
                 radius: BASE_TANK_RADIUS
             },
@@ -220,14 +220,10 @@ impl Entity {
                 EntityConstruction::ProjectileConstruction { owners, .. } => {
                     state.insert_entity(Entity::generate_projectile_entity(id, construction));
                     
-                    if let Some(shallow_owner) = &owners.shallow {
-                        state.entities.get(&shallow_owner.get()).unwrap().borrow_mut()
-                            .display.owned_entities.push(id);
-                    }
-
-                    if !owners.has_singular_owner() && let Some(deep_owner) = &owners.deep {
-                        state.entities.get(&deep_owner.get()).unwrap().borrow_mut()
-                            .display.owned_entities.push(id);
+                    if let Some(owner) = state.entities.get(&owners.shallow) {
+                        owner.borrow_mut().display.owned_entities.push(id);
+                    } else if let Some(owner) = state.entities.get(&owners.deep) {
+                        owner.borrow_mut().display.owned_entities.push(id);
                     }
                 },
                 EntityConstruction::TankConstruction => {}
@@ -239,13 +235,29 @@ impl Entity {
         if !self.physics.collidable || !other.physics.collidable {
             return false;
         }
+        
+        if let Some(owners_self) = self.display.owners {
+            if let Some(owners_other) = other.display.owners {
+                // CASE 1: Both have owners.
+                if owners_self.has_owner(other.id) || owners_self.has_owner(owners_other.shallow) || owners_self.has_owner(owners_other.deep)
+                || owners_other.has_owner(self.id) || owners_other.has_owner(owners_self.shallow) || owners_other.has_owner(owners_self.deep)
+                {
+                    return false;
+                }
+            }
 
-        if self.display.owners.is_related(other.id, other.display.owners)
-            || other.display.owners.is_related(self.id, self.display.owners)
-        {
-            return false;
+            // CASE 2: Only `self` has owners.
+            if owners_self.has_owner(other.id) {
+                return false;
+            }
+        } else if let Some(owners_other) = other.display.owners {
+            // CASE 3: Only `other` has owners.
+            if owners_other.has_owner(self.id) {
+                return false;
+            }
         }
 
+        // CASE 4: Neither have owners. They cannot be related.
         true
     }
 
@@ -296,34 +308,28 @@ impl Entity {
         if self.stats.health <= 0.0 {
             other.kill(self);
 
-            if let Some(id) = other.display.owners.shallow
-                && let Some(entity) = entities.get(&id.into())
-            {
-                entity.borrow_mut().kill(self);
-            }
-
-            if other.display.owners.shallow != other.display.owners.deep
-                && let Some(id) = other.display.owners.deep
-                && let Some(entity) = entities.get(&id.into())
-            {
-                entity.borrow_mut().kill(self);
+            if let Some(owners) = other.display.owners {
+                if owners.shallow != other.id && let Some(entity) = entities.get(&owners.shallow) {
+                    entity.borrow_mut().kill(self);
+                }
+                
+                if owners.deep != other.id && owners.deep != owners.shallow && let Some(entity) = entities.get(&owners.deep) {
+                    entity.borrow_mut().kill(self);
+                }
             }
         }
         
         if other.stats.health <= 0.0 {
             self.kill(other);
 
-            if let Some(id) = self.display.owners.shallow
-                && let Some(entity) = entities.get(&id.into())
-            {
-                entity.borrow_mut().kill(other);
-            }
-
-            if self.display.owners.shallow != self.display.owners.deep
-                && let Some(id) = self.display.owners.deep
-                && let Some(entity) = entities.get(&id.into())
-            {
-                entity.borrow_mut().kill(other);
+            if let Some(owners) = self.display.owners {
+                if owners.shallow != self.id && let Some(entity) = entities.get(&owners.shallow) {
+                    entity.borrow_mut().kill(other);
+                }
+                
+                if owners.deep != self.id && owners.deep != owners.shallow && let Some(entity) = entities.get(&owners.deep) {
+                    entity.borrow_mut().kill(other);
+                }
             }
         }
     }
@@ -355,10 +361,14 @@ impl Entity {
             owners,
             turret_idx,
             kb_factors,
-            ai,
+            mut ai,
             projectile_type,
             bound_to_walls
         } = construction else { panic!("impossibility"); };
+
+        if let Some(ref mut ai) = ai {
+            ai.ownership = Ownership::new(id, owners.deep);
+        }
 
         Entity {
             id,
@@ -394,7 +404,7 @@ impl Entity {
                 body_identity: get_body_base_identity(),
                 turret_identity: get_turret_base_identity(),
                 turret_idx,
-                owners,
+                owners: Some(owners),
                 owned_entities: vec![],
                 radius
             },

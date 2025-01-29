@@ -240,10 +240,38 @@ impl Tank {
                 for &hint in turret.rendering_hints.iter() {
                     match hint {
                         TurretRenderingHints::Trapezoidal(angle) => {
-                            context.rotate(angle);
-
                             let height = length;
                             let bottom_width = width;
+                            let top_width = width * 2.0;
+                        
+                            let center_x = height / 2.0;
+                            let center_y = 0.0; // symmetric about the y axis?
+                        
+                            context.save();
+                            context.translate(center_x, center_y);
+                            context.rotate(angle);
+                            context.translate(-center_x, -center_y);
+                        
+                            context.begin_path();
+                            context.move_to(0.0, -bottom_width / 2.0);
+                            context.line_to(height, -top_width / 2.0);
+                            context.line_to(height, top_width / 2.0);
+                            context.line_to(0.0, bottom_width / 2.0);
+                            context.close_path();
+                        
+                            context.fill();
+                            context.stroke();
+                        
+                            context.restore();
+                        },                        
+                        TurretRenderingHints::Trapper => {
+                            context.fill_rect(0.0, -width / 2.0, length / turret_lengths[i].value, width);
+                            context.stroke_rect(0.0, -width / 2.0, length / turret_lengths[i].value, width);
+
+                            context.translate(36.0 * size_factor, 0.0);
+
+                            let height = 12.0 * size_factor * turret_lengths[i].value;
+                            let bottom_width = 24.0 * size_factor;
                             let top_width = width * 2.0;
             
                             context.save();
@@ -259,27 +287,32 @@ impl Tank {
                             context.stroke();
                             context.restore();
                         },
-                        TurretRenderingHints::Trapper => {
+                        TurretRenderingHints::Ranger => {
                             context.fill_rect(0.0, -width / 2.0, length, width);
                             context.stroke_rect(0.0, -width / 2.0, length, width);
 
-                            context.translate(36.0 * size_factor, 0.0);
-
-                            let height = 12.0 * size_factor;
-                            let bottom_width = 24.0 * size_factor;
+                            let height = 37.0 * size_factor;
+                            let bottom_width = 25.0 * size_factor;
                             let top_width = width * 2.0;
-            
+                    
+                            let center_x = height / 2.0;
+                            let center_y = 0.0; // symmetric about the y axis?
+                        
                             context.save();
-            
+                            context.translate(center_x, center_y);
+                            context.rotate(std::f32::consts::PI);
+                            context.translate(-center_x, -center_y);
+                        
                             context.begin_path();
                             context.move_to(0.0, -bottom_width / 2.0);
                             context.line_to(height, -top_width / 2.0);
                             context.line_to(height, top_width / 2.0);
                             context.line_to(0.0, bottom_width / 2.0);
-                            context.line_to(0.0, -bottom_width / 2.0);
-            
+                            context.close_path();
+                        
                             context.fill();
                             context.stroke();
+                        
                             context.restore();
                         }
                     }

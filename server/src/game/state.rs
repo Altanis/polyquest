@@ -70,27 +70,29 @@ impl GameState {
         {
             let entity = self.entities.get(&id).unwrap().borrow_mut();
 
-            if let Some(shallow_owner) = &entity.display.owners.shallow {
-                let mut shallow_owner = self.entities.get(&shallow_owner.get()).unwrap().borrow_mut();
-                shallow_owner.display.owned_entities.retain(|&oid| id != oid);
-                
-                let turret_idx = entity.display.turret_idx;
-                if turret_idx != -1 
-                    && let Some(turret) = shallow_owner.display.turret_identity.turrets.get_mut(turret_idx as usize) 
-                {
-                    turret.projectiles_spawned -= 1;
+            if let Some(owners) = entity.display.owners {
+                if owners.shallow != entity.id {
+                    let mut shallow_owner = self.entities.get(&owners.shallow).unwrap().borrow_mut();
+                    shallow_owner.display.owned_entities.retain(|&oid| id != oid);
+                    
+                    let turret_idx = entity.display.turret_idx;
+                    if turret_idx != -1 
+                        && let Some(turret) = shallow_owner.display.turret_identity.turrets.get_mut(turret_idx as usize) 
+                    {
+                        turret.projectiles_spawned -= 1;
+                    }
                 }
-            }
 
-            if let Some(deep_owner) = &entity.display.owners.deep {
-                let mut deep_owner = self.entities.get(&deep_owner.get()).unwrap().borrow_mut();
-                deep_owner.display.owned_entities.retain(|&oid| id != oid);
-                
-                let turret_idx = entity.display.turret_idx;
-                if turret_idx != -1 
-                    && let Some(turret) = deep_owner.display.turret_identity.turrets.get_mut(turret_idx as usize) 
-                {
-                    turret.projectiles_spawned -= 1;
+                if owners.deep != entity.id && owners.deep != owners.shallow {
+                    let mut deep_owner = self.entities.get(&owners.deep).unwrap().borrow_mut();
+                    deep_owner.display.owned_entities.retain(|&oid| id != oid);
+                    
+                    let turret_idx = entity.display.turret_idx;
+                    if turret_idx != -1 
+                        && let Some(turret) = deep_owner.display.turret_identity.turrets.get_mut(turret_idx as usize) 
+                    {
+                        turret.projectiles_spawned -= 1;
+                    }
                 }
             }
         }
