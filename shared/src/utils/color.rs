@@ -27,15 +27,25 @@ impl Color {
     pub const GRAY: Color = Color(128, 128, 128);
     pub const ORANGE: Color = Color(255, 165, 0);
     pub const PURPLE: Color = Color(128, 0, 128);
+    pub const MATERIAL_SILVER: Color = Color::from_numeric(0xD1D1D1);
+    pub const MATERIAL_CYAN: Color = Color::from_numeric(0x07adfa);
+    pub const MATERIAL_YELLOW: Color = Color::from_numeric(0xEEC643);
+    pub const MATERIAL_PURPLE: Color = Color::from_numeric(0xA855F7);
+    pub const MATERIAL_GREEN: Color = Color::from_numeric(0x03fc2d);
+    pub const MATERIAL_RED: Color = Color::from_numeric(0xF56C6C);
+    pub const MATERIAL_GRAY: Color = Color::from_numeric(0x8E8E93);
+    pub const MATERIAL_ORANGE: Color = Color::from_numeric(0xFF9F0A);    
 
     pub fn random() -> Color {
         let colors = [
-            Color::RED, 
-            Color::from_hex("ffa500"),
-            Color::from_hex("0000ff"),
-            Color::from_hex("008000")
+            Color::MATERIAL_CYAN,
+            Color::MATERIAL_YELLOW,
+            Color::MATERIAL_PURPLE,
+            Color::MATERIAL_GREEN,
+            Color::MATERIAL_RED,
+            Color::MATERIAL_ORANGE,
         ];
-
+        
         colors[rand!(0, colors.len() - 1)]
     }
 

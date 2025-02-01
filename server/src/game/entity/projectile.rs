@@ -25,7 +25,7 @@ impl Entity {
             self.display.surroundings = owner.display.surroundings.clone();
 
             ai.speed = self.stats.speed;
-            if is_shooting || is_repelling {
+            if (is_shooting || is_repelling) && ai.controllable {
                 ai.state = AIState::Possessed(owner.physics.mouse);
             } else if matches!(ai.state, AIState::Possessed(_)) {
                 ai.state = AIState::Idle;

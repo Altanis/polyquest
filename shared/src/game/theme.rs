@@ -4,21 +4,21 @@ use crate::utils::color::Color;
 
 use super::entity::UpgradeStats;
 
-pub const OUTBOUNDS_FILL: Color = Color::from_numeric(0xCDCDCD);
-pub const INBOUNDS_FILL: Color = Color::from_numeric(0xD9D9D9);
-pub const GRID_ALPHA: f32 = 0.1;
-pub const GRID_COLOR: Color = Color::from_numeric(0x000000);
+pub const OUTBOUNDS_FILL: Color = Color::from_numeric(0xAAB3C2);
+pub const INBOUNDS_FILL: Color = Color::from_numeric(0xC6CCD6);
+pub const GRID_ALPHA: f32 = 0.12;
+pub const GRID_COLOR: Color = Color::from_numeric(0x7A85A5);
 pub const GRID_SIZE: f32 = 50.0;
 pub const STROKE_SIZE: f32 = 7.5;
 
 pub const STROKE_INTENSITY: f32 = 0.25;
 
-pub const PLAYER_FILL: Color = Color::from_numeric(0x00B1DE);
+pub const PLAYER_FILL: Color = Color::from_numeric(0x66D2E8);
 pub const PLAYER_STROKE: Color = Color::blend_colors(PLAYER_FILL, Color::BLACK, STROKE_INTENSITY);
-pub const ENEMY_FILL: Color = Color::from_numeric(0xF14E54);
+pub const ENEMY_FILL: Color = Color::from_numeric(0xE88B8B);
 pub const ENEMY_STROKE: Color = Color::blend_colors(ENEMY_FILL, Color::BLACK, STROKE_INTENSITY);
 
-pub const TURRET_FILL: Color = Color::from_numeric(0x999999);
+pub const TURRET_FILL: Color = Color::from_numeric(0xB8B8B8);
 pub const TURRET_STROKE: Color = Color::blend_colors(TURRET_FILL, Color::BLACK, STROKE_INTENSITY);
 
 pub const BAR_BACKGROUND: Color = Color::SOFT_BLACK;

@@ -1,17 +1,26 @@
 # poly quest
 
-each player has a host planet. there exist three other entities:
-- planets (ATTACK for exp)
-- comets (collide with for health, attacking gives extra health)
-- stars (collide with for energy)
+Stars: Players can reside in stars to regain HP.
+    -> Has a corona aligned with the color of the star.
+    -> Star colors follow the HR diagram based on its energy.
+        -> Higher "energy" stars impart more health.
+    -> Attacking a star gives EXP and reduces the star's health.
+        -> Stars can de-evolve based on their health.
+        -> They regenerate automatically according to Diep.io regeneration mechanics.
+    -> Star death leads to the corona flaring out, then a dull white core being formed.
+        -> This core cannot be attacked.
+        -> A timer is attached to it, signifying when it'll "rebirth".
+        -> Rebirth randomizes energy level.
 
-all have their own health. attacking does more dmg than collision, and killing one gives you some exp.
-
-planets act as bases where players are invincible, but leaving a planet leaves it susceptible to attack. if the planet dies, itll take 5min to regenerate (leaving player with no base). players cant attack if theyre on their own planet.
-
-planets: resembles earth. glows red if its not yours, glows green if it is yours.
-stars: according to hr diagram (blue, cyan, green, yellow, orange, red, where blue is highest energy and red is lowest)
-comets: polygonal shape with cometary ectoplasmic thing around it
+Orbs: Entities which give EXP upon death.
+| **Orb Tier**              | **HP**| **EXP**| **Radius (px)**| **Notes** |
+|---------------------------|-------|--------|----------------|---------------|
+| **1 - Flickering Orb**    | 10    | 8      | **30 px**  | Smallest, low value |
+| **2 - Basic Energy Orb**  | 30    | 20     | **55 px** | Early-game orb |
+| **3 - Stable Orb**        | 100   | 110    | **65 px** | Medium-sized, efficient |
+| **4 - Heavy Orb**         | 400   | 500    | **85 px** | Starts to feel large |
+| **5 - Radiant Orb**       | 1500  | 2000   | **105 px** | Big, high-risk high-reward |
+| **6 - Celestial Orb**     | 5000  | 7000   | **120 px** | Huge, rare, game-changing |
 
 --- 
 Todo:
@@ -32,6 +41,7 @@ Todo:
 - [x] killing drones fucks up projectile count
 - [ ] finish tanks
 - [ ] finish bodies
+- [ ] mouse in bounds check
 - [ ] clans
 - [ ] global + local chat (or maybe clan-specific chats)
 - [ ] fix leader arrow
@@ -52,3 +62,5 @@ Ideas:
 - tank ideas:
     - impulse: bullets which target nearest enemy
     - sinusod: fires two bullets which vary according to sine/cosine paths
+- passive exp gain (500xp/min)
+- tutorial instead of lore

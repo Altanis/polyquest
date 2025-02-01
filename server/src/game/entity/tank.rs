@@ -1,4 +1,4 @@
-use shared::{connection::packets::{CensusProperties, Inputs}, game::{body::BodyIdentity, entity::{get_min_score_from_level, EntityType, Ownership, UpgradeStats, BASE_TANK_RADIUS, FICTITIOUS_TANK_RADIUS}, turret::TurretStructure}, rand, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION, MAX_LEVEL, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
+use shared::{connection::packets::{CensusProperties, Inputs}, game::{body::BodyIdentity, entity::{get_min_score_from_level, EntityType, Ownership, UpgradeStats, BASE_TANK_RADIUS, FICTITIOUS_TANK_RADIUS}, turret::{TurretIdentityIds, TurretStructure}}, rand, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION, MAX_LEVEL, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 use rand::Rng;
 use crate::{connection::packets, game::{collision::shg::SpatialHashGrid, state::EntityDataStructure}, server::SPAWN_INVINCIBILITY_TIME};
@@ -151,18 +151,20 @@ impl Entity {
                 damage,
                 radius,
                 position,
-                lifetime: match projectile_type {
-                    EntityType::Bullet => (turret.projectile_identity.lifetime * 72.0) as isize,
-                    EntityType::Drone => -1,
-                    EntityType::Trap => (turret.projectile_identity.lifetime * 75.0) as isize,
-                    _ => unreachable!("invalid projectile type")
+                lifetime: if turret.projectile_identity.lifetime == -1.0 { -1 } else {
+                    match projectile_type {
+                        EntityType::Bullet => (turret.projectile_identity.lifetime * 72.0) as isize,
+                        EntityType::Drone => (turret.projectile_identity.lifetime * 88.0) as isize,
+                        EntityType::Trap => (turret.projectile_identity.lifetime * 75.0) as isize,
+                        _ => unreachable!("invalid projectile type")
+                    }
                 },
                 owners: Ownership::from_single_owner(self.id),
                 turret_idx: i as isize,
                 kb_factors: (turret.projectile_identity.absorption_factor, push_factor),
                 ai: match projectile_type {
                     EntityType::Bullet => None,
-                    EntityType::Drone => Some(AI::new(Ownership::from_single_owner(self.id), false)),
+                    EntityType::Drone => Some(AI::new(Ownership::from_single_owner(self.id), false, turret.mouse_controllable)),
                     EntityType::Trap => None,
                     _ => unreachable!("invalid projectile type")
                 },
@@ -179,10 +181,10 @@ impl Entity {
     }
 
     fn update_display(&mut self) {
-        let is_shooting = self.is_shooting();
-
         // Invisibility
-        if self.physics.velocity.is_zero(5.0) && !is_shooting {
+        let true_shooting = self.is_shooting() && !matches!(self.display.turret_identity.id, TurretIdentityIds::Manager);
+
+        if self.physics.velocity.is_zero(5.0) && !true_shooting {
             if self.display.turret_identity.invisibility_rate != -1.0 && self.display.opacity > 0.0 {
                 self.display.opacity -= self.display.turret_identity.invisibility_rate;
                 self.display.opacity = self.display.opacity.clamp(0.0, 1.0);

@@ -188,13 +188,13 @@ impl GamePhase {
             .with_text("PolyQuest".to_string())
             .with_fill(Color::WHITE)
             .with_font(72.0)
-            .with_stroke(Color::BLACK)
+            .with_stroke(Color::from_numeric(0x566c85))
             .with_transform(translate!(0.0, -80.0))
             .with_events(Events::default().with_hoverable(false));
 
         let start = Button::new()
             .with_id("play_button")
-            .with_fill(Color::GREEN)
+            .with_fill(Color::MATERIAL_GREEN)
             .with_dimensions(Vector2D::new(200.0, 75.0))
             .with_transform(translate!(0.0, 100.0))
             .with_events(Events::default()
@@ -222,7 +222,7 @@ impl GamePhase {
                     .with_text("Start".to_string())
                     .with_fill(Color::WHITE)
                     .with_font(32.0)
-                    .with_stroke(Color::BLACK)
+                    .with_stroke(Color::from_numeric(0x566c85))
                     .with_transform(translate!(0.0, 10.0))
                     .with_events(Events::default()
                         .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
@@ -296,7 +296,7 @@ impl GamePhase {
 
                         let mut modal = Modal::new()
                             .with_id("modal-settings")
-                            .with_fill(Color::ORANGE)
+                            .with_fill(Color::MATERIAL_ORANGE)
                             .with_dimensions(Vector2D::new(1000.0, 350.0))
                             .with_children(children)
                             .with_close_button(Box::new(|_| {
@@ -318,7 +318,7 @@ impl GamePhase {
             ),
             (
                 Vector2D::new(-100.0, 0.0), 
-                Color::BLUE, "{brand}\u{f392}",
+                Color::MATERIAL_CYAN, "{brand}\u{f392}",
                 Box::new(|_| {
                     spawn_local(async {
                         let _ = window().open_with_url("https://discord.gg/UTvaAAgku3");
@@ -1115,7 +1115,7 @@ impl GamePhase {
             context.global_alpha(0.6 * notif.opacity.value);
             context.fill_style(notif.color);
             context.stroke_style(Color::blend_colors(notif.color, Color::BLACK, STROKE_INTENSITY));
-            context.set_stroke_size(STROKE_SIZE);
+            context.set_stroke_size(STROKE_SIZE / factor);
             context.fill_rect(
                 notif.position.value.x - width / 2.0 - 25.0 / 2.0,
                 notif.position.value.y - height / 2.0,

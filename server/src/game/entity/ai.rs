@@ -31,14 +31,16 @@ pub struct AI {
     pub ownership: Ownership,
     /// Whether or not the entity predicts its target's movements.
     pub prediction: bool,
-
+    /// Whether or not this AI is possessable.
+    pub controllable: bool
 }
 
 impl AI {
-    pub fn new(ownership: Ownership, prediction: bool) -> AI {
+    pub fn new(ownership: Ownership, prediction: bool, controllable: bool) -> AI {
         AI {
             ownership,
             prediction,
+            controllable,
             ..Default::default()
         }
     }

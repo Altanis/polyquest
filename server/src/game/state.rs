@@ -1,5 +1,5 @@
 use std::{cell::{RefCell, RefMut}, collections::HashMap};
-use shared::{game::entity::EntityType, utils::vec2::Vector2D};
+use shared::{game::{entity::EntityType, turret::TurretIdentityIds}, utils::vec2::Vector2D};
 
 use crate::game::entity::base::AliveState;
 
@@ -78,6 +78,7 @@ impl GameState {
                     let turret_idx = entity.display.turret_idx;
                     if turret_idx != -1 
                         && let Some(turret) = shallow_owner.display.turret_identity.turrets.get_mut(turret_idx as usize) 
+                        && turret.projectile_identity.projectile_type == entity.display.entity_type
                     {
                         turret.projectiles_spawned -= 1;
                     }
@@ -89,7 +90,8 @@ impl GameState {
                     
                     let turret_idx = entity.display.turret_idx;
                     if turret_idx != -1 
-                        && let Some(turret) = deep_owner.display.turret_identity.turrets.get_mut(turret_idx as usize) 
+                        && let Some(turret) = deep_owner.display.turret_identity.turrets.get_mut(turret_idx as usize)
+                        && turret.projectile_identity.projectile_type == entity.display.entity_type
                     {
                         turret.projectiles_spawned -= 1;
                     }
@@ -143,14 +145,14 @@ impl GameState {
                 } else if this.display.entity_type.is_drone() && other.display.entity_type.is_drone() && is_colliding {
                     let angle = (this.physics.position - other.physics.position).angle();
 
-                    let (this_absorption_factor, other_absorption_factor) = (this.physics.absorption_factor, other.physics.absorption_factor);
-                    let (this_push_factor, other_push_factor) = (this.physics.push_factor, other.physics.push_factor);
+                    // let (this_absorption_factor, other_absorption_factor) = (this.physics.absorption_factor, other.physics.absorption_factor);
+                    // let (this_push_factor, other_push_factor) = (this.physics.push_factor, other.physics.push_factor);
 
-                    // this.physics.velocity += Vector2D::from_polar(6.0, angle);
-                    // other.physics.velocity -= Vector2D::from_polar(6.0, angle);
+                    this.physics.velocity += Vector2D::from_polar(4.0, angle);
+                    other.physics.velocity -= Vector2D::from_polar(4.0, angle);
 
-                    this.physics.velocity += Vector2D::from_polar(this_absorption_factor * other_push_factor, angle);
-                    other.physics.velocity -= Vector2D::from_polar(other_absorption_factor * this_push_factor, angle);
+                    // this.physics.velocity += Vector2D::from_polar(this_absorption_factor * other_push_factor, angle);
+                    // other.physics.velocity -= Vector2D::from_polar(other_absorption_factor * this_push_factor, angle);
                 }
             }
         }

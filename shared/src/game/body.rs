@@ -1,5 +1,37 @@
 use std::fmt::Display;
 
+macro_rules! into_structure {
+    (
+        $( #[$enum_meta:meta] )*
+        $enum_vis:vis enum $enum_name:ident {
+            $(
+                $( #[$variant_meta:meta] )*
+                $variant:ident = $variant_index:expr,
+            )*
+        }
+    ) => {
+        $( #[$enum_meta] )*
+        $enum_vis enum $enum_name {
+            $(
+                $( #[$variant_meta] )*
+                $variant = $variant_index,
+            )*
+        }
+
+        impl std::convert::TryFrom<BodyIdentityIds> for BodyIdentity {
+            type Error = ();
+
+            fn try_from(value: BodyIdentityIds) -> ::std::result::Result<BodyIdentity, Self::Error> {
+                match value {
+                    $(
+                        BodyIdentityIds::$variant => Ok(::paste::paste! { [< get_body_ $variant:snake _identity >] () }),
+                    )*
+                }
+            }
+        }
+    };
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BodyRenderingHints {
     SmasherGuard {
@@ -10,7 +42,7 @@ pub enum BodyRenderingHints {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct BodyIdentity {
     /// The ID of the body identity.
     pub id: BodyIdentityIds, 
@@ -32,23 +64,14 @@ pub struct BodyIdentity {
     pub description: &'static str
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, num_enum::TryFromPrimitive)]
-#[repr(usize)]
-pub enum BodyIdentityIds {
-    #[default]
-    Base       = 0,
-    Smasher    = 1
-}
-
-impl TryInto<BodyIdentity> for BodyIdentityIds {
-    type Error = ();
-
-    fn try_into(self) -> Result<BodyIdentity, Self::Error> {
-        match self {
-            BodyIdentityIds::Base => Ok(get_body_base_identity()),
-            BodyIdentityIds::Smasher => Ok(get_body_smasher_identity())
-        }
-    }
+into_structure! {
+    #[derive(Debug, Default, Clone, Copy, PartialEq, num_enum::TryFromPrimitive)]
+    #[repr(usize)]
+    pub enum BodyIdentityIds {
+        #[default]
+        Base       = 0,
+        Smasher    = 1,
+    }   
 }
 
 impl Display for BodyIdentityIds {

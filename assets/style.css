@@ -28,7 +28,7 @@ canvas {
 #text_input_container {
     display: none;
     position: absolute;
-    border: 5px solid rgba(255, 255, 255, var(--textbox_alpha));
+    border: 8px solid #566c85;
     z-index: 100;
     top: 50%;
     left: 50%;
@@ -39,13 +39,13 @@ canvas {
 #text_input {
     border-radius: 5px;
     width: 340px;
-    height: 45px;
+    height: 50px;
     line-height: 40px;
     font-size: 40px;
     padding-left: 5px;
     padding-right: 5px;
-    color: rgba(255, 255, 255, var(--textbox_alpha));
-    background-color: rgba(0, 0, 0, 0.9);
+    color: #555555;
+    background-color: #C6CCD6;
     font-family: "Ubuntu";
     padding: 5px;
     border: 0;

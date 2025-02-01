@@ -47,7 +47,7 @@ impl Debug for InputFlags {
 pub enum EntityType {
     #[default]
     Player,
-    Bullet, // you can add stuff like drone, minion, etc.
+    Bullet,
     Drone,
     Trap
     // Planet,

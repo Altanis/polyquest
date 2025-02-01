@@ -195,7 +195,12 @@ impl UiElement for Label {
         self.opacity.value = lerp!(self.opacity.value, self.opacity.target, 0.2);
 
         let text: Vec<_> = self.text.split("\n").collect();
-        let stroke_size = self.stroke.map_or(0.0, |_| self.font.value / 4.5);
+        let stroke_size = self.stroke.map_or(0.0, |_| if self.font.value < 24.0 {
+            self.font.value / 4.5
+        } else {
+            (self.font.value.log(10.0)) * 5.0
+        });
+
         let margin = self.font.value + stroke_size;
 
         let text_len = text.len();
@@ -384,7 +389,7 @@ impl Label {
         self.stroke = Some(stroke);
         self
     }
-
+    
     pub fn with_text(mut self, text: String) -> Label {
         self.text = text;
         self

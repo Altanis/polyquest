@@ -2,7 +2,7 @@ use std::{collections::VecDeque};
 
 use gloo::console::console;
 use gloo_utils::{document, window};
-use shared::{fuzzy_compare, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use shared::{fuzzy_compare, game::theme::OUTBOUNDS_FILL, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use ui::{canvas2d::{Canvas2d, Transform}, core::{ElementType, Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, get_element_by_id_and_cast, gl::webgl::WebGl, translate};
 use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, HtmlDivElement, Performance};
 
@@ -46,7 +46,7 @@ impl Renderer {
             phase: GamePhase::default(),
             previous_phase: GamePhase::default(),
             body: Body::default()
-                .with_fill(Color::SOFT_BLACK),
+                .with_fill(Color::from_numeric(0x2C3E50)),
             backdrop_opacity: Interpolatable::new(0.0),
             fps_counter: Label::new()
                 .with_text("165.0 FPS".to_string())
