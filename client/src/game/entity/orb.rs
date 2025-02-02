@@ -1,18 +1,11 @@
-use std::{collections::HashMap, num::NonZeroU32};
-use derive_new::new as New;
 use gloo::console::console;
-use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, UpgradeStats, BASE_TANK_RADIUS}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
-use strum::EnumCount;
-use ui::{canvas2d::Canvas2d, core::UiElement, elements::tank::Tank};
-
-use crate::{rendering::phases::GamePhase, world::World};
-
-use shared::game::theme::{ENEMY_FILL, ENEMY_STROKE, PLAYER_FILL, PLAYER_STROKE, SMASHER_GUARD_FILL, SMASHER_GUARD_STROKE, STROKE_SIZE, TURRET_FILL, TURRET_STROKE};
+use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{entity::EntityType, orb::OrbIdentityIds, theme::{ORB_BASIC_FILL, ORB_BASIC_STROKE, ORB_CELESTIAL_FILL, ORB_CELESTIAL_STROKE, ORB_FLICKERING_FILL, ORB_FLICKERING_STROKE, ORB_HEAVY_FILL, ORB_HEAVY_STROKE, ORB_RADIANT_FILL, ORB_RADIANT_STROKE, ORB_STABLE_FILL, ORB_STABLE_STROKE, STROKE_SIZE}}, utils::{codec::BinaryCodec, color::Color, vec2::Vector2D}};
+use ui::canvas2d::Canvas2d;
 
 use super::base::{Entity, HealthState};
 
 impl Entity {
-    pub fn parse_projectile_census(&mut self, codec: &mut BinaryCodec) {
+    pub fn parse_orb_census(&mut self, codec: &mut BinaryCodec) {
         self.display.z_index = 0;
 
         let properties = codec.decode_varuint().unwrap();
@@ -35,6 +28,7 @@ impl Entity {
                 CensusProperties::Angle => self.physics.angle.target = codec.decode_f32().unwrap(),
                 CensusProperties::Health => {
                     let health = codec.decode_f32().unwrap();
+                    console!(health.to_string());
                     if health < self.stats.health.target {
                         self.display.damage_blend.target = 0.9;
                     }
@@ -49,20 +43,30 @@ impl Entity {
                 CensusProperties::MaxHealth => self.stats.max_health.target = codec.decode_f32().unwrap(),
                 CensusProperties::Opacity => self.display.opacity.target = codec.decode_f32().unwrap(),
                 CensusProperties::Radius => self.display.radius.target = codec.decode_f32().unwrap(),
-                CensusProperties::Owners => {
-                    self.display.owners.shallow = codec.decode_varuint().unwrap() as u32;
-                    self.display.owners.deep = codec.decode_varuint().unwrap() as u32;
-                    self.display.turret_index = codec.decode_varuint().unwrap() as usize;
-                },
                 CensusProperties::Ticks => self.time.server_ticks = codec.decode_varuint().unwrap(),
+                CensusProperties::Identity => {
+                    let orb_identity_id: OrbIdentityIds = (codec.decode_varuint().unwrap() as usize).try_into().unwrap();
+                    self.display.orb_identity = orb_identity_id.try_into().unwrap();
+                },
                 _ => {}
             }
         }
     }
 
-    fn render_projectile_body(&self, context: &mut Canvas2d, is_friendly: bool) {
-        let (fill, stroke) = self.compute_body_fill(is_friendly);
-        
+    fn compute_orb_fill(&self) -> (Color, Color) {
+        match self.display.orb_identity.id {
+            OrbIdentityIds::Flickering => (ORB_FLICKERING_FILL, ORB_FLICKERING_STROKE),
+            OrbIdentityIds::Basic => (ORB_BASIC_FILL, ORB_BASIC_STROKE),
+            OrbIdentityIds::Stable => (ORB_STABLE_FILL, ORB_STABLE_STROKE),
+            OrbIdentityIds::Heavy => (ORB_HEAVY_FILL, ORB_HEAVY_STROKE),
+            OrbIdentityIds::Radiant => (ORB_RADIANT_FILL, ORB_RADIANT_STROKE),
+            OrbIdentityIds::Celestial => (ORB_CELESTIAL_FILL, ORB_CELESTIAL_STROKE)
+        }
+    }
+
+    fn render_orb_body(&self, context: &mut Canvas2d) {
+        let (fill, stroke) = self.compute_orb_fill();
+
         context.save();
 
         context.fill_style(fill);
@@ -71,23 +75,38 @@ impl Entity {
 
         context.rotate(std::f32::consts::FRAC_PI_2);
 
-        match self.display.entity_type {
-            EntityType::Bullet => context.begin_arc(0.0, 0.0, self.display.radius.value, std::f32::consts::TAU),
-            EntityType::Drone => context.begin_triangle(self.display.radius.value),
-            EntityType::Trap => context.begin_star(3, self.display.radius.value / 1.5, self.display.radius.value * 1.75),
-            _ => unreachable!("Non-projectile entity attempted rendering.")
-        }
-        
+        context.begin_arc(0.0, 0.0, self.display.orb_identity.radius, std::f32::consts::TAU);
+
+        // match self.display.orb_identity.id {
+        //     OrbIdentityIds::Flickering => {
+        //     },
+        //     OrbIdentityIds::Basic => {
+
+        //     },
+        //     OrbIdentityIds::Stable => {
+
+        //     },
+        //     OrbIdentityIds::Heavy => {
+
+        //     },
+        //     OrbIdentityIds::Radiant => {
+
+        //     },
+        //     OrbIdentityIds::Celestial => {
+
+        //     }
+        // }
+
         context.fill();
         context.stroke();
 
         context.restore();
     }
 
-    pub fn render_projectile(&mut self, context: &mut Canvas2d, is_friendly: bool, dt: f32) {
+    pub fn render_orb(&mut self, context: &mut Canvas2d, dt: f32) {
         self.time.ticks += 1;
         if matches!(self.stats.health_state, HealthState::Dying | HealthState::Dead) {
-            self.destroy_projectile(context, is_friendly, dt);
+            self.destroy_orb(context, dt);
         }
 
         context.save();
@@ -100,12 +119,12 @@ impl Entity {
         context.global_alpha(self.display.opacity.value);
         context.set_stroke_size(STROKE_SIZE);
 
-        self.render_projectile_body(context, is_friendly);
+        self.render_orb_body(context);
 
         context.restore();
     }
 
-    fn destroy_projectile(&mut self, context: &mut Canvas2d, is_friendly: bool, dt: f32) {
+    fn destroy_orb(&mut self, context: &mut Canvas2d, dt: f32) {
         if fuzzy_compare!(self.display.opacity.value, 0.0, 1e-1) {
             self.stats.health_state = HealthState::Dead;
             return;

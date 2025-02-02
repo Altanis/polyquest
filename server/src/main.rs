@@ -2,7 +2,7 @@
 #![feature(let_chains)]
 #![feature(generic_arg_infer)]
 
-use game::{collision::shg::SpatialHashGrid, entity::base::Entity, state::GameState};
+use game::{collision::shg::SpatialHashGrid, state::GameState};
 use server::{Server, CELL_SIZE};
 
 mod server;
@@ -14,6 +14,7 @@ async fn main() {
     let _ = Server::init(vec![
         GameState {
             shg: SpatialHashGrid::new(2048, CELL_SIZE),
+            desired_orb_count: 2, 
             ..GameState::default()
         }
     ]).await;

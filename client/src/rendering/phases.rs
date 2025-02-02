@@ -370,7 +370,7 @@ impl GamePhase {
             .with_text(connection_text.to_string())
             .with_fill(Color::WHITE)
             .with_font(40.0)
-            .with_stroke(Color::BLACK)
+            .with_stroke(Color::from_numeric(0x566c85))
             .with_events(Events::default().with_hoverable(false));
 
         elements.push(Box::new(state));

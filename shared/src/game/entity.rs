@@ -49,7 +49,8 @@ pub enum EntityType {
     Player,
     Bullet,
     Drone,
-    Trap
+    Trap,
+    Orb
     // Planet,
     // Star,
     // Comet

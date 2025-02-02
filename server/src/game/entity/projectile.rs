@@ -67,7 +67,6 @@ impl Entity {
 
         self.physics.velocity *= 1.0 - FRICTION;
         self.physics.position += self.physics.velocity + self.physics.additional_velocity;
-        self.physics.angle = normalize_angle!(self.physics.angle);
         
         if self.physics.bound_to_walls {
             self.physics.position.constrain(0.0, ARENA_SIZE);
@@ -76,11 +75,11 @@ impl Entity {
         constructions
     }
 
-    pub fn take_projectile_census(&self, codec: &mut BinaryCodec, is_self: bool) {
+    pub fn take_projectile_census(&self, codec: &mut BinaryCodec) {
         codec.encode_varuint(self.id as u64);
         codec.encode_varuint(self.display.entity_type as u64);        
 
-        if !is_self && self.stats.alive != AliveState::Alive {
+        if self.stats.alive != AliveState::Alive {
             codec.encode_varuint(0);
             return;
         }

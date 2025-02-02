@@ -53,13 +53,13 @@ impl AI {
                 return Some(id);
             }
         }
-
+    
         let mut surroundings = surroundings
             .iter()
             .filter(|&&id| !self.ownership.has_owner(id) && entities.get(&id).is_some())
             .map(|id| entities.get(id).unwrap().borrow_mut())
             .filter(|entity| {
-                if entity.stats.alive != AliveState::Alive || !matches!(entity.display.entity_type, EntityType::Player) {
+                if entity.stats.alive != AliveState::Alive || !matches!(entity.display.entity_type, EntityType::Player | EntityType::Orb) {
                     return false;
                 } else if let Some(owners) = entity.display.owners {                    
                     if self.ownership.has_owner(owners.shallow) || self.ownership.has_owner(owners.deep)
@@ -71,38 +71,42 @@ impl AI {
 
                 true
             });
-
+    
         if self.state == AIState::Idle {
-            let (mut min_distance, mut id) = {
+            let (mut best_score, mut best_id, dt) = {
                 let entity = surroundings.next();
                 if let Some(entity) = entity {
-                    (entity.physics.position.distance(position), entity.id)
+                    let distance = entity.physics.position.distance(position) + 1.0;
+                    let weighted_score = entity.display.score as f32 / distance;
+                    (weighted_score, entity.id, distance)
                 } else {
                     return None;
                 }
             };
-
+    
             for entity in surroundings {
-                let distance = entity.physics.position.distance(position);
-                if min_distance > distance {
-                    min_distance = distance;
-                    id = entity.id;
+                let distance = entity.physics.position.distance(position) + 1.0;
+                let weighted_score = entity.display.score as f32 / distance;
+    
+                if weighted_score > best_score {
+                    best_score = weighted_score;
+                    best_id = entity.id;
                 }
             }
-
-            self.state = AIState::Active(id);
-            return Some(id);
+    
+            self.state = AIState::Active(best_id);
+            return Some(best_id);
         }
-
+    
         None
-    }
+    }    
 
-    pub fn tick(&mut self, entities: &EntityDataStructure, position: Vector2D, surroundings: Vec<u32>) {
+    pub fn tick(&mut self, entities: &EntityDataStructure, self_position: Vector2D, owner_position: Vector2D, surroundings: Vec<u32>) {
         if let AIState::Possessed(mouse) = self.state {
             self.aim = mouse;
-            self.movement = Vector2D::from_polar(1.0, (self.aim - position).angle());
+            self.movement = Vector2D::from_polar(1.0, (self.aim - self_position).angle());
         } else {
-            let Some(target) = self.get_target(entities, position, surroundings) else { return; };
+            let Some(target) = self.get_target(entities, owner_position, surroundings) else { return; };
             let entity = entities.get(&target).unwrap().borrow_mut();
 
             if self.prediction {
@@ -111,7 +115,7 @@ impl AI {
                 self.aim = entity.physics.position;
             }
 
-            self.movement = Vector2D::from_polar(1.0, (self.aim - position).angle());
+            self.movement = Vector2D::from_polar(1.0, (self.aim - self_position).angle());
         }
     }
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use derive_new::new as New;
 use gloo::console::console;
 use gloo_utils::window;
-use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, Notification, Ownership, UpgradeStats, BASE_TANK_RADIUS}, theme::{BAR_BACKGROUND, HIGH_HEALTH_BAR, LOW_HEALTH_BAR, MEDIUM_HEALTH_BAR}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, prettify_score, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, Notification, Ownership, UpgradeStats, BASE_TANK_RADIUS}, orb::OrbIdentity, theme::{BAR_BACKGROUND, HIGH_HEALTH_BAR, LOW_HEALTH_BAR, MEDIUM_HEALTH_BAR}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, prettify_score, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use strum::EnumCount;
 use ui::{canvas2d::Canvas2d, core::UiElement, elements::tank::Tank};
 
@@ -66,6 +66,7 @@ pub struct DisplayComponent {
     pub entity_type: EntityType,
     pub body_identity: BodyIdentity,
     pub turret_identity: TurretStructure,
+    pub orb_identity: OrbIdentity,
     pub turret_lengths: Vec<Interpolatable<f32>>,
     pub turret_index: usize,
     pub owners: Ownership,
@@ -143,7 +144,8 @@ impl Entity {
         entity.display.entity_type = (codec.decode_varuint().unwrap() as u8).try_into().unwrap();
         match entity.display.entity_type {
             EntityType::Player => entity.parse_tank_census(codec, is_self),
-            EntityType::Bullet | EntityType::Drone | EntityType::Trap => entity.parse_projectile_census(codec, is_self),
+            EntityType::Bullet | EntityType::Drone | EntityType::Trap => entity.parse_projectile_census(codec),
+            EntityType::Orb => entity.parse_orb_census(codec)
         }
 
         if is_self {
@@ -193,6 +195,7 @@ impl Entity {
         
                         entity.render_projectile(&mut world.renderer.canvas2d, is_friendly, dt);
                     },
+                    EntityType::Orb => entity.render_orb(&mut world.renderer.canvas2d, dt)
                 }
 
                 (shooter, turret_idx)

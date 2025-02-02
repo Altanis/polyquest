@@ -253,7 +253,7 @@ impl Entity {
         }
 
         if is_self {
-            codec.encode_varuint(17);
+            codec.encode_varuint(15);
             for property in CensusProperties::iter() {
                 codec.encode_varuint(property.clone() as u64);
     
@@ -271,8 +271,6 @@ impl Entity {
                     CensusProperties::Score => codec.encode_varuint(self.display.score as u64),
                     CensusProperties::Health => codec.encode_f32(self.stats.health),
                     CensusProperties::MaxHealth => codec.encode_f32(self.stats.max_health),
-                    CensusProperties::Energy => codec.encode_f32(self.stats.energy),
-                    CensusProperties::MaxEnergy => codec.encode_f32(self.stats.max_energy),
                     CensusProperties::Stats => {
                         codec.encode_varuint(self.display.available_stat_points as u64);
                         for i in 0..UpgradeStats::COUNT {
@@ -303,7 +301,7 @@ impl Entity {
                 }
             }
         } else {
-            codec.encode_varuint(14);
+            codec.encode_varuint(12);
             for property in CensusProperties::iter() {
                 codec.encode_varuint(property.clone() as u64);
     
@@ -321,8 +319,6 @@ impl Entity {
                     CensusProperties::Score => codec.encode_varuint(self.display.score as u64),
                     CensusProperties::Health => codec.encode_f32(self.stats.health),
                     CensusProperties::MaxHealth => codec.encode_f32(self.stats.max_health),
-                    CensusProperties::Energy => codec.encode_f32(self.stats.energy),
-                    CensusProperties::MaxEnergy => codec.encode_f32(self.stats.max_energy),
                     CensusProperties::Opacity => codec.encode_f32(self.display.opacity),
                     CensusProperties::Radius => codec.encode_f32(self.display.radius),
                     CensusProperties::Identity => {

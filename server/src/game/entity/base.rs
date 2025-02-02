@@ -1,20 +1,21 @@
 use std::{collections::HashSet, num::NonZeroU32};
 use derive_new::new as New;
-use shared::{game::{body::{get_body_base_identity, BodyIdentity}, entity::{get_min_score_from_level, EntityType, InputFlags, Notification, Ownership, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, turret::{get_turret_base_identity, TurretStructure}}, utils::{codec::BinaryCodec, color::Color, consts::MAX_LEVEL, vec2::Vector2D}};
+use shared::{game::{body::{get_body_base_identity, BodyIdentity}, entity::{get_min_score_from_level, EntityType, InputFlags, Notification, Ownership, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, orb::{get_orb_basic_identity, OrbIdentity}, turret::{get_turret_base_identity, TurretStructure}}, utils::{codec::BinaryCodec, color::Color, consts::MAX_LEVEL, vec2::Vector2D}};
 use strum::EnumCount;
 
 use crate::game::state::{EntityDataStructure, GameState};
 
 use super::ai::AI;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub enum AliveState {
+    #[default]
     Uninitialized,
     Alive,
     Dead
 }
 
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct PhysicsComponent {
     pub position: Vector2D,
     pub velocity: Vector2D,
@@ -31,7 +32,7 @@ pub struct PhysicsComponent {
     pub bound_to_walls: bool
 }
 
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct DisplayComponent {
     pub name: String,
     pub score: usize,
@@ -52,6 +53,7 @@ pub struct DisplayComponent {
     pub entity_type: EntityType,
     pub body_identity: BodyIdentity,
     pub turret_identity: TurretStructure,
+    pub orb_identity: OrbIdentity,
     pub turret_idx: isize,
     pub owners: Option<Ownership>,
     pub owned_entities: Vec<u32>,
@@ -69,7 +71,7 @@ pub struct ConnectionComponent {
     pub outgoing_packets: Vec<BinaryCodec>
 }
 
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct StatsComponent {
     pub health: f32,
     pub max_health: f32,
@@ -83,14 +85,11 @@ pub struct StatsComponent {
     pub speed: f32,
     pub lifetime: isize,
 
-    pub alive: AliveState,
-
-    pub energy: f32,
-    pub max_energy: f32,
+    pub alive: AliveState
 }
 
 /// An entity which stores all these components, along with its id.
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct Entity {
     pub id: u32,
     pub physics: PhysicsComponent,
@@ -154,6 +153,7 @@ impl Entity {
                 entity_type: EntityType::Player,
                 body_identity: get_body_base_identity(),
                 turret_identity: get_turret_base_identity(),
+                orb_identity: get_orb_basic_identity(),
                 turret_idx: -1,
                 owners: None,
                 owned_entities: vec![],
@@ -166,8 +166,7 @@ impl Entity {
                 damage_per_tick: 0.0,
                 reload: 0.0,
                 speed: 0.0,
-                lifetime: -1,
-                energy: 0.0, max_energy: 0.0,
+                lifetime: -1
             },
             time: TimeComponent {
                 ticks: 0,
@@ -182,7 +181,8 @@ impl Entity {
     pub fn take_census(&self, codec: &mut BinaryCodec, is_self: bool) {
         match self.display.entity_type {
             EntityType::Player => self.take_tank_census(codec, is_self),
-            EntityType::Bullet | EntityType::Drone | EntityType::Trap => self.take_projectile_census(codec, is_self),
+            EntityType::Bullet | EntityType::Drone | EntityType::Trap => self.take_projectile_census(codec),
+            EntityType::Orb => self.take_orb_census(codec)
         }
     }
 
@@ -197,13 +197,18 @@ impl Entity {
             let constructions = match entity.display.entity_type {
                 EntityType::Player => entity.tick_tank(&state.entities, &state.shg),
                 EntityType::Bullet | EntityType::Drone | EntityType::Trap => entity.tick_projectile(&state.entities),
+                EntityType::Orb => entity.tick_orb(&state.entities)
             };
 
-            let position = entity.physics.position;
-            let surroundings = entity.display.surroundings.clone();
+            let (self_position, owner_position, surroundings) = 
+                if let Some(owners) = entity.display.owners && let Some(owner) = state.entities.get(&owners.deep) {
+                    (entity.physics.position, owner.borrow().physics.position, owner.borrow().display.surroundings.clone())
+                } else {
+                    (entity.physics.position, entity.physics.position, entity.display.surroundings.clone())
+                };
 
             if let Some(ai) = &mut entity.physics.ai {
-                ai.tick(&state.entities, position, surroundings);
+                ai.tick(&state.entities, self_position, owner_position, surroundings);
             }
 
             (constructions, entity.stats.alive)
@@ -344,6 +349,8 @@ impl Entity {
             });
 
             self.display.score += other.display.score.min(get_min_score_from_level(MAX_LEVEL));
+        } else if other.display.entity_type == EntityType::Orb {
+            self.display.score += other.display.orb_identity.exp_yield;
         }
 
         other.display.killer = NonZeroU32::new(self.id);
@@ -403,6 +410,7 @@ impl Entity {
                 entity_type: projectile_type,
                 body_identity: get_body_base_identity(),
                 turret_identity: get_turret_base_identity(),
+                orb_identity: get_orb_basic_identity(),
                 turret_idx,
                 owners: Some(owners),
                 owned_entities: vec![],
@@ -415,7 +423,6 @@ impl Entity {
                 damage_per_tick: damage,
                 reload: 0.0,
                 speed: speed.0,
-                energy: 0.0, max_energy: 0.0,
                 lifetime
             },
             time: TimeComponent {

@@ -50,3 +50,17 @@ pub const MINIMAP_SIZE: f32 = 175.0;
 pub const MINIMAP_PADDING: f32 = 15.0;
 
 pub const LEADER_ARROW_COLOR: Color = Color::BLACK;
+
+pub const ORB_FLICKERING_FILL: Color = Color::from_numeric(0xE3E3E3);
+pub const ORB_BASIC_FILL: Color = Color::from_numeric(0xA7D7E8);
+pub const ORB_STABLE_FILL: Color = Color::from_numeric(0x66D2E8);
+pub const ORB_HEAVY_FILL: Color = Color::from_numeric(0xCBA4E8);
+pub const ORB_RADIANT_FILL: Color = Color::from_numeric(0xE8A76C);
+pub const ORB_CELESTIAL_FILL: Color = Color::from_numeric(0xD4E86C);
+
+pub const ORB_FLICKERING_STROKE: Color = Color::blend_colors(ORB_FLICKERING_FILL, Color::BLACK, STROKE_INTENSITY);
+pub const ORB_BASIC_STROKE: Color = Color::blend_colors(ORB_BASIC_FILL, Color::BLACK, STROKE_INTENSITY);
+pub const ORB_STABLE_STROKE: Color = Color::blend_colors(ORB_STABLE_FILL, Color::BLACK, STROKE_INTENSITY);
+pub const ORB_HEAVY_STROKE: Color = Color::blend_colors(ORB_HEAVY_FILL, Color::BLACK, STROKE_INTENSITY);
+pub const ORB_RADIANT_STROKE: Color = Color::blend_colors(ORB_RADIANT_FILL, Color::BLACK, STROKE_INTENSITY);
+pub const ORB_CELESTIAL_STROKE: Color = Color::blend_colors(ORB_CELESTIAL_FILL, Color::BLACK, STROKE_INTENSITY);

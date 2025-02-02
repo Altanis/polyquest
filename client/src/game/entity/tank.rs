@@ -62,8 +62,6 @@ impl Entity {
                     }
                 },
                 CensusProperties::MaxHealth => self.stats.max_health.target = codec.decode_f32().unwrap(),
-                CensusProperties::Energy => self.stats.energy.target = codec.decode_f32().unwrap(),
-                CensusProperties::MaxEnergy => self.stats.max_energy.target = codec.decode_f32().unwrap(),
                 CensusProperties::Stats => {
                     self.display.available_stat_points = codec.decode_varuint().unwrap() as usize;
                     for i in 0..UpgradeStats::COUNT {

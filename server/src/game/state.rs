@@ -1,9 +1,9 @@
 use std::{cell::{RefCell, RefMut}, collections::HashMap};
-use shared::{game::{entity::EntityType, turret::TurretIdentityIds}, utils::vec2::Vector2D};
-
+use shared::{game::{entity::EntityType, orb::*}, rand, utils::{consts::ARENA_SIZE, vec2::Vector2D}};
+use rand::Rng;
 use crate::game::entity::base::AliveState;
 
-use super::{collision::{collision::detect_collision, shg::SpatialHashGrid}, entity::base::Entity};
+use super::{collision::{collision::detect_collision, shg::SpatialHashGrid}, entity::base::{DisplayComponent, Entity, PhysicsComponent, StatsComponent}};
 
 pub type EntityDataStructure = HashMap<u32, RefCell<Entity>>;
 
@@ -35,7 +35,8 @@ pub struct GameState {
     pub entities: EntityDataStructure,
     pub shg: SpatialHashGrid,
     pub counter: u32,
-    pub mspt: f32
+    pub mspt: f32,
+    pub desired_orb_count: usize
 }
 
 impl GameState {
@@ -45,7 +46,10 @@ impl GameState {
     }
 
     pub fn get_random_position(&self) -> Vector2D {
-        Vector2D::ZERO
+        Vector2D::new(
+            rand!(0.0, ARENA_SIZE),
+            rand!(0.0, ARENA_SIZE)
+        )
     }
 
     pub fn insert_entity(&mut self, entity: Entity) {
@@ -53,7 +57,7 @@ impl GameState {
         self.entities.insert(entity.id, RefCell::new(entity));
     }
 
-    pub fn get_entity(&mut self, id: u32) -> Option<RefMut<'_, Entity>> {
+    pub fn get_entity(&self, id: u32) -> Option<RefMut<'_, Entity>> {
         self.entities.get(&id).map(|entity_ref| entity_ref.borrow_mut())
     }
 
@@ -111,21 +115,53 @@ impl GameState {
         }
     }
 
+    fn spawn_random_shape(&mut self) {
+        let position = self.get_random_position();
+        let identity = get_orb_basic_identity();
+
+        let entity = Entity {
+            id: self.get_next_id(),
+            physics: PhysicsComponent {
+                position,
+                collidable: true,
+                absorption_factor: identity.absorption_factor,
+                push_factor: identity.push_factor,
+                bound_to_walls: true,
+                ..Default::default()
+            },
+            stats: StatsComponent {
+                health: identity.max_health, max_health: identity.max_health, alive: AliveState::Alive, 
+                last_damage_tick: 0, damage_reduction: 0.25,
+                regen_per_tick: 0.0,
+                damage_per_tick: identity.body_damage,
+                reload: 0.0,
+                speed: identity.speed,
+                lifetime: -1
+            },
+            display: DisplayComponent {
+                entity_type: EntityType::Orb,
+                opacity: 1.0,
+                radius: identity.radius,
+                orb_identity: identity,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        self.insert_entity(entity);
+    }
+
     pub fn tick(&mut self) {
         let ids: Vec<_> = self.entities.keys().copied().collect();
 
         let mspt = std::time::Instant::now();
+        let mut current_orb_count = 0;
 
         for id in ids {
-            // let dt = {
-            //     let entity = self.get_entity(id).unwrap();
-                
-            //     let time = Instant::now();
-            //     let delta_time = time.duration_since(entity.time.last_tick).as_millis_f32();
-            //     (delta_time / MSPT as f32).min(1.5)
-            // };
-
             Entity::tick(self, id);
+            if let Some(entity) = self.get_entity(id) && entity.display.entity_type == EntityType::Orb {
+                current_orb_count += 1;
+            }
         }
 
         let ids: Vec<_> = self.entities.keys().copied().collect();
@@ -155,6 +191,11 @@ impl GameState {
                     // other.physics.velocity -= Vector2D::from_polar(other_absorption_factor * this_push_factor, angle);
                 }
             }
+        }
+
+        let displacement = self.desired_orb_count - current_orb_count;
+        for _ in 0..displacement {
+            self.spawn_random_shape();
         }
 
         self.mspt = mspt.elapsed().as_millis_f32();

@@ -38,8 +38,6 @@ pub enum CensusProperties {
     Score,
     Health,
     MaxHealth,
-    Energy,
-    MaxEnergy,
     Stats,
     Upgrades,
     Opacity,
