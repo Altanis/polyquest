@@ -571,7 +571,7 @@ impl GamePhase {
                     elements.push(Box::new(
                         Button::new()
                             .with_id(&format!("upgrade-button-{}", i))
-                            .with_fill(if available_stat_points > 0 && value < MAX_STAT_INVESTMENT { color } else { Color::SOFT_GRAY })
+                            .with_fill(if available_stat_points > 0 && value < MAX_STAT_INVESTMENT { color } else { Color::GRAY })
                             .with_dimensions(Vector2D::new(20.0, 20.0))
                             .with_transform(translate!(
                                 133.3 + stat_width / 2.0 + 16.25,
@@ -619,7 +619,7 @@ impl GamePhase {
             elements.push(Box::new(
                 Button::new()
                     .with_id("toggle-upgrade-stats")
-                    .with_fill(Color::SOFT_GRAY)
+                    .with_fill(Color::GRAY)
                     .with_dimensions(Vector2D::new(25.0, 20.0 + (UpgradeStats::COUNT as f32 * 25.0)))
                     .with_transform(translate!(
                         -5.0,
@@ -1271,7 +1271,7 @@ impl GamePhase {
                     .with_id("death_starter")
                     .with_text("You died!".to_string())
                     .with_fill(Color::WHITE)
-                    .with_font(24.0)
+                    .with_font(21.0)
                     .with_stroke(Color::BLACK)
                     .with_transform(translate!(dimensions.x / 2.0, dimensions.y / 2.0 - 100.0))
                     .with_events(Events::default().with_hoverable(false))

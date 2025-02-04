@@ -117,7 +117,7 @@ impl GameState {
 
     fn spawn_random_shape(&mut self) {
         let position = self.get_random_position();
-        let identity = get_orb_basic_identity();
+        let identity = get_orb_heavy_identity();
 
         let entity = Entity {
             id: self.get_next_id(),

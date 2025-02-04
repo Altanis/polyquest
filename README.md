@@ -39,9 +39,13 @@ Todo:
     - [x] too small distance to make inviisble
 - [x] ai targets tanks
 - [x] killing drones fucks up projectile count
+- [ ] finish stylistic effect of celestial orb
+- [ ] leader arrow does not conform to dpr
+- [ ] time not reset after respawn
+- [ ] battleship shoots even when auto fire off
+- [ ] mouse in bounds check
 - [ ] finish tanks
 - [ ] finish bodies
-- [ ] mouse in bounds check
 - [ ] clans
 - [ ] global + local chat (or maybe clan-specific chats)
 - [ ] fix leader arrow

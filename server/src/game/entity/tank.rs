@@ -143,7 +143,7 @@ impl Entity {
                 angle: projectile_angle,
                 speed: match projectile_type {
                     EntityType::Bullet => (base_speed, initial_speed),
-                    EntityType::Drone => (base_speed, base_speed),
+                    EntityType::Drone => (base_speed, base_speed / 2.0),
                     EntityType::Trap => (0.0, base_speed),
                     _ => unreachable!("invalid projectile type")
                 },

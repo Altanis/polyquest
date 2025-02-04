@@ -104,7 +104,7 @@ pub fn get_orb_basic_identity() -> OrbIdentity {
         body_damage: 2.0,
         absorption_factor: 0.5,
         push_factor: 8.0,
-        radius: 55.0,
+        radius: 35.0,
         exp_yield: 20
     }
 }
@@ -113,11 +113,11 @@ pub fn get_orb_stable_identity() -> OrbIdentity {
     OrbIdentity {
         id: OrbIdentityIds::Stable,
         speed: 5.0,
-        max_health: 100.0,
-        body_damage: 0.0,
+        max_health: 70.0,
+        body_damage: 4.0,
         absorption_factor: 0.5,
         push_factor: 8.0,
-        radius: 65.0,
+        radius: 55.0,
         exp_yield: 110
     }
 }
@@ -126,9 +126,9 @@ pub fn get_orb_heavy_identity() -> OrbIdentity {
     OrbIdentity {
         id: OrbIdentityIds::Heavy,
         speed: 5.0,
-        max_health: 400.0,
-        body_damage: 0.0,
-        absorption_factor: 0.5,
+        max_health: 240.0,
+        body_damage: 8.0,
+        absorption_factor: 0.25,
         push_factor: 11.0,
         radius: 85.0,
         exp_yield: 500
@@ -140,10 +140,10 @@ pub fn get_orb_radiant_identity() -> OrbIdentity {
         id: OrbIdentityIds::Radiant,
         speed: 5.0,
         max_health: 1500.0,
-        body_damage: 0.0,
-        absorption_factor: 0.5,
+        body_damage: 16.0,
+        absorption_factor: 0.15,
         push_factor: 11.0,
-        radius: 105.0,
+        radius: 115.0,
         exp_yield: 2000
     }
 }
@@ -153,10 +153,10 @@ pub fn get_orb_celestial_identity() -> OrbIdentity {
         id: OrbIdentityIds::Celestial,
         speed: 5.0,
         max_health: 5000.0,
-        body_damage: 0.0,
-        absorption_factor: 0.5,
+        body_damage: 32.0,
+        absorption_factor: 0.1,
         push_factor: 13.0,
-        radius: 120.0,
+        radius: 165.0,
         exp_yield: 7000
     }
 }

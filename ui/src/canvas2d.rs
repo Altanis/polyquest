@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use gloo::utils::{document, window};
 use shared::{rand, utils::{color::Color, vec2::Vector2D}};
-use web_sys::{wasm_bindgen::JsCast, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
+use web_sys::{wasm_bindgen::JsCast, CanvasGradient, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
 use rand::Rng;
 
 use crate::core::GenerateTranslationScript;
@@ -315,12 +315,24 @@ impl Canvas2d {
         self.ctx.set_fill_style_str(&color.css());
     }
 
+    pub fn fill_style_gradient(&self, gradient: &CanvasGradient) {
+        self.ctx.set_fill_style_canvas_gradient(gradient);
+    }
+
     pub fn stroke_style(&self, color: Color) {
         self.ctx.set_stroke_style_str(&color.css());
     }
 
     pub fn set_stroke_size(&self, size: f32) {
         self.ctx.set_line_width(size.into());
+    }
+
+    pub fn create_radial_gradient(&self, x0: f32, y0: f32, r0: f32, x1: f32, y1: f32, r1: f32) -> CanvasGradient {
+        self.ctx.create_radial_gradient(x0 as f64, y0 as f64, r0 as f64, x1 as f64, y1 as f64, r1 as f64).unwrap()
+    }
+
+    pub fn add_color_stop(gradient: &CanvasGradient, offset: f32, color: Color) {
+        let _ = gradient.add_color_stop(offset, &color.css());
     }
 
     pub fn shadow_color(&self, color: Color) {

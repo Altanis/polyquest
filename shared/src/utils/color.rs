@@ -1,9 +1,19 @@
+use std::ops::Not;
+
 use rand::Rng;
 
 use crate::{fuzzy_compare, rand};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
 pub struct Color(pub u8, pub u8, pub u8);
+
+impl Not for Color {
+    type Output = Color;
+    
+    fn not(self) -> Self::Output {
+        Color::from_rgb(255 - self.0, 255 - self.1, 255 - self.2)
+    }
+}
 
 impl Color {
     pub const BLACK: Color = Color(0, 0, 0);
@@ -35,18 +45,17 @@ impl Color {
     pub const MATERIAL_RED: Color = Color::from_numeric(0xF56C6C);
     pub const MATERIAL_GRAY: Color = Color::from_numeric(0x8E8E93);
     pub const MATERIAL_ORANGE: Color = Color::from_numeric(0xFF9F0A);    
+    pub const MATERIAL_COLORS: [Color; 6] = [
+        Color::MATERIAL_CYAN,
+        Color::MATERIAL_YELLOW,
+        Color::MATERIAL_PURPLE,
+        Color::MATERIAL_GREEN,
+        Color::MATERIAL_RED,
+        Color::MATERIAL_ORANGE,
+    ];
 
     pub fn random() -> Color {
-        let colors = [
-            Color::MATERIAL_CYAN,
-            Color::MATERIAL_YELLOW,
-            Color::MATERIAL_PURPLE,
-            Color::MATERIAL_GREEN,
-            Color::MATERIAL_RED,
-            Color::MATERIAL_ORANGE,
-        ];
-        
-        colors[rand!(0, colors.len() - 1)]
+        Color::MATERIAL_COLORS[rand!(0, Color::MATERIAL_COLORS.len() - 1)]
     }
 
     pub const fn from_numeric(hex: u32) -> Color {
@@ -114,5 +123,9 @@ impl Color {
         fuzzy_compare!(self.0 as f32, other.0 as f32, tolerance) && 
         fuzzy_compare!(self.1 as f32, other.1 as f32, tolerance) &&
         fuzzy_compare!(self.2 as f32, other.2 as f32, tolerance)   
+    }
+
+    pub fn to_rgb(&self) -> (u8, u8, u8) {
+        (self.0, self.1, self.2)
     }
 }
