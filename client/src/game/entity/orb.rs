@@ -70,30 +70,62 @@ impl Entity {
         let (x, y, mut r) = (self.physics.position.value.x, self.physics.position.value.y, self.display.radius.value);
 
         context.save();
-
         context.rotate(std::f32::consts::FRAC_PI_2);
+
+        let inner_fill = fill;
+        let outer_fill = Color::blend_colors(fill, Color::WHITE, 0.4);
+        let (outer_r, outer_g, outer_b) = outer_fill.to_rgb();
+
+        let glow_stop_0 = format!("rgba({}, {}, {}, 0.6)", outer_r, outer_g, outer_b);
+        let glow_stop_1 = format!("rgba({}, {}, {}, 0.0)", outer_r, outer_g, outer_b);
+
+        let glow = context.create_radial_gradient(0.0, 0.0, 0.0, 0.0, 0.0, r + r / 1.5);
+        glow.add_color_stop(0.0, &glow_stop_0);
+        glow.add_color_stop(1.0, &glow_stop_1);
+        context.fill_style_gradient(&glow);
+        context.begin_arc(0.0, 0.0, r + r / 1.5, std::f32::consts::TAU);
+        context.fill();
+
+        let fill_gradient = context.create_radial_gradient(0.0, 0.0, 0.0, 0.0, 0.0, r);
+        fill_gradient.add_color_stop(0.0, &inner_fill.css());
+        fill_gradient.add_color_stop(1.0, &outer_fill.css());
+
+        context.fill_style_gradient(&fill_gradient);
+        context.stroke_style(stroke);
+        context.set_stroke_size(STROKE_SIZE);
+
+        context.begin_arc(0.0, 0.0, r, std::f32::consts::TAU);
+
+        context.stroke();
+        context.fill();
 
         match self.display.orb_identity.id {
             OrbIdentityIds::Basic => {
-                
-            },
-            OrbIdentityIds::Flickering => {
-
-            },
-            OrbIdentityIds::Heavy => {
-                let (time, frequency) = (self.time.ticks as f32, 0.03);
-                let oscillation = ((time * frequency).sin() + 1.0) / 2.0;
-                let (min_radius, max_radius) = (r, r + r / 1.4);
-                let radius = min_radius + (max_radius - min_radius) * oscillation;
-                
-                let (min_opacity, max_opacity) = (0.1, 0.7);
-                let opacity = max_opacity - ((radius - min_radius) / (max_radius - min_radius)) * (max_opacity - min_opacity);
-
+                let pulse = ((self.time.ticks as f32 * 0.04).sin() + 1.0) / 2.0;
                 context.save();
-                context.stroke_style(stroke);
-                context.global_alpha(opacity);
-                context.set_stroke_size(STROKE_SIZE);
-                context.begin_arc(0.0, 0.0, radius, std::f32::consts::TAU);
+                context.fill_style(Color::blend_colors(fill, Color::WHITE, 0.4));
+                context.global_alpha(0.3 * pulse);
+                context.begin_arc(0.0, 0.0, r * 0.35, std::f32::consts::TAU);
+                context.fill();
+                context.restore();
+            },
+            OrbIdentityIds::Stable => {
+                context.save();
+                let angle = self.time.ticks as f32 * 0.015;
+                context.rotate(angle);
+                
+                let (halo_r, halo_g, halo_b) = Color::blend_colors(fill, Color::WHITE, 0.2).to_rgb();
+                let halo_color = format!("rgba({}, {}, {}, 0.3)", halo_r, halo_g, halo_b);
+
+                let gradient = context.create_linear_gradient(-r * 1.5, 0.0, r * 1.5, 0.0);
+                gradient.add_color_stop(0.0, "transparent");
+                gradient.add_color_stop(0.4, &halo_color);
+                gradient.add_color_stop(0.6, &halo_color);
+                gradient.add_color_stop(1.0, "transparent");
+                
+                context.stroke_style_gradient(&gradient);
+                context.set_stroke_size(10.0);
+                context.begin_arc(0.0, 0.0, r * 1.1, std::f32::consts::TAU);
                 context.stroke();
                 context.restore();
             },
@@ -182,33 +214,6 @@ impl Entity {
             },
             _ => {}
         }
-
-        let inner_fill = fill;
-        let outer_fill = Color::blend_colors(fill, Color::WHITE, 0.4);
-        let (outer_r, outer_g, outer_b) = outer_fill.to_rgb();
-
-        let glow_stop_0 = format!("rgba({}, {}, {}, 0.6)", outer_r, outer_g, outer_b);
-        let glow_stop_1 = format!("rgba({}, {}, {}, 0.0)", outer_r, outer_g, outer_b);
-
-        let glow = context.create_radial_gradient(0.0, 0.0, 0.0, 0.0, 0.0, r + r / 1.5);
-        glow.add_color_stop(0.0, &glow_stop_0);
-        glow.add_color_stop(1.0, &glow_stop_1);
-        context.fill_style_gradient(&glow);
-        context.begin_arc(0.0, 0.0, r + r / 1.5, std::f32::consts::TAU);
-        context.fill();
-
-        let fill_gradient = context.create_radial_gradient(0.0, 0.0, 0.0, 0.0, 0.0, r);
-        fill_gradient.add_color_stop(0.0, &inner_fill.css());
-        fill_gradient.add_color_stop(1.0, &outer_fill.css());
-
-        context.fill_style_gradient(&fill_gradient);
-        context.stroke_style(stroke);
-        context.set_stroke_size(STROKE_SIZE);
-
-        context.begin_arc(0.0, 0.0, r, std::f32::consts::TAU);
-
-        context.stroke();
-        context.fill();
 
         context.restore();
     }

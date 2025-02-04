@@ -39,11 +39,12 @@ Todo:
     - [x] too small distance to make inviisble
 - [x] ai targets tanks
 - [x] killing drones fucks up projectile count
-- [ ] finish stylistic effect of celestial orb
+- [x] finish stylistic effect of celestial orb
 - [ ] leader arrow does not conform to dpr
 - [ ] time not reset after respawn
 - [ ] battleship shoots even when auto fire off
 - [ ] mouse in bounds check
+- [ ] zooming into page causes fov change
 - [ ] finish tanks
 - [ ] finish bodies
 - [ ] clans

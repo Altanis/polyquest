@@ -327,6 +327,14 @@ impl Canvas2d {
         self.ctx.set_line_width(size.into());
     }
 
+    pub fn stroke_style_gradient(&self, gradient: &CanvasGradient) {
+        self.ctx.set_stroke_style_canvas_gradient(gradient);
+    }
+
+    pub fn create_linear_gradient(&self, x0: f32, y0: f32, x1: f32, y1: f32) -> CanvasGradient {
+        self.ctx.create_linear_gradient(x0 as f64, y0 as f64, x1 as f64, y1 as f64)
+    }
+
     pub fn create_radial_gradient(&self, x0: f32, y0: f32, r0: f32, x1: f32, y1: f32, r1: f32) -> CanvasGradient {
         self.ctx.create_radial_gradient(x0 as f64, y0 as f64, r0 as f64, x1 as f64, y1 as f64, r1 as f64).unwrap()
     }
