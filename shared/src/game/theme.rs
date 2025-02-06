@@ -7,8 +7,8 @@ use super::entity::UpgradeStats;
 pub const OUTBOUNDS_FILL: Color = Color::from_numeric(0x252833); // Dark blue-gray for outside arena  
 pub const INBOUNDS_FILL: Color = Color::from_numeric(0x323644); // Slightly lighter blue-gray for inside arena  
 
-pub const PLAYER_FILL: Color = Color::from_numeric(0x29A8C6); // Vibrant cyan for player  
-pub const ENEMY_FILL: Color = Color::from_numeric(0xD85C5C); // Rich red for enemy  
+pub const PLAYER_FILL: Color = Color::from_numeric(0x00B1DE);
+pub const ENEMY_FILL: Color = Color::from_numeric(0xF14E54);
 pub const TURRET_FILL: Color = Color::from_numeric(0x878787);
 
 // fills of shapes scattered across the arena

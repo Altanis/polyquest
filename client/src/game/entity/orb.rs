@@ -60,8 +60,7 @@ impl Entity {
             OrbIdentityIds::Basic => (ORB_BASIC_FILL, ORB_BASIC_STROKE),
             OrbIdentityIds::Stable => (ORB_STABLE_FILL, ORB_STABLE_STROKE),
             OrbIdentityIds::Heavy => (ORB_HEAVY_FILL, ORB_HEAVY_STROKE),
-            OrbIdentityIds::Radiant => (ORB_RADIANT_FILL, ORB_RADIANT_STROKE),
-            OrbIdentityIds::Celestial => (ORB_CELESTIAL_FILL, ORB_CELESTIAL_STROKE)
+            OrbIdentityIds::Radiant => (ORB_RADIANT_FILL, ORB_RADIANT_STROKE)
         }
     }
 
@@ -129,87 +128,98 @@ impl Entity {
                 context.stroke();
                 context.restore();
             },
+            OrbIdentityIds::Heavy => {
+                let (time, frequency) = (self.time.ticks as f32, 0.03);
+                let oscillation = ((time * frequency).sin() + 1.0) / 2.0;
+                let (min_radius, max_radius) = (r, r + r / 1.4);
+                let radius = min_radius + (max_radius - min_radius) * oscillation;
+                
+                let (min_opacity, max_opacity) = (0.1, 0.7);
+                let opacity = max_opacity - ((radius - min_radius) / (max_radius - min_radius)) * (max_opacity - min_opacity);
+
+                context.save();
+                context.stroke_style(stroke);
+                context.global_alpha(opacity);
+                context.set_stroke_size(STROKE_SIZE);
+                context.begin_arc(0.0, 0.0, radius, std::f32::consts::TAU);
+                context.stroke();
+                context.restore();
+            },
             OrbIdentityIds::Radiant => {
-                let seed: [u8; 32] = u64::to_le_bytes(self.id as u64)
-                    .iter().cloned().chain(std::iter::repeat(0)).take(32)
-                    .collect::<Vec<u8>>().try_into().unwrap();
-                let mut rng = rand::rngs::StdRng::from_seed(seed);
-
-                let num_particles = 60;
-                let max_speed = 2.4;
-                let lifetime = 90.0;
-                let base_radius = r;
-
-                for _ in 0..num_particles {
-                    let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                    let speed = rng.gen_range(0.5..max_speed);
-                    let phase = rng.gen_range(0.0..lifetime);
+                context.save();
+            
+                // Core parameters
+                let time = self.time.ticks as f32;
+                let base_glow = Color::blend_colors(fill, Color::WHITE, 0.4);
+                let (r_base, g_base, b_base) = base_glow.to_rgb();
+            
+                // 1. Intense pulsating core
+                let core_pulse = (time * 0.07).sin().abs();
+                context.fill_style(base_glow);
+                context.global_alpha(0.3 + core_pulse * 0.2);
+                context.begin_arc(0.0, 0.0, r * 0.6, std::f32::consts::TAU);
+                context.fill();
+            
+                // 2. Dynamic energy corona
+                let corona_gradient = context.create_radial_gradient(0.0, 0.0, r * 0.8, 0.0, 0.0, r * 1.8);
+                corona_gradient.add_color_stop(0.0, &format!("rgba({}, {}, {}, 0.8)", r_base, g_base, b_base));
+                corona_gradient.add_color_stop(1.0, &format!("rgba({}, {}, {}, 0.0)", r_base, g_base, b_base));
+                
+                context.save();
+                context.rotate(time * 0.02);
+                context.global_alpha(0.6);
+                context.fill_style_gradient(&corona_gradient);
+                
+                // Create 8 energy spikes using clipping
+                // for i in 0..8 {
+                //     context.save();
+                //     context.rotate(i as f32 * std::f32::consts::FRAC_PI_4);
+                //     context.begin_path();
+                //     context.move_to(0.0, 0.0);
+                //     context.line_to(r * 1.4, 0.0);
+                //     context.arc(0.0, 0.0, r * 1.4, std::f32::consts::FRAC_PI_8);
+                //     context.close_path();
+                //     context.fill();
+                //     context.restore();
+                // }
+                context.restore();
+            
+                // 3. Rotating prismatic halo
+                let halo_rot = time * 0.015;
+                context.save();
+                context.rotate(halo_rot);
+                
+                let r_halo = r * 1.4;
+                let halo = context.create_linear_gradient(-r_halo, 0.0, r_halo, 0.0);
+                halo.add_color_stop(0.0, "rgba(255, 255, 255, 0.4)");
+                halo.add_color_stop(0.3, &format!("rgba({}, {}, {}, 0.6)", r_base, g_base, b_base));
+                halo.add_color_stop(0.7, &format!("rgba({}, {}, {}, 0.6)", r_base, g_base, b_base));
+                halo.add_color_stop(1.0, "rgba(255, 255, 255, 0.4)");
+                
+                context.stroke_style_gradient(&halo);
+                context.set_stroke_size(8.0);
+                context.begin_arc(0.0, 0.0, r_halo, std::f32::consts::TAU);
+                context.stroke();
+                context.restore();
+            
+                // 4. Floating spark particles (limited count)
+                let num_sparkles = 8;
+                for i in 0..num_sparkles {
+                    let angle = time * 0.01 + i as f32 * std::f32::consts::TAU / num_sparkles as f32;
+                    let spark_dist = r * 1.8 + (time * 0.05 + i as f32).sin() * r * 0.2;
+                    let spark_size = 3.0 + (time * 0.1 + i as f32).sin().abs() * 2.0;
+                    let opacity = 0.5 + (time * 0.08 + i as f32).sin().abs() * 0.3;
                     
-                    let age = ((self.time.ticks as f32 + phase) % lifetime) / lifetime;
-                    
-                    let distance = base_radius + age.powf(0.7) * base_radius * 4.0;
-                    let opacity = (1.0 - age).powf(3.0);
-                    let size = 5.0 * (1.0 - age) + 1.0;
-
-                    let pos = Vector2D::from_polar(distance, angle);
-
                     context.save();
-                    context.fill_style(fill);
-                    context.stroke_style(stroke);
+                    context.rotate(angle);
+                    context.translate(spark_dist, 0.0);
+                    context.fill_style(Color::WHITE);
                     context.global_alpha(opacity);
-                    context.begin_arc(pos.x, pos.y, size, std::f32::consts::TAU);
+                    context.begin_arc(0.0, 0.0, spark_size, std::f32::consts::TAU);
                     context.fill();
                     context.restore();
                 }
-            },
-            OrbIdentityIds::Celestial => {
-                let seed: [u8; 32] = u64::to_le_bytes(self.id as u64)
-                    .iter().cloned().chain(std::iter::repeat(0)).take(32)
-                    .collect::<Vec<u8>>().try_into().unwrap();
-                let mut rng = rand::rngs::StdRng::from_seed(seed);
             
-                let num_flares = 8;
-                let base_radius = r;
-                let period = 200.0;
-                let max_length = base_radius * 2.0;
-            
-                for _ in 0..num_flares {
-                    let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                    let phase = rng.gen_range(0.0..period);
-                    let speed_factor = rng.gen_range(0.8..1.2);
-                    
-                    let progress = ((self.time.ticks as f32 + phase) % (period * speed_factor)) / (period * speed_factor);
-                    let flare_progress = if progress < 0.5 {
-                        progress * 2.0
-                    } else {
-                        (1.0 - progress) * 2.0
-                    };
-            
-                    let current_length = flare_progress * max_length;
-                    let opacity = (flare_progress * 0.8).clamp(0.0, 1.0);
-                    let width = 2.0 + flare_progress * 4.0;
-            
-                    let start = Vector2D::from_polar(base_radius, angle);
-                    let end = Vector2D::from_polar(base_radius + current_length, angle);
-            
-                    context.save();
-                    context.stroke_style(Color::blend_colors(fill, Color::WHITE, 0.3));
-                    context.global_alpha(opacity);
-                    context.set_stroke_size(width);
-                    
-                    context.begin_path();
-                    context.move_to(start.x, start.y);
-                    context.line_to(end.x, end.y);
-                    context.stroke();
-                    
-                    context.restore();
-                }
-                
-                context.save();
-                context.global_alpha(0.3);
-                context.fill_style(fill);
-                context.begin_arc(0.0, 0.0, base_radius * 1.2, std::f32::consts::TAU);
-                context.fill();
                 context.restore();
             },
             _ => {}

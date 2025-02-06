@@ -1,9 +1,8 @@
-use shared::{connection::packets::CensusProperties, game::orb::OrbIdentityIds, normalize_angle, rand, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION}}};
+use shared::{connection::packets::CensusProperties, game::orb::OrbIdentityIds, normalize_angle, rand, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION}, vec2::Vector2D}};
 use rand::Rng;
 use strum::IntoEnumIterator;
 
 use crate::game::state::EntityDataStructure;
-
 use super::base::{AliveState, Entity, EntityConstruction};
 
 impl Entity {
@@ -24,6 +23,23 @@ impl Entity {
         if self.physics.bound_to_walls {
             self.physics.position.constrain(0.0, ARENA_SIZE);
         }
+
+        let (soft_border_left, soft_border_right) = (ARENA_SIZE / 7.0, 6.0 * ARENA_SIZE / 7.0);
+        if self.physics.position.x < soft_border_left
+            || self.physics.position.x > soft_border_right
+        {
+            self.physics.velocity.x *= -1.0;
+        } else if self.physics.position.y < soft_border_left
+            || self.physics.position.y > soft_border_right
+        {
+            self.physics.velocity.y *= -1.0;
+        }
+
+        self.physics.angle = normalize_angle!(self.physics.angle + 0.01 * self.display.orb_identity.angular_speed);
+        self.physics.velocity += Vector2D::from_polar(
+            0.03 * self.display.orb_identity.linear_speed,
+            self.physics.angle,
+        );
 
         constructions
     }

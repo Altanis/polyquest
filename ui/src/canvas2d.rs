@@ -339,6 +339,10 @@ impl Canvas2d {
         self.ctx.create_radial_gradient(x0 as f64, y0 as f64, r0 as f64, x1 as f64, y1 as f64, r1 as f64).unwrap()
     }
 
+    // pub fn create_conic_gradient(&self, angle: f32, x: f32, y: f32) -> CanvasGradient {
+        // self.ctx.create_conic_graident(angle as f64, x as f64, y as f64).unwrap()
+    // }
+
     pub fn add_color_stop(gradient: &CanvasGradient, offset: f32, color: Color) {
         let _ = gradient.add_color_stop(offset, &color.css());
     }
@@ -396,6 +400,10 @@ impl Canvas2d {
 
     pub fn begin_arc(&self, x: f32, y: f32, r: f32, radians: f32) {
         self.ctx.begin_path();
+        let _ = self.ctx.arc(x.into(), y.into(), r.into(), 0.0, radians as f64);
+    }
+
+    pub fn arc(&self, x: f32, y: f32, r: f32, radians: f32) {
         let _ = self.ctx.arc(x.into(), y.into(), r.into(), 0.0, radians as f64);
     }
 

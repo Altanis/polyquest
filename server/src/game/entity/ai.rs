@@ -53,7 +53,7 @@ impl AI {
                 return Some(id);
             }
         }
-    
+
         let mut surroundings = surroundings
             .iter()
             .filter(|&&id| !self.ownership.has_owner(id) && entities.get(&id).is_some())
@@ -71,35 +71,31 @@ impl AI {
 
                 true
             });
-    
+
         if self.state == AIState::Idle {
-            let (mut best_score, mut best_id, dt) = {
+            let (mut min_distance, mut id) = {
                 let entity = surroundings.next();
                 if let Some(entity) = entity {
-                    let distance = entity.physics.position.distance(position) + 1.0;
-                    let weighted_score = entity.display.score as f32 / distance;
-                    (weighted_score, entity.id, distance)
+                    (entity.physics.position.distance(position), entity.id)
                 } else {
                     return None;
                 }
             };
-    
+
             for entity in surroundings {
-                let distance = entity.physics.position.distance(position) + 1.0;
-                let weighted_score = entity.display.score as f32 / distance;
-    
-                if weighted_score > best_score {
-                    best_score = weighted_score;
-                    best_id = entity.id;
+                let distance = entity.physics.position.distance(position);
+                if min_distance > distance {
+                    min_distance = distance;
+                    id = entity.id;
                 }
             }
-    
-            self.state = AIState::Active(best_id);
-            return Some(best_id);
+
+            self.state = AIState::Active(id);
+            return Some(id);
         }
-    
+
         None
-    }    
+    }
 
     pub fn tick(&mut self, entities: &EntityDataStructure, self_position: Vector2D, owner_position: Vector2D, surroundings: Vec<u32>) {
         if let AIState::Possessed(mouse) = self.state {

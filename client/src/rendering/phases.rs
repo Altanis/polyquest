@@ -1164,8 +1164,14 @@ impl GamePhase {
         );
 
         world.renderer.canvas2d.save();
-        let screen_dimensions = world.renderer.canvas2d.get_dimensions();
-        
+
+        let factor = window().device_pixel_ratio() as f32;
+        let screen_dimensions = Vector2D::new(world.renderer.canvas2d.get_width() / factor, world.renderer.canvas2d.get_height() / factor);
+
+        world.renderer.canvas2d.translate(world.renderer.canvas2d.get_width() / 2.0, world.renderer.canvas2d.get_height() / 2.0);
+        world.renderer.canvas2d.scale(factor, factor);
+        world.renderer.canvas2d.translate(-world.renderer.canvas2d.get_width() / (2.0 * factor), -world.renderer.canvas2d.get_height() / (2.0 * factor));
+
         world.renderer.canvas2d.fill_style(LEADER_ARROW_COLOR);
         world.renderer.canvas2d.global_alpha(0.3 * world.game.leaderboard.arrow_opacity.value);
         world.renderer.canvas2d.set_stroke_size(10.0);
@@ -1203,7 +1209,7 @@ impl GamePhase {
         world.renderer.canvas2d.begin_path();
         let intersection = &world.game.leaderboard.intersection.value;
         let angle = world.game.leaderboard.angle.value;
-        let arrow_size = 100.0;
+        let arrow_size = 50.0;
 
         let (sin_minus, cos_minus) = (angle - std::f32::consts::PI / 6.0).sin_cos();
         let point1 = Vector2D::new(
@@ -1227,10 +1233,10 @@ impl GamePhase {
 
         world.renderer.canvas2d.fill();
 
-        world.renderer.canvas2d.set_font("28px Ubuntu");
+        world.renderer.canvas2d.set_font("14px Ubuntu");
         world.renderer.canvas2d.fill_style(Color::WHITE);
         world.renderer.canvas2d.stroke_style(Color::BLACK);
-        world.renderer.canvas2d.set_stroke_size(28.0 / 5.0);
+        world.renderer.canvas2d.set_stroke_size(14.0 / 5.0);
         world.renderer.canvas2d.global_alpha(0.95 * world.game.leaderboard.arrow_opacity.value);
 
         let midpoint = Vector2D::new(

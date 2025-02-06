@@ -36,8 +36,8 @@ macro_rules! into_structure {
 pub struct OrbIdentity {
     /// The ID of the orb identity.
     pub id: OrbIdentityIds, 
-    /// The inherent speed of the orb.
-    pub speed: f32,
+    pub linear_speed: f32,
+    pub angular_speed: f32,
     /// The (base) maximum health of the orb.
     pub max_health: f32,
     /// The multiplier for body damage.
@@ -60,7 +60,6 @@ into_structure! {
         Stable      = 2,
         Heavy       = 3,
         Radiant     = 4,
-        Celestial   = 5,
     }   
 }
 
@@ -86,7 +85,8 @@ impl Display for OrbIdentityIds {
 pub fn get_orb_flickering_identity() -> OrbIdentity {
     OrbIdentity {
         id: OrbIdentityIds::Flickering,
-        speed: 5.0,
+        linear_speed: 7.5,
+        angular_speed: 1.0,
         max_health: 0.5,
         body_damage: 0.0,
         absorption_factor: 0.0,
@@ -99,10 +99,11 @@ pub fn get_orb_flickering_identity() -> OrbIdentity {
 pub fn get_orb_basic_identity() -> OrbIdentity {
     OrbIdentity {
         id: OrbIdentityIds::Basic,
-        speed: 5.0,
-        max_health: 30.0,
-        body_damage: 2.0,
-        absorption_factor: 0.5,
+        linear_speed: 3.0,
+        angular_speed: 1.0,
+        max_health: 10.0,
+        body_damage: 8.0,
+        absorption_factor: 1.0,
         push_factor: 8.0,
         radius: 35.0,
         exp_yield: 20
@@ -112,51 +113,41 @@ pub fn get_orb_basic_identity() -> OrbIdentity {
 pub fn get_orb_stable_identity() -> OrbIdentity {
     OrbIdentity {
         id: OrbIdentityIds::Stable,
-        speed: 5.0,
-        max_health: 70.0,
-        body_damage: 4.0,
-        absorption_factor: 0.5,
+        linear_speed: 3.0,
+        angular_speed: 1.0,
+        max_health: 30.0,
+        body_damage: 8.0,
+        absorption_factor: 1.0,
         push_factor: 8.0,
         radius: 55.0,
-        exp_yield: 110
+        exp_yield: 50
     }
 }
 
 pub fn get_orb_heavy_identity() -> OrbIdentity {
     OrbIdentity {
         id: OrbIdentityIds::Heavy,
-        speed: 5.0,
-        max_health: 240.0,
-        body_damage: 8.0,
-        absorption_factor: 0.25,
+        linear_speed: 2.0,
+        angular_speed: 1.0,
+        max_health: 100.0,
+        body_damage: 12.0,
+        absorption_factor: 0.5,
         push_factor: 11.0,
-        radius: 85.0,
-        exp_yield: 500
+        radius: 75.0,
+        exp_yield: 260
     }
 }
 
 pub fn get_orb_radiant_identity() -> OrbIdentity {
     OrbIdentity {
         id: OrbIdentityIds::Radiant,
-        speed: 5.0,
-        max_health: 1500.0,
-        body_damage: 16.0,
-        absorption_factor: 0.15,
+        linear_speed: 0.5,
+        angular_speed: 1.0,
+        max_health: 400.0,
+        body_damage: 20.0,
+        absorption_factor: 0.25,
         push_factor: 11.0,
-        radius: 115.0,
+        radius: 145.0,
         exp_yield: 2000
-    }
-}
-
-pub fn get_orb_celestial_identity() -> OrbIdentity {
-    OrbIdentity {
-        id: OrbIdentityIds::Celestial,
-        speed: 5.0,
-        max_health: 5000.0,
-        body_damage: 32.0,
-        absorption_factor: 0.1,
-        push_factor: 13.0,
-        radius: 165.0,
-        exp_yield: 7000
     }
 }

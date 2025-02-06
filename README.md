@@ -2,6 +2,7 @@
 
 Stars: Players can reside in stars to regain HP.
     -> Has a corona aligned with the color of the star.
+    -> Has a few shapes in a gravitional orbit.
     -> Star colors follow the HR diagram based on its energy.
         -> Higher "energy" stars impart more health.
     -> Attacking a star gives EXP and reduces the star's health.
@@ -12,15 +13,13 @@ Stars: Players can reside in stars to regain HP.
         -> A timer is attached to it, signifying when it'll "rebirth".
         -> Rebirth randomizes energy level.
 
-Orbs: Entities which give EXP upon death.
-| **Orb Tier**              | **HP**| **EXP**| **Radius (px)**| **Notes** |
-|---------------------------|-------|--------|----------------|---------------|
-| **1 - Flickering Orb**    | 10    | 8      | **30 px**  | Smallest, low value |
-| **2 - Basic Energy Orb**  | 30    | 20     | **55 px** | Early-game orb |
-| **3 - Stable Orb**        | 100   | 110    | **65 px** | Medium-sized, efficient |
-| **4 - Heavy Orb**         | 400   | 500    | **85 px** | Starts to feel large |
-| **5 - Radiant Orb**       | 1500  | 2000   | **105 px** | Big, high-risk high-reward |
-| **6 - Celestial Orb**     | 5000  | 7000   | **120 px** | Huge, rare, game-changing |
+[Boss]: Bosses that have high HP.
+    -> Has a collection of orbs around it.
+         -> Upon death, an orb spawns back 30 seconds later.
+         -> The orbs are sent to attack if the boss/one of its orbs are attacked.
+    -> Bosses attack when player is in range of the boss.
+    -> Travels around the map.
+    -> Regenerates according to Diep.io regeneration mechanics.
 
 --- 
 Todo:

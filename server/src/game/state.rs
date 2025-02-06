@@ -46,10 +46,30 @@ impl GameState {
     }
 
     pub fn get_random_position(&self) -> Vector2D {
-        Vector2D::new(
-            rand!(0.0, ARENA_SIZE),
-            rand!(0.0, ARENA_SIZE)
-        )
+        let (mut position, mut iterations) = (Vector2D::new(rand!(0.0, ARENA_SIZE), rand!(0.0, ARENA_SIZE)), -1);
+        let (collision_detection, collision_radius) = (300.0, 50.0);
+
+        while iterations >= 20 {
+            iterations += 1;
+
+            let nearby_entities = self.shg.query_radius(self.counter + 1, position, collision_detection);
+            let mut is_position_valid = true;
+
+            for nearby_entity in nearby_entities {
+                let entity = self.entities[&nearby_entity].borrow();
+                if (collision_radius + entity.display.radius) - position.distance(entity.physics.position) > 5.0 {
+                    position = Vector2D::new(rand!(0.0, ARENA_SIZE), rand!(0.0, ARENA_SIZE));
+                    is_position_valid = false;
+                    break;
+                }
+            }
+
+            if is_position_valid {
+                break;
+            }
+        }
+
+        position
     }
 
     pub fn insert_entity(&mut self, entity: Entity) {
@@ -117,7 +137,23 @@ impl GameState {
 
     fn spawn_random_shape(&mut self) {
         let position = self.get_random_position();
-        let identity = get_orb_stable_identity();
+        let center_size = ARENA_SIZE * 0.15;
+        let (center_min, center_max) = ((ARENA_SIZE - center_size) / 2.0, (ARENA_SIZE + center_size) / 2.0);
+        
+        let is_center = position.x >= center_min && position.x <= center_max && position.y >= center_min && position.y <= center_max;
+        let identity = if is_center {
+            OrbIdentityIds::Radiant
+        } else {
+            match rand!(0, 100) {
+                0..=49 => OrbIdentityIds::Flickering,  // 50%
+                50..=74 => OrbIdentityIds::Basic,      // 25%
+                75..=84 => OrbIdentityIds::Stable,     // 10%
+                85..=94 => OrbIdentityIds::Heavy,      // 10%
+                _ => OrbIdentityIds::Radiant,          // 5%
+            }
+        };
+
+        let identity: OrbIdentity = identity.try_into().unwrap();
 
         let entity = Entity {
             id: self.get_next_id(),
@@ -127,6 +163,7 @@ impl GameState {
                 absorption_factor: identity.absorption_factor,
                 push_factor: identity.push_factor,
                 bound_to_walls: true,
+                angle: rand!(-3.13, 3.13),
                 ..Default::default()
             },
             stats: StatsComponent {
@@ -135,7 +172,7 @@ impl GameState {
                 regen_per_tick: 0.0,
                 damage_per_tick: identity.body_damage,
                 reload: 0.0,
-                speed: identity.speed,
+                speed: 0.0,
                 lifetime: -1
             },
             display: DisplayComponent {
