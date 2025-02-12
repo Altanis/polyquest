@@ -9,19 +9,10 @@ impl Entity {
     pub fn tick_orb(&mut self, entities: &EntityDataStructure) -> Vec<EntityConstruction> {
         let constructions = vec![];
 
-        if self.stats.health <= 0.0 {
-            self.stats.alive = AliveState::Dead;
-        }
+        self.base_tick();
 
         if self.display.orb_identity.id == OrbIdentityIds::Flickering {
             self.display.opacity = rand!(0.0, 0.7) + 0.3;
-        }
-
-        self.physics.velocity *= 1.0 - FRICTION;
-        self.physics.position += self.physics.velocity + self.physics.additional_velocity;
-        
-        if self.physics.bound_to_walls {
-            self.physics.position.constrain(0.0, ARENA_SIZE);
         }
 
         let (soft_border_left, soft_border_right) = (ARENA_SIZE / 7.0, 6.0 * ARENA_SIZE / 7.0);
@@ -40,6 +31,8 @@ impl Entity {
             0.03 * self.display.orb_identity.linear_speed,
             self.physics.angle,
         );
+
+        self.stats.regen_per_tick = self.stats.max_health / 25000.0;
 
         constructions
     }

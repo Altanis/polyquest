@@ -189,7 +189,7 @@ impl UiElement for Button {
 
         context.fill_style(self.fill.value);
 
-        let stroke = if self.stroke.0 < 0.0 { self.dimensions.value.min().max(1.0).ln() * 2.0 } else { self.stroke.0 };
+        let stroke = if self.stroke.0 < 0.0 { self.dimensions.value.min().max(1.0).ln() * 1.5 } else { self.stroke.0 };
         if stroke != 0.0 {
             let color = if let Some(color) = self.stroke.1 {
                 color

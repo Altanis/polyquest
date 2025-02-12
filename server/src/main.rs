@@ -13,8 +13,8 @@ mod connection;
 async fn main() {
     let _ = Server::init(vec![
         GameState {
-            shg: SpatialHashGrid::new(2048, CELL_SIZE),
-            desired_orb_count: 250,
+            shg: SpatialHashGrid::new(256, CELL_SIZE),
+            desired_orb_count: 300,
             ..GameState::default()
         }
     ]).await;

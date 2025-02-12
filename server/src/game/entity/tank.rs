@@ -1,7 +1,7 @@
 use shared::{connection::packets::{CensusProperties, Inputs}, game::{body::BodyIdentity, entity::{get_min_score_from_level, EntityType, Ownership, UpgradeStats, BASE_TANK_RADIUS, FICTITIOUS_TANK_RADIUS}, turret::{TurretIdentityIds, TurretStructure}}, rand, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION, MAX_LEVEL, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 use rand::Rng;
-use crate::{connection::packets, game::{collision::shg::SpatialHashGrid, state::EntityDataStructure}, server::SPAWN_INVINCIBILITY_TIME};
+use crate::{connection::packets, game::{collision::shg::SpatialHashGrid, state::EntityDataStructure}, server::{MESSAGE_EXPIRY, SPAWN_INVINCIBILITY_TIME}};
 
 use super::{ai::AI, base::{AliveState, Entity, EntityConstruction}};
 
@@ -9,11 +9,7 @@ impl Entity {
     pub fn tick_tank(&mut self, entities: &EntityDataStructure, shg: &SpatialHashGrid) -> Vec<EntityConstruction> {
         let mut constructions = vec![];
 
-        if self.stats.alive == AliveState::Alive && self.stats.health <= 0.0 {
-            self.stats.alive = AliveState::Dead;
-        } else if self.stats.health <= self.stats.max_health {
-            // regeneration maybe
-        }
+        self.base_tick();
 
         let (screen_width, screen_height) = (SCREEN_WIDTH / self.display.fov / 0.9, SCREEN_HEIGHT / self.display.fov / 0.9);
         let screen_top_left = self.physics.position - Vector2D::new(screen_width / 2.0, screen_height / 2.0);
@@ -63,13 +59,6 @@ impl Entity {
     
             movement.set_magnitude(self.stats.speed);
             self.physics.velocity += movement;
-    
-            self.physics.velocity *= 1.0 - FRICTION;
-            self.physics.position += self.physics.velocity;
-    
-            if self.physics.bound_to_walls {
-                self.physics.position.constrain(0.0, ARENA_SIZE);
-            }
     
             self.update_display();
         } else if let Some(killer) = self.display.killer && let Some(entity) = entities.get(&killer.into()) {
@@ -241,6 +230,16 @@ impl Entity {
 
         // FoV
         self.display.fov = (0.55 * self.display.turret_identity.fov) / 1.01f32.powf((self.display.level as f32 - 1.0) / 2.0);
+
+        // Messages
+        while !self.display.messages.is_empty() {
+            let (_, tick) = &self.display.messages[0];
+            if self.time.ticks - tick >= MESSAGE_EXPIRY {
+                self.display.messages.remove(0);
+            } else {
+                break;
+            }
+        }
     }
 
     pub fn take_tank_census(&self, codec: &mut BinaryCodec, is_self: bool) {
@@ -253,7 +252,7 @@ impl Entity {
         }
 
         if is_self {
-            codec.encode_varuint(15);
+            codec.encode_varuint(16);
             for property in CensusProperties::iter() {
                 codec.encode_varuint(property.clone() as u64);
     
@@ -297,11 +296,19 @@ impl Entity {
                     },
                     CensusProperties::Ticks => codec.encode_varuint(self.time.ticks),
                     CensusProperties::Invincibility => codec.encode_bool(self.display.invincible),
+                    CensusProperties::Messages => {
+                        codec.encode_bool(self.display.typing);
+                        codec.encode_varuint(self.display.messages.len() as u64);
+
+                        for (message, _) in self.display.messages.iter() {
+                            codec.encode_string(message.clone());
+                        }
+                    },
                     _ => codec.backspace(),
                 }
             }
         } else {
-            codec.encode_varuint(12);
+            codec.encode_varuint(13);
             for property in CensusProperties::iter() {
                 codec.encode_varuint(property.clone() as u64);
     
@@ -327,6 +334,14 @@ impl Entity {
                     },
                     CensusProperties::Ticks => codec.encode_varuint(self.time.ticks),
                     CensusProperties::Invincibility => codec.encode_bool(self.display.invincible),
+                    CensusProperties::Messages => {
+                        codec.encode_bool(self.display.typing);
+                        codec.encode_varuint(self.display.messages.len() as u64);
+
+                        for (message, _) in self.display.messages.iter() {
+                            codec.encode_string(message.clone());
+                        }
+                    },
                     _ => codec.backspace(),
                 }
             }

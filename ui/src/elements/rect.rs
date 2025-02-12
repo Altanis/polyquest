@@ -1,3 +1,4 @@
+use gloo::{console::console, utils::window};
 use shared::{fuzzy_compare, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
 
@@ -52,11 +53,38 @@ impl UiElement for Rect {
         -1
     }
 
-    fn set_hovering(&mut self, _: bool, _: &MouseEvent) -> bool {
-        false
+    fn set_hovering(&mut self, val: bool, event: &MouseEvent) -> bool {
+        self.events.is_hovering = val;
+
+        let mut is_hovering = false;
+        let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
+        point *= window().device_pixel_ratio() as f32;
+    
+        for ui_element in self.get_mut_children().iter_mut() {
+            let hovering = ui_element.get_mut_events().hoverable &&
+                ui_element.get_bounding_rect().intersects(point);
+    
+            let should_hover = ui_element.set_hovering(hovering, event);
+    
+            if !is_hovering && should_hover {
+                is_hovering = should_hover;
+            }
+        }
+    
+        is_hovering
     }
     
-    fn set_clicked(&mut self, _: bool, _: &MouseEvent) {}
+    fn set_clicked(&mut self, _: bool, event: &MouseEvent) {
+        let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
+        point *= window().device_pixel_ratio() as f32;
+    
+        for ui_element in self.get_mut_children().iter_mut() {
+            let hovering = ui_element.get_mut_events().hoverable &&
+                ui_element.get_bounding_rect().intersects(point);
+    
+            ui_element.set_clicked(hovering, event);
+        }
+    }
 
     fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
         &mut self.children

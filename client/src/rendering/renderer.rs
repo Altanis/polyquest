@@ -1,6 +1,6 @@
 use std::{collections::VecDeque};
 
-use gloo::console::console;
+use gloo::console::{self, console};
 use gloo_utils::{document, window};
 use shared::{fuzzy_compare, game::theme::OUTBOUNDS_FILL, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use ui::{canvas2d::{Canvas2d, Transform}, core::{ElementType, Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, get_element_by_id_and_cast, gl::webgl::WebGl, translate};
@@ -124,7 +124,7 @@ impl Renderer {
         world.renderer.phase_switch_radius.value = lerp!(
             world.renderer.phase_switch_radius.value,
             world.renderer.phase_switch_radius.target,
-            0.15 * dt
+            0.1 * dt
         );
 
         if let Some(new_phase) = &world.renderer.phase_switch {
@@ -187,7 +187,7 @@ impl Renderer {
         stale_ids.into_iter().for_each(|id| {
             world.renderer.body.delete_element_by_id(&id, true);
         });
-
+        
         match world.renderer.phase {
             GamePhase::Lore(_) => Renderer::render_lore(world, delta_average),
             GamePhase::Home(_) => Renderer::render_homescreen(world, delta_average),

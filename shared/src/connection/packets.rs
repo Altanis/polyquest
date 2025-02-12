@@ -5,7 +5,8 @@ pub enum ServerboundPackets {
     Input    = 0x1,
     Stats    = 0x2,
     Upgrade  = 0x3,
-    Ping     = 0x4
+    Ping     = 0x4,
+    Chat     = 0x5
 }
 
 #[derive(Debug, Clone, num_enum::TryFromPrimitive)]
@@ -46,5 +47,6 @@ pub enum CensusProperties {
     Identity,
     Owners,
     Ticks,
-    Invincibility
+    Invincibility,
+    Messages
 }

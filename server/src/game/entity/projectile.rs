@@ -1,4 +1,4 @@
-use shared::{connection::packets::{CensusProperties, Inputs}, normalize_angle, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION}, vec2::Vector2D}};
+use shared::{connection::packets::{CensusProperties, Inputs}, utils::{codec::BinaryCodec, vec2::Vector2D}};
 use strum::IntoEnumIterator;
 
 use crate::game::state::EntityDataStructure;
@@ -9,11 +9,7 @@ impl Entity {
     pub fn tick_projectile(&mut self, entities: &EntityDataStructure) -> Vec<EntityConstruction> {
         let constructions = vec![];
 
-        if self.stats.lifetime != -1 && self.time.ticks >= self.stats.lifetime as u64
-            || self.stats.health <= 0.0
-        {
-            self.stats.alive = AliveState::Dead;   
-        }
+        self.base_tick();
 
         if let Some(ai) = &mut self.physics.ai
             && let Some(owner) = entities.get(&self.display.owners.unwrap().deep)
@@ -63,13 +59,6 @@ impl Entity {
                     );
                 }
             }
-        }
-
-        self.physics.velocity *= 1.0 - FRICTION;
-        self.physics.position += self.physics.velocity + self.physics.additional_velocity;
-        
-        if self.physics.bound_to_walls {
-            self.physics.position.constrain(0.0, ARENA_SIZE);
         }
 
         constructions

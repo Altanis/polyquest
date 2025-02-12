@@ -1,8 +1,8 @@
 use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
-use gloo::console::console;
+use gloo::{console::console, dialogs::alert};
 use gloo_utils::{document, window};
-use shared::{bool, connection::packets::{Inputs, ServerboundPackets}, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{generate_identity, get_level_from_score, get_min_score_from_level, Notification, UpgradeStats, FICTITIOUS_TANK_RADIUS, MAX_STAT_INVESTMENT}, theme::{LEADER_ARROW_COLOR, MINIMAP_FILL, MINIMAP_PADDING, MINIMAP_PLAYER_FILL, MINIMAP_SIZE, MINIMAP_STROKE, STROKE_INTENSITY, STROKE_SIZE}, turret::{TurretIdentityIds, TurretStructure}}, lerp, lerp_angle, normalize_angle, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
+use shared::{bool, connection::packets::{Inputs, ServerboundPackets}, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{generate_identity, get_level_from_score, get_min_score_from_level, Notification, UpgradeStats, FICTITIOUS_TANK_RADIUS, MAX_STAT_INVESTMENT}, theme::{LEADER_ARROW_COLOR, MINIMAP_FILL, MINIMAP_PADDING, MINIMAP_PLAYER_FILL, MINIMAP_SIZE, MINIMAP_STROKE, STROKE_INTENSITY, STROKE_SIZE}, turret::{TurretIdentityIds, TurretStructure}}, lerp, lerp_angle, normalize_angle, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, consts::{ARENA_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect, tank::Tank, tooltip::Tooltip}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::sound::Sound};
 use rand::Rng;
@@ -182,6 +182,7 @@ impl GamePhase {
 
     pub fn generate_homescreen_elements(world: &World) -> Vec<Box<dyn UiElement>> {
         let mut elements: Vec<Box<dyn UiElement>> = vec![];
+        let dimensions = world.renderer.canvas2d.get_dimensions() * (1.0 / window().device_pixel_ratio() as f32);
 
         let title = Label::new()
             .with_id("title")
@@ -242,7 +243,7 @@ impl GamePhase {
                                 .with_fill(Color::WHITE)
                                 .with_font(48.0)
                                 .with_stroke(Color::BLACK)
-                                .with_transform(translate!(125.0, 75.0))
+                                .with_transform(translate!(500.0, 75.0))
                                 .with_events(Events::default().with_hoverable(false)))
                         ];
 
@@ -317,7 +318,7 @@ impl GamePhase {
                 })
             ),
             (
-                Vector2D::new(-100.0, 0.0), 
+                Vector2D::new(-80.0, 0.0), 
                 Color::MATERIAL_CYAN, "{brand}\u{f392}",
                 Box::new(|_| {
                     spawn_local(async {
@@ -332,9 +333,7 @@ impl GamePhase {
                 .with_id(&format!("menu-item-{}", i))
                 .with_fill(color)
                 .with_dimensions(Vector2D::new(60.0, 60.0))
-                .with_translation(Box::new(move |dimensions| {
-                    Some(dimensions * (1.0 / 1.75) + translation)
-                }))
+                .with_transform(translate!(dimensions.x * (1.0 / 2.0) - 50.0 + translation.x, dimensions.y * (1.0 / 2.0) - 40.0 + translation.y))
                 .with_events(Events::default()
                     .with_hover_effects(vec![
                         HoverEffects::Inflation(1.1),
@@ -416,6 +415,12 @@ impl GamePhase {
         let mut elements: Vec<Box<dyn UiElement>> = vec![];
         let dimensions = world.renderer.canvas2d.get_dimensions() * (1.0 / window().device_pixel_ratio() as f32);
 
+        let (entry_bar_width, entry_bar_height) = (175.0, 15.0);
+        let (leaderboard_width, leaderboard_height) = (
+            entry_bar_width + 50.0, 
+            250.0
+        );
+
         'nametag: {
             let score = world.game.self_entity.display.score.value as usize;
             let level = get_level_from_score(world.game.self_entity.display.score.target as usize);
@@ -438,8 +443,8 @@ impl GamePhase {
                     .with_fill(BAR_BACKGROUND)
                     .with_accent(SCORE_BAR_FOREGROUND)
                     .with_dimensions(Vector2D::new(300.0, 20.0))
-                    .with_value(5.0)
-                    .with_max(10.0)
+                    .with_value(world.game.self_entity.display.score.value)
+                    .with_max(world.game.leaderboard.entries[0].0 as f32)
                     .with_children(vec![Box::new(
                         Label::new()
                             .with_id("score_bar_text")
@@ -828,12 +833,6 @@ impl GamePhase {
         }
 
         'leaderboard: {
-            let (entry_bar_width, entry_bar_height) = (175.0, 15.0);
-            let (leaderboard_width, leaderboard_height) = (
-                entry_bar_width + 50.0, 
-                250.0
-            );
-
             elements.push(Box::new(
                 Rect::new()
                     .with_id("leaderboard_div")
@@ -903,6 +902,170 @@ impl GamePhase {
             }
         }
 
+        'menu_items: {
+            let buttons: [(Vector2D, Color, &str, Box<OnClickScript>); 1] = [
+                (
+                    Vector2D::ZERO,
+                    Color::SOFT_GREEN, "{icon}\u{f015}",
+                    Box::new(|_| {
+                        spawn_local(async {
+                            let mut children: Vec<Box<dyn UiElement>> = vec![
+                                Box::new(Label::new()
+                                    .with_id("clans")
+                                    .with_text("Clans".to_string())
+                                    .with_fill(Color::WHITE)
+                                    .with_font(48.0)
+                                    .with_stroke(Color::BLACK)
+                                    .with_transform(translate!(500.0, 75.0))
+                                    .with_events(Events::default().with_hoverable(false)))
+                            ];
+
+                            let mut world = get_world();
+
+                            let arr: [_; 4] = std::array::from_fn(|_| ("Clan 1".to_string(), 3, "Be a cool boy and join!".to_string()));
+                            for (i, (name, members, description)) in arr.into_iter().enumerate() {
+                                let position = Vector2D::new(
+                                    100.0 + (i / 3) as f32 * 400.0,
+                                    75.0 + 50.0 + (i % 3) as f32 * 200.0
+                                );
+
+                                let dimensions = Vector2D::new(350.0, 175.0);
+
+                                let rect = Rect::new()
+                                    .with_id(&format!("clan-{}-{}-{}", i, name, members))
+                                    .with_transform(translate!(position.x, position.y))
+                                    .with_dimensions(dimensions)
+                                    .with_fill(Color::MATERIAL_GRAY)
+                                    .with_stroke(10.0)
+                                    .with_roundness(5.0)
+                                    .with_opacity(1.0)
+                                    .with_children(vec![
+                                        Box::new(
+                                            Label::new()
+                                                .with_id(&format!("clan-{}-{}-{}-name", i, name, members))
+                                                .with_text(name.clone())
+                                                .with_fill(Color::WHITE)
+                                                .with_font(20.0)
+                                                .with_stroke(Color::BLACK)
+                                                .with_transform(translate!(20.0, 35.0))
+                                                .with_events(Events::default().with_hoverable(false))
+                                                .with_align("left")
+                                        ),
+                                        Box::new(
+                                            Label::new()
+                                                .with_id(&format!("clan-{}-{}-{}-member-count", i, name, members))
+                                                .with_text(format!("{} member{}", members, if members == 1 { "" } else { "s" }))
+                                                .with_fill(Color::WHITE)
+                                                .with_font(20.0)
+                                                .with_stroke(Color::BLACK)
+                                                .with_transform(translate!(dimensions.x - 20.0, 35.0))
+                                                .with_events(Events::default().with_hoverable(false))
+                                                .with_align("right")
+                                        ),
+                                        Box::new(
+                                            Label::new()
+                                                .with_id(&format!("clan-{}-{}-{}-description", i, name, members))
+                                                .with_text(description)
+                                                .with_fill(Color::WHITE)
+                                                .with_font(20.0)
+                                                .with_stroke(Color::BLACK)
+                                                .with_transform(translate!(dimensions.x / 2.0, 75.0))
+                                                .with_events(Events::default().with_hoverable(false))
+                                        ),
+                                        Box::new(
+                                            Button::new()
+                                                .with_id(&format!("clan-{}-{}-{}-join", i, name, members))
+                                                .with_fill(Color::SOFT_GREEN)
+                                                .with_dimensions(Vector2D::new(300.0, 50.0))
+                                                .with_transform(translate!(dimensions.x / 2.0, 125.0))
+                                                .with_events(Events::default()
+                                                    .with_hover_effects(vec![
+                                                        HoverEffects::Inflation(1.1),
+                                                        HoverEffects::AdjustBrightness(0.0)
+                                                    ])
+                                                    .with_on_click(Box::new(|_| {
+                                                        spawn_local(async {
+
+                                                        });
+                                                    }))
+                                            )
+                                            .with_children(vec![Box::new(
+                                                Label::new()
+                                                    .with_id(&format!("clan-{}-{}-{}-join-text", i, name, members))
+                                                    .with_text("Join".to_string())
+                                                    .with_fill(Color::WHITE)
+                                                    .with_font(20.0)
+                                                    .with_stroke(Color::BLACK)
+                                                    .with_transform(translate!(0.0, 5.0))
+                                                    .with_events(Events::default()
+                                                        .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                                    )
+                                            )])
+                                        )
+                                    ]);
+                                
+                                children.push(Box::new(rect));
+                            }
+    
+                            let mut modal = Modal::new()
+                                .with_id("modal-clans")
+                                .with_fill(Color::GRAY)
+                                .with_dimensions(Vector2D::new(1000.0, 750.0))
+                                .with_translation(Box::new(|dimensions| {
+                                    Some(dimensions * (1.0 / window().device_pixel_ratio() as f32))
+                                }))
+                                .with_children(children)
+                                .with_close_button(Box::new(|_| {
+                                    spawn_local(async {
+                                        let mut world = get_world();
+                    
+                                        for child in world.renderer.body.get_mut_children().iter_mut() {
+                                            if child.get_identity() == ElementType::Modal {
+                                                child.destroy();
+                                                break;
+                                            }
+                                        }
+                                    });
+                                }));
+                            
+                            world.renderer.body.get_mut_children().push(Box::new(modal)); 
+                        });
+                    })
+                )
+            ];
+    
+            for (i, (translation, color, text, cb)) in buttons.into_iter().enumerate() {
+                let button = Button::new()
+                    .with_id(&format!("game-menu-item-{}", i))
+                    .with_fill(color)
+                    .with_dimensions(Vector2D::new(50.0, 50.0))
+                    .with_transform(translate!(
+                        dimensions.x - leaderboard_width - 80.0 - translation.x,
+                        60.0 + translation.y
+                    ))
+                    .with_events(Events::default()
+                        .with_hover_effects(vec![
+                            HoverEffects::Inflation(1.1),
+                            HoverEffects::AdjustBrightness(0.0)
+                        ])
+                        .with_on_click(cb)
+                    )
+                    .with_children(vec![Box::new(
+                        Label::new()
+                            .with_id(&format!("game-menu-item-symbol-{}", i))
+                            .with_text(text.to_string())
+                            .with_fill(Color::WHITE)
+                            .with_font(24.0)
+                            .with_transform(translate!(0.0, 10.0))
+                            .with_events(Events::default()
+                                .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                            )
+                    )]);
+                
+                elements.push(Box::new(button));
+            }
+        }
+
         elements
     }
 
@@ -916,7 +1079,7 @@ impl GamePhase {
 
         world.renderer.canvas2d.save();
 
-        let factor = window().device_pixel_ratio() as f32;
+        let factor = world.renderer.canvas2d.compute_factor();
         let (screen_width, screen_height) = (world.renderer.canvas2d.get_width() / factor, world.renderer.canvas2d.get_height() / factor);
 
         world.renderer.canvas2d.translate(world.renderer.canvas2d.get_width() / 2.0, world.renderer.canvas2d.get_height() / 2.0);
@@ -1004,7 +1167,7 @@ impl GamePhase {
     fn render_minimap(context: &mut Canvas2d, position: Vector2D) {
         context.save();
 
-        let factor = window().device_pixel_ratio() as f32;
+        let factor = context.compute_factor();
         let (screen_width, screen_height) = (context.get_width() / factor, context.get_height() / factor);
 
         context.translate(context.get_width() / 2.0, context.get_height() / 2.0);
@@ -1056,7 +1219,7 @@ impl GamePhase {
 
     fn render_notifications(world: &mut World, dt: f32) {
         world.renderer.canvas2d.save();
-        let factor = window().device_pixel_ratio() as f32;
+        let factor = world.renderer.canvas2d.compute_factor();
         let (screen_width, screen_height) = (world.renderer.canvas2d.get_width() / factor, world.renderer.canvas2d.get_height() / factor);
 
         world.renderer.canvas2d.translate(world.renderer.canvas2d.get_width() / 2.0, world.renderer.canvas2d.get_height() / 2.0);
@@ -1165,7 +1328,7 @@ impl GamePhase {
 
         world.renderer.canvas2d.save();
 
-        let factor = window().device_pixel_ratio() as f32;
+        let factor = world.renderer.canvas2d.compute_factor();
         let screen_dimensions = Vector2D::new(world.renderer.canvas2d.get_width() / factor, world.renderer.canvas2d.get_height() / factor);
 
         world.renderer.canvas2d.translate(world.renderer.canvas2d.get_width() / 2.0, world.renderer.canvas2d.get_height() / 2.0);

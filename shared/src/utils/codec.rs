@@ -139,10 +139,15 @@ impl BinaryCodec {
 
     pub fn decode_string(&mut self) -> Option<String> {
         let len = self.decode_varuint()? as usize;
-        let result = String::from_utf8(self.data[self.index..self.index + len].to_vec()).ok()?;
+    
+        if self.index + len > self.data.len() {
+            return None;
+        }
+    
+        let bytes = &self.data[self.index..self.index + len];
         self.index += len;
-
-        Some(result)
+    
+        String::from_utf8(bytes.to_vec()).ok()
     }
 
     pub fn backspace(&mut self) {

@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use gloo::utils::{document, window};
-use shared::{rand, utils::{color::Color, vec2::Vector2D}};
+use shared::{rand, utils::{color::Color, consts::{SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use web_sys::{wasm_bindgen::JsCast, CanvasGradient, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
 use rand::Rng;
 
@@ -250,6 +250,10 @@ impl Canvas2d {
         let _ = self.canvas.style().set_property("cursor", style);
     }
 
+    pub fn compute_factor(&self) -> f32 {
+        (self.get_width() / SCREEN_WIDTH).max(self.get_height() / SCREEN_HEIGHT) * 1.15
+    }
+
     pub fn get_width(&self) -> f32 {
         self.canvas.width() as f32
     }
@@ -268,6 +272,10 @@ impl Canvas2d {
 
     pub fn restore(&self) {
         self.ctx.restore();
+    }
+
+    pub fn clip(&self) {
+        self.ctx.clip();
     }
 
     pub fn set_line_join(&self, value: &str) {

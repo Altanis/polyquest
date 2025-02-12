@@ -1,17 +1,23 @@
 # poly quest
 
-Stars: Players can reside in stars to regain HP.
+[Stars]: Players can reside in stars to regain HP.
     -> Has a corona aligned with the color of the star.
     -> Has a few shapes in a gravitional orbit.
     -> Star colors follow the HR diagram based on its energy.
         -> Higher "energy" stars impart more health.
-    -> Attacking a star gives EXP and reduces the star's health.
+    -> Killing a star gives EXP and reduces the star's health.
         -> Stars can de-evolve based on their health.
         -> They regenerate automatically according to Diep.io regeneration mechanics.
     -> Star death leads to the corona flaring out, then a dull white core being formed.
         -> This core cannot be attacked.
         -> A timer is attached to it, signifying when it'll "rebirth".
         -> Rebirth randomizes energy level.
+
+[Beacon]: Clans can contest beacons for passive benefits.
+    -> There exists beacons in four quadrants (NESW).
+    -> Similar to dominators, beacons can be contested.
+        -> Global notifications on beacon ownership changes occur.
+    -> Clans which own the beacon get passive benefits.
 
 [Boss]: Bosses that have high HP.
     -> Has a collection of orbs around it.
@@ -39,16 +45,27 @@ Todo:
 - [x] ai targets tanks
 - [x] killing drones fucks up projectile count
 - [x] finish stylistic effect of celestial orb
-- [ ] leader arrow does not conform to dpr
-- [ ] time not reset after respawn
-- [ ] battleship shoots even when auto fire off
-- [ ] mouse in bounds check
-- [ ] zooming into page causes fov change
+- [x] leader arrow does not conform to dpr
+- [x] time not reset after respawn
+- [x] enter to respawn
+- [x] battleship shoots even when auto fire off
+- [x] mouse in bounds check
+- [x] zooming into page causes fov change
 - [ ] finish tanks
 - [ ] finish bodies
+- [x] passive regen
+    - [x] maybe add a bar for regeneration time?
+- [x] local chat
+- [ ] scrolling within modal
 - [ ] clans
-- [ ] global + local chat (or maybe clan-specific chats)
+    - [ ] clan modal does not rerender
+    - [ ] right/left arrows based on page
+    - [ ] create clan system
+    - [ ] join system
+    - [ ] leave system
+    - [ ] kick system
 - [ ] fix leader arrow
+- [x] menu items do not conform to dimensions/dpr
 - [ ] find better audio tracks (stable audio)
 - [ ] audio tracks interfere cuz theyre on the dom
 - [ ] close button for tank upgrades

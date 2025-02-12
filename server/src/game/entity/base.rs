@@ -1,9 +1,9 @@
 use std::{collections::HashSet, num::NonZeroU32};
 use derive_new::new as New;
-use shared::{game::{body::{get_body_base_identity, BodyIdentity}, entity::{get_min_score_from_level, EntityType, InputFlags, Notification, Ownership, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, orb::{get_orb_basic_identity, OrbIdentity}, turret::{get_turret_base_identity, TurretStructure}}, utils::{codec::BinaryCodec, color::Color, consts::MAX_LEVEL, vec2::Vector2D}};
+use shared::{game::{body::{get_body_base_identity, BodyIdentity}, entity::{get_min_score_from_level, EntityType, InputFlags, Notification, Ownership, TankUpgrades, UpgradeStats, BASE_TANK_RADIUS}, orb::{get_orb_basic_identity, OrbIdentity}, turret::{get_turret_base_identity, TurretStructure}}, utils::{codec::BinaryCodec, color::Color, consts::{ARENA_SIZE, FRICTION, MAX_LEVEL}, vec2::Vector2D}};
 use strum::EnumCount;
 
-use crate::game::state::{EntityDataStructure, GameState};
+use crate::{game::state::{EntityDataStructure, GameState}, seconds_to_ticks, server::FPS};
 
 use super::ai::AI;
 
@@ -57,13 +57,17 @@ pub struct DisplayComponent {
     pub turret_idx: isize,
     pub owners: Option<Ownership>,
     pub owned_entities: Vec<u32>,
-    pub radius: f32
+    pub radius: f32,
+
+    pub typing: bool,
+    pub messages: Vec<(String, u64)>
 }
 
 #[derive(Default, Clone)]
 pub struct TimeComponent {
     pub ticks: u64,
-    pub spawn_tick: u64
+    pub spawn_tick: u64,
+    pub last_damage_tick: u64
 }
 
 #[derive(Default, Clone, New)]
@@ -157,7 +161,9 @@ impl Entity {
                 turret_idx: -1,
                 owners: None,
                 owned_entities: vec![],
-                radius: BASE_TANK_RADIUS
+                radius: BASE_TANK_RADIUS,
+                typing: false,
+                messages: Vec::with_capacity(3)
             },
             stats: StatsComponent {
                 health: 0.0, max_health: 0.0, alive: AliveState::Uninitialized, 
@@ -170,7 +176,8 @@ impl Entity {
             },
             time: TimeComponent {
                 ticks: 0,
-                spawn_tick: 0
+                spawn_tick: 0,
+                last_damage_tick: 0
             },
             connection: ConnectionComponent {
                 outgoing_packets: vec![]
@@ -233,6 +240,26 @@ impl Entity {
                 },
                 EntityConstruction::TankConstruction => {}
             }
+        }
+    }
+
+    pub fn base_tick(&mut self) {
+        if self.stats.lifetime != -1 && self.time.ticks >= self.stats.lifetime as u64
+            || self.stats.health <= 0.0
+        {
+            self.stats.alive = AliveState::Dead;   
+        } else if self.stats.health < self.stats.max_health && matches!(self.display.entity_type, EntityType::Player | EntityType::Orb) {
+            self.stats.health += self.stats.regen_per_tick;
+            if (self.time.ticks - self.time.last_damage_tick) >= seconds_to_ticks!(30) {
+                self.stats.health += self.stats.max_health / 250.0;
+            }
+        }
+
+        self.physics.velocity *= 1.0 - FRICTION;
+        self.physics.position += self.physics.velocity + self.physics.additional_velocity;
+        
+        if self.physics.bound_to_walls {
+            self.physics.position.constrain(0.0, ARENA_SIZE);
         }
     }
 
@@ -337,6 +364,9 @@ impl Entity {
                 }
             }
         }
+
+        other.time.last_damage_tick = other.time.ticks;
+        self.time.last_damage_tick = self.time.ticks;
     }
 
     pub fn kill(&mut self, other: &mut Entity) {
@@ -414,7 +444,9 @@ impl Entity {
                 turret_idx,
                 owners: Some(owners),
                 owned_entities: vec![],
-                radius
+                radius,
+                typing: false,
+                messages: Vec::with_capacity(3)
             },
             stats: StatsComponent {
                 health: penetration, max_health: penetration, alive: AliveState::Alive, 
@@ -427,7 +459,8 @@ impl Entity {
             },
             time: TimeComponent {
                 ticks: 0,
-                spawn_tick: 0
+                spawn_tick: 0,
+                last_damage_tick: 0
             },
             connection: ConnectionComponent {
                 outgoing_packets: vec![]

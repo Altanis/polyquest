@@ -50,4 +50,5 @@ features = [
   "MessageEvent",
   "ProgressEvent",
   "WebSocket",
+  "WheelEvent"
 ]

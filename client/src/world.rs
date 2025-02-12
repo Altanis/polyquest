@@ -3,7 +3,7 @@ use send_wrapper::SendWrapper;
 use gloo_utils::window;
 use shared::utils::interpolatable::Interpolatable;
 use ui::utils::sound::{Sound, SoundHolder};
-use web_sys::{wasm_bindgen::{prelude::Closure, JsCast, JsValue}, BeforeUnloadEvent, Event, KeyboardEvent, MouseEvent};
+use web_sys::{wasm_bindgen::{prelude::Closure, JsCast, JsValue}, BeforeUnloadEvent, Event, KeyboardEvent, MouseEvent, WheelEvent};
 
 use crate::{connection::socket::Connection, game::entity::base::Game, register_event, rendering::{events::{self, on_resize, EventType}, renderer::Renderer}, storage_get};
 

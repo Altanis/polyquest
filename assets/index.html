@@ -16,6 +16,8 @@
     <canvas id="offscreen_canvas"></canvas>
     <canvas id="webgl_canvas"></canvas>
 
+    <input id="chat_input" type="text" placeholder="[Enter] to send, [Esc] to escape." spellcheck="false" autocomplete="off" tabindex="-1" size="33" maxlength="72" style="display: none;">
+
     <script type="module" src="client.js" defer></script>
     <script type="module" defer>
         import { default as init } from "./client.js";

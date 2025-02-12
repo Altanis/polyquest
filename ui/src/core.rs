@@ -63,6 +63,18 @@ impl BoundingRect {
         within_x && within_y
     }
 
+    pub fn intersects_rect(&self, rect: &BoundingRect) -> bool {
+        let self_right = self.position.x + self.dimensions.x;
+        let self_bottom = self.position.y + self.dimensions.y;
+        let rect_right = rect.position.x + rect.dimensions.x;
+        let rect_bottom = rect.position.y + rect.dimensions.y;
+    
+        !(self.position.x >= rect_right
+            || rect.position.x >= self_right
+            || self.position.y >= rect_bottom
+            || rect.position.y >= self_bottom)
+    }
+
     pub fn render(&self, context: &mut Canvas2d) {
         context.save();
         context.translate(self.position.x, self.position.y);

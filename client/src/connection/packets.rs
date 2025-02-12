@@ -1,3 +1,5 @@
+use std::fmt::Binary;
+
 use gloo::console::console;
 use shared::{connection::packets::ServerboundPackets, game::{body::BodyIdentityIds, entity::{InputFlags, Notification}, turret::TurretIdentityIds}, normalize_angle, utils::{codec::BinaryCodec, color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
 
@@ -52,6 +54,21 @@ pub fn form_ping_packet() -> BinaryCodec {
     codec
 }
 
+pub fn form_chat_packet(typing: Option<bool>, message: String) -> BinaryCodec {
+    let mut codec = BinaryCodec::new();
+    codec.encode_varuint(ServerboundPackets::Chat as u64);
+
+    if let Some(typing) = typing {
+        codec.encode_varuint(0);
+        codec.encode_bool(typing);
+    } else {
+        codec.encode_varuint(1);
+        codec.encode_string(message);
+    }
+
+    codec
+}
+
 pub fn handle_update_packet(
     world: &mut World,
     mut codec: BinaryCodec
@@ -88,6 +105,10 @@ pub fn handle_notification_packet(
         let message = codec.decode_string().unwrap();
         let (r, g, b) = (codec.decode_varuint().unwrap(), codec.decode_varuint().unwrap(), codec.decode_varuint().unwrap());
         let lifetime = codec.decode_varuint().unwrap();
+        
+        if message.contains("You killed") {
+            world.game.self_entity.display.kills += 1;
+        }
 
         world.game.self_entity.display.notifications.push(Notification {
             message,

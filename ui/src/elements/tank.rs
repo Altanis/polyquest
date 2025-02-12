@@ -268,10 +268,10 @@ impl Tank {
                             context.fill_rect(0.0, -width / 2.0, length / turret_lengths[i].value, width);
                             context.stroke_rect(0.0, -width / 2.0, length / turret_lengths[i].value, width);
 
-                            context.translate(36.0 * size_factor, 0.0);
+                            context.translate(turret.length * size_factor, 0.0);
 
                             let height = 12.0 * size_factor * turret_lengths[i].value;
-                            let bottom_width = 24.0 * size_factor;
+                            let bottom_width = turret.width * size_factor;
                             let top_width = width * 2.0;
             
                             context.save();

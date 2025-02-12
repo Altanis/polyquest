@@ -81,8 +81,8 @@ pub enum UpgradeStats {
 impl std::fmt::Display for UpgradeStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let stat_str = match self {
-            UpgradeStats::HealthRegen => "Health Regen",
-            UpgradeStats::MaxHealth => "Max Health",
+            UpgradeStats::HealthRegen => "Health Regeneration",
+            UpgradeStats::MaxHealth => "Maximum Health",
             UpgradeStats::BodyDamage => "Body Damage",
             UpgradeStats::ProjectileSpeed => "Projectile Speed",
             UpgradeStats::ProjectilePenetration => "Projectile Penetration",

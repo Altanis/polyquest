@@ -19,6 +19,12 @@ pub struct LeaderboardState {
 }
 
 #[derive(Debug, Default)]
+pub struct ClanState {
+    
+    pub page: usize
+}
+
+#[derive(Debug, Default)]
 pub struct Game {
     pub surroundings: HashMap<u32, Entity>,
     pub self_entity: Entity,
@@ -73,6 +79,9 @@ pub struct DisplayComponent {
     pub radius: Interpolatable<f32>,
     pub damage_blend: Interpolatable<f32>,
     pub invincible: bool,
+
+    pub typing: bool,
+    pub messages: Vec<(String, Interpolatable<Vector2D>, Interpolatable<f32>)>,
 
     pub z_index: isize
 }
@@ -160,6 +169,7 @@ impl Entity {
                     entity.display.score.direction = -1.0;
                     entity.display.score.value = 0.0;
                     entity.stats.life_timestamps.1 = window().performance().unwrap().now();
+                    entity.stats.has_spawned = false;
                 }
 
                 world.renderer.change_phase(GamePhase::Death);
@@ -172,7 +182,7 @@ impl Entity {
     pub fn render(world: &mut World, id: u32, dt: f32) {
         let self_id = world.game.self_entity.id;
         if id == self_id {
-            world.game.self_entity.render_tank(&mut world.renderer.canvas2d, true, dt);
+            world.game.self_entity.render_tank(&mut world.renderer.canvas2d, true, true, dt);
         } else {
             let (shooter, turret_idx) = {
                 let mut shooter = None;
@@ -181,7 +191,7 @@ impl Entity {
                 let entity = world.game.surroundings.get_mut(&id).unwrap();
                 let is_friendly = id == self_id || entity.display.owners.has_owner(self_id);
                 match entity.display.entity_type {
-                    EntityType::Player => entity.render_tank(&mut world.renderer.canvas2d, is_friendly, dt),
+                    EntityType::Player => entity.render_tank(&mut world.renderer.canvas2d, false, is_friendly, dt),
                     EntityType::Bullet | EntityType::Drone | EntityType::Trap => {
                         if entity.time.server_ticks == 0 || entity.time.server_ticks == 1 {
                             turret_idx = Some(entity.display.turret_index);

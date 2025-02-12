@@ -1,4 +1,4 @@
-use gloo::utils::window;
+use gloo::{console::console, utils::window};
 use shared::{lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
 
@@ -16,7 +16,7 @@ pub struct Modal {
     dimensions: Interpolatable<Vector2D>,
     children: Vec<Box<dyn UiElement>>,
     deletion: bool,
-    opacity: Interpolatable<f32>,
+    opacity: Interpolatable<f32>
 }
 
 impl UiElement for Modal {
@@ -66,7 +66,7 @@ impl UiElement for Modal {
             let should_hover = ui_element.set_hovering(hovering, event);
     
             if !is_hovering && should_hover {
-                is_hovering = hovering;
+                is_hovering = should_hover;
             }
         }
     
@@ -115,9 +115,18 @@ impl UiElement for Modal {
     }
 
     fn get_bounding_rect(&self) -> BoundingRect {
+        let mut position = -self.dimensions.value * (1.0 / 4.0);
+        let mut dimensions = self.dimensions.value;
+
+        self.raw_transform.transform_point(&mut position);
+
+        let scale = self.raw_transform.get_scale();
+        dimensions.x *= scale.x;
+        dimensions.y *= scale.y;
+
         BoundingRect::new(
-            Vector2D::ZERO,
-            self.dimensions.value
+            position,
+            dimensions
         )
     }
 
@@ -182,7 +191,7 @@ impl UiElement for Modal {
                 context.global_alpha(opacity);
                 child.render(context, dimensions);
                 context.restore();
-            }    
+            }
         }
 
         context.restore();
@@ -199,7 +208,7 @@ impl UiElement for Modal {
     }
 
     fn has_animation_state(&self) -> bool {
-        true
+        false
     }
 }
 
@@ -265,7 +274,7 @@ impl Modal {
         let close = Button::new()
             .with_fill(Color::RED)
             .with_dimensions(Vector2D::new(50.0, 50.0))
-            .with_transform(translate!(self.dimensions.target.x, 0.0))
+            .with_transform(translate!(self.dimensions.target.x - 35.0, 35.0))
             .with_events(Events::default()
                 .with_hover_effects(vec![
                     HoverEffects::Inflation(1.1),

@@ -58,8 +58,8 @@ impl WebSocketServer {
             
             if let Message::Binary(ref data) = message && let Some(&header) = data.first()
                 && header.try_into() == Ok(ServerboundPackets::Ping)
+                && let Some(client) = full_server.ws_server.clients.get_mut(&id)
             {
-                let client = full_server.ws_server.clients.get_mut(&id).unwrap();
                 let _ = client.sender.send(Message::Binary(packets::form_pong_packet().out())).await;
             }
 
@@ -82,6 +82,7 @@ impl WebSocketServer {
                     ServerboundPackets::Input => packets::handle_input_packet(full_server, id, codec),
                     ServerboundPackets::Stats => packets::handle_stats_packet(full_server, id, codec),
                     ServerboundPackets::Upgrade => packets::handle_upgrade_packet(full_server, id, codec),
+                    ServerboundPackets::Chat => packets::handle_chat_packet(full_server, id, codec),
                     ServerboundPackets::Ping => Ok(())
                 }
             },

@@ -51,3 +51,26 @@ canvas {
     border: 0;
     outline: none;
 }
+
+#chat_input {
+    background-color: rgba(0, 0, 0, 0.4);
+    font-family: "Ubuntu";
+    border-radius: 5px;
+    font-size: 16px;
+    padding: 5px;
+    border: none;
+    margin-top: 10px;
+    position: absolute;
+    top: 50%;
+    right: 50%;
+    transform: translate(50%, calc(50% - 100px));
+    color: white;
+    text-shadow: black -1px -1px 0px, black -1px -0.333333px 0px, black -1px 0.333333px 0px, black -1px 1px 0px, black -0.333333px -1px 0px, black -0.333333px -0.333333px 0px, black -0.333333px 0.333333px 0px, black -0.333333px 1px 0px, black 0.333333px -1px 0px, black 0.333333px -0.333333px 0px, black 0.333333px 0.333333px 0px, black 0.333333px 1px 0px, black 1px -1px 0px, black 1px -0.333333px 0px, black 1px 0.333333px 0px, black 1px 1px 0px;
+    display: none;
+    text-align: center;
+    outline: none;
+}
+
+input:focus {
+    outline: none;
+}

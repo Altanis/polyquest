@@ -1,4 +1,4 @@
-use shared::{connection::packets::ClientboundPackets, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{get_min_score_from_level, InputFlags, MAX_STAT_INVESTMENT}, turret::{TurretIdentityIds, TurretStructure}}, utils::{codec::BinaryCodec, consts::{SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
+use shared::{connection::packets::ClientboundPackets, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{get_min_score_from_level, InputFlags, Notification, MAX_STAT_INVESTMENT}, turret::{TurretIdentityIds, TurretStructure}}, utils::{codec::BinaryCodec, color::Color, consts::{SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use crate::{game::{entity::base::{AliveState, Entity}, state::{EntityDataStructure, GameState}}, server::{ServerGuard, LEADER_ARROW_VIEW}};
 
 pub fn handle_spawn_packet(
@@ -44,19 +44,19 @@ pub fn handle_input_packet(
     if let Some(mut entity) = game_server.get_entity(id) && entity.stats.alive == AliveState::Alive {
         entity.physics.inputs = InputFlags::new(flags);
 
-        let (screen_width, screen_height) = (SCREEN_WIDTH / entity.display.fov / 0.9, SCREEN_HEIGHT / entity.display.fov / 0.9);
+        let (screen_width, screen_height) = ((SCREEN_WIDTH / entity.display.fov) / 0.9, (SCREEN_HEIGHT / entity.display.fov) / 0.9);
         let screen_top_left = entity.physics.position - Vector2D::new(screen_width / 2.0, screen_height / 2.0);
         let screen_bottom_right = entity.physics.position + Vector2D::new(screen_width / 2.0, screen_height / 2.0);
 
-        let mouse_in_bounds = entity.physics.mouse.x >= screen_top_left.x 
-            && entity.physics.mouse.x <= screen_bottom_right.x
-            && entity.physics.mouse.y >= screen_top_left.y
-            && entity.physics.mouse.y <= screen_bottom_right.y;
+        let mouse_in_bounds = mouse.x >= screen_top_left.x 
+            && mouse.x <= screen_bottom_right.x
+            && mouse.y >= screen_top_left.y
+            && mouse.y <= screen_bottom_right.y;
 
-        // if mouse_in_bounds {
+        if mouse_in_bounds {
             entity.physics.mouse = mouse;
             entity.physics.angle = (mouse - entity.physics.position).angle();
-        // }
+        }
     }
 
     Ok(())
@@ -128,6 +128,41 @@ pub fn handle_upgrade_packet(
         }
     }
     
+    Ok(())
+}
+
+pub fn handle_chat_packet(
+    full_server: &mut ServerGuard,
+    id: u32,
+    mut codec: BinaryCodec
+) -> Result<(), bool> {
+    let game_server = full_server.game_server.get_server();
+    let Some(mut entity) = game_server.get_entity(id) else { return Ok(()); };
+
+    let packet_type = codec.decode_varuint().ok_or(true)?;
+    
+    match packet_type {
+        0x0 => entity.display.typing = codec.decode_bool().ok_or(true)?,
+        0x1 => {
+            let message = codec.decode_string().ok_or(true)?.chars().take(72).collect::<String>();
+
+            if entity.display.messages.len() >= 3 {
+                entity.display.notifications.push(Notification {
+                    message: "You can send another message in a few seconds.".to_string(),
+                    color: Color::RED,
+                    lifetime: 150,
+                    ..Default::default()
+                })
+            } else {
+                let ticks = entity.time.ticks;
+                entity.display.messages.push((message, ticks));
+            }
+
+            entity.display.typing = false;
+        },
+        _ => return Err(true)
+    }
+
     Ok(())
 }
 

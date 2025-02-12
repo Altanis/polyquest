@@ -2,7 +2,7 @@ use gloo::console::console;
 use gloo_utils::{body, document, window};
 use shared::{connection::packets::{Inputs, ServerboundPackets}, game::entity::{Notification, MAX_STAT_INVESTMENT}, utils::{color::Color, vec2::Vector2D}};
 use ui::{core::{ElementType, UiElement}, get_element_by_id_and_cast};
-use web_sys::{wasm_bindgen::JsCast, BeforeUnloadEvent, HtmlInputElement, KeyboardEvent, MouseEvent};
+use web_sys::{wasm_bindgen::JsCast, BeforeUnloadEvent, HtmlInputElement, KeyboardEvent, MouseEvent, WheelEvent};
 use crate::{connection::packets, world::World};
 
 use self::packets::form_stats_packet;
@@ -19,6 +19,7 @@ pub enum EventType {
     MouseMove(MouseEvent),
     KeyDown(KeyboardEvent),
     KeyUp(KeyboardEvent),
+    Wheel(WheelEvent)
 }
 
 #[derive(Debug, num_enum::TryFromPrimitive)]
@@ -58,6 +59,7 @@ pub fn handle_event(world: &mut World, event_type: EventType) {
         EventType::MouseMove(event) => on_mousemove(world, event),
         EventType::KeyDown(event) => on_keydown(world, event),
         EventType::KeyUp(event) => on_keyup(world, event),
+        EventType::Wheel(event) => on_wheel(world, event)
     }
 }
 
@@ -78,6 +80,7 @@ macro_rules! register_event {
                 "on_mousemove" => EventType::MouseMove(event.dyn_into::<MouseEvent>().unwrap()),
                 "on_keydown" => EventType::KeyDown(event.dyn_into::<KeyboardEvent>().unwrap()),
                 "on_keyup" => EventType::KeyUp(event.dyn_into::<KeyboardEvent>().unwrap()),
+                "on_wheel" => EventType::Wheel(event.dyn_into::<WheelEvent>().unwrap()),
                 _ => unimplemented!("Event not implemented: {}", event_name_fn),
             };
 
@@ -145,14 +148,7 @@ pub fn on_mousemove(world: &mut World, event: MouseEvent) {
     let mut point = Vector2D::new(event.client_x() as f32, event.client_y() as f32);
     point *= window().device_pixel_ratio() as f32;
 
-    let mut z_index = -999;
     for ui_element in world.renderer.body.get_mut_children().iter_mut().rev() {
-        if ui_element.get_z_index() < z_index {
-            break;
-        } else {
-            z_index = ui_element.get_z_index();
-        }
-
         let hovering = ui_element.get_mut_events().hoverable &&
             ui_element.get_bounding_rect().intersects(point);
 
@@ -170,34 +166,43 @@ pub fn on_mousemove(world: &mut World, event: MouseEvent) {
 }
 
 pub fn on_keydown(world: &mut World, event: KeyboardEvent) {
-    match event.key_code().try_into() {
-        Ok(KeyCode::KeyW) | Ok(KeyCode::ArrowUp) => world.game.self_entity.physics.inputs.set_flag(Inputs::Up),
-        Ok(KeyCode::KeyA) | Ok(KeyCode::ArrowLeft) => world.game.self_entity.physics.inputs.set_flag(Inputs::Left),
-        Ok(KeyCode::KeyS) | Ok(KeyCode::ArrowDown) => world.game.self_entity.physics.inputs.set_flag(Inputs::Down),
-        Ok(KeyCode::KeyD) | Ok(KeyCode::ArrowRight) => world.game.self_entity.physics.inputs.set_flag(Inputs::Right),
-        Ok(KeyCode::KeyK) => world.game.self_entity.physics.inputs.set_flag(Inputs::LevelUp),
-        Ok(KeyCode::Space) => world.game.self_entity.physics.inputs.set_flag(Inputs::Shoot),
-        Ok(KeyCode::Shift) => world.game.self_entity.physics.inputs.set_flag(Inputs::Repel),
-        Ok(KeyCode::KeyE) => {
-            world.game.self_entity.physics.auto_fire = !world.game.self_entity.physics.auto_fire;
-            world.game.self_entity.display.notifications.push(Notification {
-                message: format!("Auto Fire: {}", if world.game.self_entity.physics.auto_fire { "ON" } else { "OFF" }),
-                color: Color::BLUE,
-                lifetime: 150,
-                ..Default::default()
-            });
-            
-            if !world.game.self_entity.physics.auto_fire {
-                world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot);
-            }
-        },
-        _ => ()
+    if !world.game.self_entity.display.typing {
+        match event.key_code().try_into() {
+            Ok(KeyCode::KeyW) | Ok(KeyCode::ArrowUp) => world.game.self_entity.physics.inputs.set_flag(Inputs::Up),
+            Ok(KeyCode::KeyA) | Ok(KeyCode::ArrowLeft) => world.game.self_entity.physics.inputs.set_flag(Inputs::Left),
+            Ok(KeyCode::KeyS) | Ok(KeyCode::ArrowDown) => world.game.self_entity.physics.inputs.set_flag(Inputs::Down),
+            Ok(KeyCode::KeyD) | Ok(KeyCode::ArrowRight) => world.game.self_entity.physics.inputs.set_flag(Inputs::Right),
+            Ok(KeyCode::KeyK) => world.game.self_entity.physics.inputs.set_flag(Inputs::LevelUp),
+            Ok(KeyCode::Space) => world.game.self_entity.physics.inputs.set_flag(Inputs::Shoot),
+            Ok(KeyCode::Shift) => world.game.self_entity.physics.inputs.set_flag(Inputs::Repel),
+            Ok(KeyCode::KeyE) => {
+                world.game.self_entity.physics.auto_fire = !world.game.self_entity.physics.auto_fire;
+                world.game.self_entity.display.notifications.push(Notification {
+                    message: format!("Auto Fire: {}", if world.game.self_entity.physics.auto_fire { "ON" } else { "OFF" }),
+                    color: Color::BLUE,
+                    lifetime: 150,
+                    ..Default::default()
+                });
+                
+                if !world.game.self_entity.physics.auto_fire {
+                    world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot);
+                }
+            },
+            _ => ()
+        }
     }
 }
 
 pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
     match event.key_code().try_into() {
         Ok(KeyCode::Escape) => {
+            if world.renderer.phase == GamePhase::Game {
+                world.connection.send_message(packets::form_chat_packet(
+                    Some(false),
+                    String::new()
+                ), ServerboundPackets::Chat);
+            }
+
             let mut deletion_indices = Vec::new();
             for (i, child) in world.renderer.body.get_mut_children().iter_mut().enumerate() {
                 if child.get_identity() == ElementType::Modal {
@@ -211,37 +216,66 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
             }
         },
         Ok(KeyCode::Enter) => {
-            let name = get_element_by_id_and_cast!("text_input", HtmlInputElement)
-                .value();
+            match world.renderer.phase {
+                GamePhase::Home(_) => {
+                    let name = get_element_by_id_and_cast!("text_input", HtmlInputElement)
+                        .value();
 
-            if let GamePhase::Home(_) = world.renderer.phase {
-                world.sounds.get_mut_sound("button_click").play();
-                world.connection.send_message(packets::form_spawn_packet(if name.is_empty() {
-                    "unnamed".to_string()
-                } else {
-                    name
-                }), ServerboundPackets::Spawn);
+                    world.sounds.get_mut_sound("button_click").play();
+                    world.connection.send_message(packets::form_spawn_packet(if name.is_empty() {
+                        "unnamed".to_string()
+                    } else {
+                        name
+                    }), ServerboundPackets::Spawn);
+                },
+                GamePhase::Game => {
+                    if world.game.self_entity.display.typing && !get_element_by_id_and_cast!("chat_input", HtmlInputElement).value().is_empty() {
+                        world.connection.send_message(packets::form_chat_packet(
+                            None,
+                            get_element_by_id_and_cast!("chat_input", HtmlInputElement).value().chars().take(72).collect::<String>()
+                        ), ServerboundPackets::Chat);
+
+                        get_element_by_id_and_cast!("chat_input", HtmlInputElement).set_value("");
+                    } else {
+                        world.connection.send_message(packets::form_chat_packet(
+                            Some(true),
+                            String::new()
+                        ), ServerboundPackets::Chat);
+                    }
+                },
+                GamePhase::Death => world.renderer.change_phase(GamePhase::Home(Box::default())),
+                _ => {}
             }
         },
-        Ok(KeyCode::KeyW) | Ok(KeyCode::ArrowUp) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Up),
-        Ok(KeyCode::KeyA) | Ok(KeyCode::ArrowLeft) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Left),
-        Ok(KeyCode::KeyS) | Ok(KeyCode::ArrowDown) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Down),
-        Ok(KeyCode::KeyD) | Ok(KeyCode::ArrowRight) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Right),
-        Ok(KeyCode::KeyK) => world.game.self_entity.physics.inputs.clear_flag(Inputs::LevelUp),
-        Ok(KeyCode::Space) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot),
-        Ok(KeyCode::Shift) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Repel),
-        Ok(KeyCode::One) | Ok(KeyCode::Two) | Ok(KeyCode::Three) | Ok(KeyCode::Four) | Ok(KeyCode::Five) | Ok(KeyCode::Six) | Ok(KeyCode::Seven) | Ok(KeyCode::Eight)
-        => {
-            let i = (event.key_code() as u8 - b'0') as usize - 1;
-
-            if world.game.self_entity.display.stat_investments[i] < MAX_STAT_INVESTMENT
-                && world.game.self_entity.display.available_stat_points > 0 
-            {
-                world.connection.send_message(form_stats_packet(i), ServerboundPackets::Stats);
-            }
-        },
-        _ => ()
+        _ => {}
     }
+
+    if !world.game.self_entity.display.typing {
+        match event.key_code().try_into() {
+            Ok(KeyCode::KeyW) | Ok(KeyCode::ArrowUp) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Up),
+            Ok(KeyCode::KeyA) | Ok(KeyCode::ArrowLeft) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Left),
+            Ok(KeyCode::KeyS) | Ok(KeyCode::ArrowDown) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Down),
+            Ok(KeyCode::KeyD) | Ok(KeyCode::ArrowRight) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Right),
+            Ok(KeyCode::KeyK) => world.game.self_entity.physics.inputs.clear_flag(Inputs::LevelUp),
+            Ok(KeyCode::Space) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot),
+            Ok(KeyCode::Shift) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Repel),
+            Ok(KeyCode::One) | Ok(KeyCode::Two) | Ok(KeyCode::Three) | Ok(KeyCode::Four) | Ok(KeyCode::Five) | Ok(KeyCode::Six) | Ok(KeyCode::Seven) | Ok(KeyCode::Eight)
+            => {
+                let i = (event.key_code() as u8 - b'0') as usize - 1;
+    
+                if world.game.self_entity.display.stat_investments[i] < MAX_STAT_INVESTMENT
+                    && world.game.self_entity.display.available_stat_points > 0 
+                {
+                    world.connection.send_message(form_stats_packet(i), ServerboundPackets::Stats);
+                }
+            },
+            _ => ()
+        }
+    }
+}
+
+pub fn on_wheel(world: &mut World, event: WheelEvent) {
+    event.prevent_default();
 }
 
 // touchstart, touchend, etc.
