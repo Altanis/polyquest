@@ -245,6 +245,13 @@ impl Modal {
         modal
     }
 
+    pub fn with_no_animation() -> Modal {
+        Modal {
+            opacity: Interpolatable::new(1.0),
+            ..Default::default()
+        }
+    }
+
     pub fn with_id(mut self, id: &str) -> Modal {
         self.id = id.to_string();
         self
@@ -270,9 +277,11 @@ impl Modal {
         self
     }
 
-    pub fn with_dimensions(mut self, dimensions: Vector2D) -> Modal {
+    pub fn with_dimensions(mut self, dimensions: Vector2D, interpolate: bool) -> Modal {
         self.dimensions = Interpolatable::new(dimensions);
-        self.dimensions.value = Vector2D::ZERO;
+        if interpolate {
+            self.dimensions.value = Vector2D::ZERO;
+        }
 
         self
     }
