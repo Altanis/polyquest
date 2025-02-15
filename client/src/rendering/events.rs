@@ -7,7 +7,7 @@ use crate::{connection::packets, world::World};
 
 use self::packets::form_stats_packet;
 
-use super::{phases::GamePhase, renderer::Modals};
+use super::phases::GamePhase;
 #[derive(Debug)]
 
 pub enum EventType {
@@ -206,15 +206,6 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
             let mut deletion_indices = Vec::new();
             for (i, child) in world.renderer.body.get_mut_children().iter_mut().enumerate() {
                 if child.get_identity() == ElementType::Modal {
-                    let variant = world.renderer.modals.iter().find(|modal| {
-                        match child.get_id().as_str() {
-                            s if s.contains("settings") => matches!(modal, Modals::SettingsModal(_)),
-                            s if s.contains("clans") => matches!(modal, Modals::ClanModal(_)),
-                            _ => false,
-                          }
-                    }).unwrap();
-
-                    world.renderer.modals.retain(|&e| !matches!(e, variant));
                     deletion_indices.push(i);
                 }
             }

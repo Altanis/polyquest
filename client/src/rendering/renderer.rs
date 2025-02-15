@@ -18,12 +18,6 @@ pub struct TimeInformation {
     deltas: VecDeque<f64>
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub enum Modals {
-    SettingsModal(usize),
-    ClanModal(usize)
-}
-
 pub struct Renderer {
     pub canvas2d: Canvas2d,
     pub gl: WebGl,
@@ -34,7 +28,6 @@ pub struct Renderer {
     pub body: Body,
     pub backdrop_opacity: Interpolatable<f32>,
     pub fps_counter: Label,
-    pub modals: Vec<Modals>,
 
     pub phase_switch: Option<GamePhase>,
     phase_switch_radius: Interpolatable<f32>
@@ -63,7 +56,6 @@ impl Renderer {
                 .with_transform(translate!(10.0, 35.0))
                 .with_events(Events::default().with_hoverable(false))
                 .with_align("left"),
-            modals: vec![],
             phase_switch: None,
             phase_switch_radius
         }
@@ -178,29 +170,8 @@ impl Renderer {
         elements.into_iter().for_each(|mut element| {
             match world.renderer.body.get_element_by_id(&element.get_id()) {
                 Some((_, el)) if !el.has_animation_state() => {
-                    if element.get_identity() == ElementType::Modal {
-                        let variant = world.renderer.modals.iter_mut().find(|modal| {
-                            match element.get_id().as_str() {
-                                s if s.contains("settings") => matches!(modal, Modals::SettingsModal(_)),
-                                s if s.contains("clans") => matches!(modal, Modals::ClanModal(_)),
-                                _ => false,
-                              }
-                        }).unwrap();
-        
-                        match variant {
-                            Modals::SettingsModal(ref mut count) 
-                                | Modals::ClanModal(ref mut count) => 
-                            {
-                                *count += 1;
-                            }
-                        }
-
-                        world.renderer.body.delete_element_by_id(&element.get_id(), false);
-                        world.renderer.body.get_mut_children().push(element);
-                    } else {
-                        world.renderer.body.delete_element_by_id(&element.get_id(), false);
-                        world.renderer.body.get_mut_children().push(element);
-                    }
+                    world.renderer.body.delete_element_by_id(&element.get_id(), false);
+                    world.renderer.body.get_mut_children().push(element);
                 },
                 None => world.renderer.body.get_mut_children().push(element),
                 _ => {}
@@ -209,7 +180,7 @@ impl Renderer {
         
         let stale_elements: Vec<&mut Box<dyn UiElement>> = world.renderer.body.get_mut_children()
             .iter_mut()
-            .filter(|e| !element_ids.contains(&e.get_id()))
+            .filter(|e| e.get_identity() != ElementType::Modal && !element_ids.contains(&e.get_id()))
             .collect();
         
         stale_elements.into_iter().for_each(|element| element.destroy());
