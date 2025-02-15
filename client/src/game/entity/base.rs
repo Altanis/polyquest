@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use derive_new::new as New;
 use gloo::console::console;
 use gloo_utils::window;
-use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{EntityType, InputFlags, Notification, Ownership, UpgradeStats, BASE_TANK_RADIUS}, orb::OrbIdentity, theme::{BAR_BACKGROUND, HIGH_HEALTH_BAR, LOW_HEALTH_BAR, MEDIUM_HEALTH_BAR}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, prettify_score, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
+use shared::{connection::packets::CensusProperties, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds, BodyRenderingHints}, entity::{ClanInformation, EntityType, InputFlags, Notification, Ownership, UpgradeStats, BASE_TANK_RADIUS}, orb::OrbIdentity, theme::{BAR_BACKGROUND, HIGH_HEALTH_BAR, LOW_HEALTH_BAR, MEDIUM_HEALTH_BAR}, turret::{TurretIdentity, TurretIdentityIds, TurretRenderingHints, TurretStructure}}, lerp, lerp_angle, prettify_score, utils::{codec::BinaryCodec, color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use strum::EnumCount;
 use ui::{canvas2d::Canvas2d, core::UiElement, elements::tank::Tank};
 
@@ -20,7 +20,7 @@ pub struct LeaderboardState {
 
 #[derive(Debug, Default)]
 pub struct ClanState {
-    
+    pub clans: Vec<ClanInformation>,
     pub page: usize
 }
 
@@ -29,6 +29,7 @@ pub struct Game {
     pub surroundings: HashMap<u32, Entity>,
     pub self_entity: Entity,
     pub leaderboard: LeaderboardState,
+    pub clan_state: ClanState,
 
     pub arena_size: f32
 }

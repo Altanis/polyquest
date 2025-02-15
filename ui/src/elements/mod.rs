@@ -7,3 +7,4 @@ pub mod progress_bar;
 pub mod tooltip;
 pub mod rect;
 pub mod tank;
+pub mod image;

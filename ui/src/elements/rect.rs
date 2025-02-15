@@ -87,6 +87,17 @@ impl UiElement for Rect {
     }
 
     fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
+        self.children.sort_by(|a, b| {
+            let z_index_cmp = a.get_z_index().cmp(&b.get_z_index());
+            if z_index_cmp == std::cmp::Ordering::Equal {
+                let a_hovering = a.get_events().is_hovering;
+                let b_hovering = b.get_events().is_hovering;
+                a_hovering.cmp(&b_hovering)
+            } else {
+                z_index_cmp
+            }
+        });
+
         &mut self.children
     }
 
@@ -134,7 +145,7 @@ impl UiElement for Rect {
         context.fill();
         context.stroke();
 
-        for child in self.children.iter_mut() {
+        for child in self.get_mut_children().iter_mut() {
             child.render(context, dimensions);
         }
 

@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use gloo::utils::{document, window};
 use shared::{rand, utils::{color::Color, consts::{SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
-use web_sys::{wasm_bindgen::JsCast, CanvasGradient, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, TextMetrics, Window};
+use web_sys::{wasm_bindgen::JsCast, CanvasGradient, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, HtmlImageElement, TextMetrics, Window};
 use rand::Rng;
 
 use crate::core::GenerateTranslationScript;
@@ -293,6 +293,10 @@ impl Canvas2d {
     pub fn resize(&self) {
         self.canvas.set_width((window().inner_width().unwrap().as_f64().unwrap() * window().device_pixel_ratio()) as u32);
         self.canvas.set_height((window().inner_height().unwrap().as_f64().unwrap() * window().device_pixel_ratio()) as u32);
+    }
+
+    pub fn draw_image(&self, image: &HtmlImageElement, dx: f32, dy: f32, dw: f32, dh: f32) {
+        let _ = self.ctx.draw_image_with_html_image_element_and_dw_and_dh(image, dx as f64, dy as f64, dw as f64, dh as f64);
     }
 
     pub fn fill(&self) {

@@ -1,17 +1,19 @@
 use std::{collections::BTreeSet, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
-use gloo::{console::console, dialogs::alert};
+use gloo::{console::{self, console}, dialogs::alert};
 use gloo_utils::{document, window};
 use shared::{bool, connection::packets::{Inputs, ServerboundPackets}, fuzzy_compare, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{generate_identity, get_level_from_score, get_min_score_from_level, Notification, UpgradeStats, FICTITIOUS_TANK_RADIUS, MAX_STAT_INVESTMENT}, theme::{LEADER_ARROW_COLOR, MINIMAP_FILL, MINIMAP_PADDING, MINIMAP_PLAYER_FILL, MINIMAP_SIZE, MINIMAP_STROKE, STROKE_INTENSITY, STROKE_SIZE}, turret::{TurretIdentityIds, TurretStructure}}, lerp, lerp_angle, normalize_angle, prettify_ms, prettify_score, rand, to_locale, utils::{color::Color, consts::{ARENA_SIZE, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
-use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect, tank::Tank, tooltip::Tooltip}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::sound::Sound};
+use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, ElementType, Events, HoverEffects, OnClickScript, UiElement}, elements::{button::Button, checkbox::Checkbox, image::Image, label::{Label, TextEffects}, modal::Modal, progress_bar::ProgressBar, rect::Rect, tank::Tank, tooltip::Tooltip}, get_debug_window_props, get_element_by_id_and_cast, translate, utils::sound::Sound};
 use rand::Rng;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement};
+use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement, MouseEvent};
 use crate::{connection::{packets, socket::ConnectionState}, game::entity::base::{Entity, HealthState}, storage_get, storage_set, world::{get_world, World}};
 use shared::game::theme::{BAR_BACKGROUND, GRID_ALPHA, GRID_COLOR, GRID_SIZE, INBOUNDS_FILL, LEVEL_BAR_FOREGROUND, OUTBOUNDS_FILL, SCORE_BAR_FOREGROUND, UPGRADE_STAT_COLORS};
 
 use self::packets::{form_input_packet, form_ping_packet, form_stats_packet, form_upgrade_packet};
+
+use super::renderer::Modals;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum GamePhase {
@@ -236,84 +238,7 @@ impl GamePhase {
                 Color::GRAY, "{icon}\u{f013}",
                 Box::new(|_| {
                     spawn_local(async {
-                        let mut children: Vec<Box<dyn UiElement>> = vec![
-                            Box::new(Label::new()
-                                .with_id("settings")
-                                .with_text("Settings".to_string())
-                                .with_fill(Color::WHITE)
-                                .with_font(48.0)
-                                .with_stroke(Color::BLACK)
-                                .with_transform(translate!(500.0, 75.0))
-                                .with_events(Events::default().with_hoverable(false)))
-                        ];
-
-                        let settings: [(&str, &str, bool); 2] = [
-                            (
-                                "Soundtrack", "soundtrack", true
-                            ),
-                            (
-                                "Sound Effects", "sfx", true
-                            )
-                        ];
-
-                        for (i, (display_name, storage_name, default)) in settings.into_iter().enumerate() {
-                            let checked = storage_get!(storage_name)
-                                .map(|value| bool!(value.as_str()))
-                                .unwrap_or(default);
-                            let value = Arc::new(AtomicBool::new(checked));
-
-                            let checkbox = Checkbox::new()
-                                .with_id(&format!("checkbox-{}", i))
-                                .with_accent(Color::GREEN)
-                                .with_box_stroke((7.0, Color::BLACK))
-                                .with_dimensions(Vector2D::new(50.0, 50.0))
-                                .with_fill(Color::WHITE)
-                                .with_transform(translate!(350.0, 180.0 + (i as f32 * 75.0)))
-                                .with_value(checked)
-                                .with_events(Events::default()
-                                    .with_on_click(Box::new(move |_| {
-                                        let value = value.clone();
-                                        spawn_local(async move {
-                                            let new = !value.load(Ordering::Relaxed);
-                                            value.store(new, Ordering::Relaxed);
-                                            
-                                            storage_set!(storage_name, &(new as u8).to_string());
-                                        });
-                                    }))
-                                );
-
-                            let text = Label::new()
-                                .with_id(&format!("label-{}", i))
-                                .with_text(display_name.to_string())
-                                .with_fill(Color::WHITE)
-                                .with_font(36.0)
-                                .with_stroke(Color::BLACK)
-                                .with_transform(translate!(550.0, 191.0 + (i as f32 * 75.0)))
-                                .with_events(Events::default().with_hoverable(false));
-
-                            children.push(Box::new(checkbox));
-                            children.push(Box::new(text));
-                        }
-
-                        let mut modal = Modal::new()
-                            .with_id("modal-settings")
-                            .with_fill(Color::MATERIAL_ORANGE)
-                            .with_dimensions(Vector2D::new(1000.0, 350.0))
-                            .with_children(children)
-                            .with_close_button(Box::new(|_| {
-                                spawn_local(async {
-                                    let mut world = get_world();
-                
-                                    for child in world.renderer.body.get_mut_children().iter_mut() {
-                                        if child.get_identity() == ElementType::Modal {
-                                            child.destroy();
-                                            break;
-                                        }
-                                    }
-                                });
-                            }));
-                        
-                        get_world().renderer.body.get_mut_children().push(Box::new(modal));
+                        get_world().renderer.modals.push(Modals::SettingsModal(0));
                     });
                 })
             ),
@@ -357,6 +282,85 @@ impl GamePhase {
         }
 
         elements.push(Box::new(title));
+
+        if let Some(Modals::SettingsModal(count)) = world.renderer.modals.iter().find(|x| matches!(x, Modals::SettingsModal(_))) {
+            let mut children: Vec<Box<dyn UiElement>> = vec![
+                Box::new(Label::new()
+                    .with_id("settings")
+                    .with_text("Settings".to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(48.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(500.0, 75.0))
+                    .with_events(Events::default().with_hoverable(false)))
+            ];
+
+            let settings: [(&str, &str, bool); 2] = [
+                (
+                    "Soundtrack", "soundtrack", true
+                ),
+                (
+                    "Sound Effects", "sfx", true
+                )
+            ];
+
+            for (i, (display_name, storage_name, default)) in settings.into_iter().enumerate() {
+                let checked = storage_get!(storage_name)
+                    .map(|value| bool!(value.as_str()))
+                    .unwrap_or(default);
+                let value = Arc::new(AtomicBool::new(checked));
+
+                let checkbox = Checkbox::new()
+                    .with_id(&format!("checkbox-{}", i))
+                    .with_accent(Color::GREEN)
+                    .with_box_stroke((7.0, Color::BLACK))
+                    .with_dimensions(Vector2D::new(50.0, 50.0))
+                    .with_fill(Color::WHITE)
+                    .with_transform(translate!(350.0, 180.0 + (i as f32 * 75.0)))
+                    .with_value(checked)
+                    .with_events(Events::default()
+                        .with_on_click(Box::new(move |_| {
+                            let value = value.clone();
+                            spawn_local(async move {
+                                let new = !value.load(Ordering::Relaxed);
+                                value.store(new, Ordering::Relaxed);
+                                
+                                storage_set!(storage_name, &(new as u8).to_string());
+                            });
+                        }))
+                    );
+
+                let text = Label::new()
+                    .with_id(&format!("label-{}", i))
+                    .with_text(display_name.to_string())
+                    .with_fill(Color::WHITE)
+                    .with_font(36.0)
+                    .with_stroke(Color::BLACK)
+                    .with_transform(translate!(550.0, 191.0 + (i as f32 * 75.0)))
+                    .with_events(Events::default().with_hoverable(false));
+
+                children.push(Box::new(checkbox));
+                children.push(Box::new(text));
+            }
+
+            let mut modal = (if *count == 0 { 
+                Modal::new() 
+            } else { 
+                Modal::with_no_animation() 
+            })
+                .with_id("modal-settings")
+                .with_fill(Color::MATERIAL_ORANGE)
+                .with_dimensions(Vector2D::new(1000.0, 350.0), *count == 0)
+                .with_children(children)
+                .with_close_button(Box::new(|_| {
+                    spawn_local(async {
+                        get_world().renderer.modals
+                            .retain(|&e| !matches!(e, Modals::SettingsModal(_)));
+                    });
+                }));
+            
+            elements.push(Box::new(modal));
+        }
 
         let connection_text = match world.connection.state {
             ConnectionState::Connected => "",
@@ -413,7 +417,8 @@ impl GamePhase {
 
     pub fn generate_game_elements(world: &mut World) -> Vec<Box<dyn UiElement>> {
         let mut elements: Vec<Box<dyn UiElement>> = vec![];
-        let dimensions = world.renderer.canvas2d.get_dimensions() * (1.0 / window().device_pixel_ratio() as f32);
+        let raw_dimensions = world.renderer.canvas2d.get_dimensions();
+        let dimensions = raw_dimensions * (1.0 / window().device_pixel_ratio() as f32);
 
         let (entry_bar_width, entry_bar_height) = (175.0, 15.0);
         let (leaderboard_width, leaderboard_height) = (
@@ -909,126 +914,7 @@ impl GamePhase {
                     Color::SOFT_GREEN, "{icon}\u{f015}",
                     Box::new(|_| {
                         spawn_local(async {
-                            let mut children: Vec<Box<dyn UiElement>> = vec![
-                                Box::new(Label::new()
-                                    .with_id("clans")
-                                    .with_text("Clans".to_string())
-                                    .with_fill(Color::WHITE)
-                                    .with_font(48.0)
-                                    .with_stroke(Color::BLACK)
-                                    .with_transform(translate!(500.0, 75.0))
-                                    .with_events(Events::default().with_hoverable(false)))
-                            ];
-
-                            let mut world = get_world();
-
-                            let arr: [_; 4] = std::array::from_fn(|_| ("Clan 1".to_string(), 3, "Be a cool boy and join!".to_string()));
-                            for (i, (name, members, description)) in arr.into_iter().enumerate() {
-                                let position = Vector2D::new(
-                                    100.0 + (i / 3) as f32 * 400.0,
-                                    75.0 + 50.0 + (i % 3) as f32 * 200.0
-                                );
-
-                                let dimensions = Vector2D::new(350.0, 175.0);
-
-                                let rect = Rect::new()
-                                    .with_id(&format!("clan-{}-{}-{}", i, name, members))
-                                    .with_transform(translate!(position.x, position.y))
-                                    .with_dimensions(dimensions)
-                                    .with_fill(Color::MATERIAL_GRAY)
-                                    .with_stroke(10.0)
-                                    .with_roundness(5.0)
-                                    .with_opacity(1.0)
-                                    .with_children(vec![
-                                        Box::new(
-                                            Label::new()
-                                                .with_id(&format!("clan-{}-{}-{}-name", i, name, members))
-                                                .with_text(name.clone())
-                                                .with_fill(Color::WHITE)
-                                                .with_font(20.0)
-                                                .with_stroke(Color::BLACK)
-                                                .with_transform(translate!(20.0, 35.0))
-                                                .with_events(Events::default().with_hoverable(false))
-                                                .with_align("left")
-                                        ),
-                                        Box::new(
-                                            Label::new()
-                                                .with_id(&format!("clan-{}-{}-{}-member-count", i, name, members))
-                                                .with_text(format!("{} member{}", members, if members == 1 { "" } else { "s" }))
-                                                .with_fill(Color::WHITE)
-                                                .with_font(20.0)
-                                                .with_stroke(Color::BLACK)
-                                                .with_transform(translate!(dimensions.x - 20.0, 35.0))
-                                                .with_events(Events::default().with_hoverable(false))
-                                                .with_align("right")
-                                        ),
-                                        Box::new(
-                                            Label::new()
-                                                .with_id(&format!("clan-{}-{}-{}-description", i, name, members))
-                                                .with_text(description)
-                                                .with_fill(Color::WHITE)
-                                                .with_font(20.0)
-                                                .with_stroke(Color::BLACK)
-                                                .with_transform(translate!(dimensions.x / 2.0, 75.0))
-                                                .with_events(Events::default().with_hoverable(false))
-                                        ),
-                                        Box::new(
-                                            Button::new()
-                                                .with_id(&format!("clan-{}-{}-{}-join", i, name, members))
-                                                .with_fill(Color::SOFT_GREEN)
-                                                .with_dimensions(Vector2D::new(300.0, 50.0))
-                                                .with_transform(translate!(dimensions.x / 2.0, 125.0))
-                                                .with_events(Events::default()
-                                                    .with_hover_effects(vec![
-                                                        HoverEffects::Inflation(1.1),
-                                                        HoverEffects::AdjustBrightness(0.0)
-                                                    ])
-                                                    .with_on_click(Box::new(|_| {
-                                                        spawn_local(async {
-
-                                                        });
-                                                    }))
-                                            )
-                                            .with_children(vec![Box::new(
-                                                Label::new()
-                                                    .with_id(&format!("clan-{}-{}-{}-join-text", i, name, members))
-                                                    .with_text("Join".to_string())
-                                                    .with_fill(Color::WHITE)
-                                                    .with_font(20.0)
-                                                    .with_stroke(Color::BLACK)
-                                                    .with_transform(translate!(0.0, 5.0))
-                                                    .with_events(Events::default()
-                                                        .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
-                                                    )
-                                            )])
-                                        )
-                                    ]);
-                                
-                                children.push(Box::new(rect));
-                            }
-    
-                            let mut modal = Modal::new()
-                                .with_id("modal-clans")
-                                .with_fill(Color::GRAY)
-                                .with_dimensions(Vector2D::new(1000.0, 750.0))
-                                .with_translation(Box::new(|dimensions| {
-                                    Some(dimensions * (1.0 / window().device_pixel_ratio() as f32))
-                                }))
-                                .with_children(children)
-                                .with_close_button(Box::new(|_| {
-                                    spawn_local(async {
-                                        let mut world = get_world();
-                    
-                                        for child in world.renderer.body.get_mut_children().iter_mut() {
-                                            if child.get_identity() == ElementType::Modal {
-                                                child.destroy();
-                                                break;
-                                            }
-                                        }
-                                    });
-                                }));
-                            
-                            world.renderer.body.get_mut_children().push(Box::new(modal)); 
+                            get_world().renderer.modals.push(Modals::ClanModal(0));
                         });
                     })
                 )
@@ -1063,6 +949,179 @@ impl GamePhase {
                     )]);
                 
                 elements.push(Box::new(button));
+
+                if let Some(Modals::ClanModal(count)) = world.renderer.modals.iter().find(|x| matches!(x, Modals::ClanModal(_))) {
+                    let modal_dimensions = Vector2D::new(1000.0, 750.0);
+                    
+                    let mut children: Vec<Box<dyn UiElement>> = vec![
+                        Box::new(Label::new()
+                            .with_id("clans")
+                            .with_text("Clans".to_string())
+                            .with_fill(Color::WHITE)
+                            .with_font(48.0)
+                            .with_stroke(Color::BLACK)
+                            .with_transform(translate!(modal_dimensions.x / 2.0, 75.0))
+                            .with_events(Events::default().with_hoverable(false))
+                        ),
+                        Box::new(
+                            Button::new()
+                                .with_id("clan_create_button")
+                                .with_fill(Color::SOFT_GREEN)
+                                .with_dimensions(Vector2D::new(175.0, 175.0 / 2.5))
+                                .with_transform(translate!(modal_dimensions.x, modal_dimensions.y - 100.0))
+                                .with_events(Events::default()
+                                    .with_hover_effects(vec![
+                                        HoverEffects::Inflation(1.1),
+                                        HoverEffects::AdjustBrightness(0.0)
+                                    ])
+                                    .with_on_click(Box::new(|_| {
+                                        spawn_local(async {
+
+                                        });
+                                    }))
+                                )
+                                .with_children(vec![Box::new(
+                                    Label::new()
+                                        .with_id("clan_create_button_text")
+                                        .with_text("Create Clan".to_string())
+                                        .with_fill(Color::WHITE)
+                                        .with_font(24.0)
+                                        .with_stroke(Color::BLACK)
+                                        .with_transform(translate!(0.0, 10.0))
+                                        .with_events(Events::default()
+                                            .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                        )
+                                )])
+                        )
+                    ];
+
+                    if world.game.clan_state.clans.is_empty() {
+                        let image = Image::new()
+                            .with_id("clan_image")
+                            .with_dimensions(Vector2D::new(500.0, 500.0))
+                            .with_image_url("images/sword.png")
+                            .with_opacity(0.4)
+                            .with_transform(translate!(modal_dimensions.x / 2.0, modal_dimensions.y / 2.0))
+                            .with_z_index(-5);
+
+                        let text = Label::new()
+                            .with_id("clan-message")
+                            .with_text("No clans exist. Create one now!".to_string())
+                            .with_fill(Color::WHITE)
+                            .with_font(28.0)
+                            .with_stroke(Color::BLACK)
+                            .with_transform(translate!(modal_dimensions.x / 2.0, modal_dimensions.y / 2.0))
+                            .with_events(Events::default().with_hoverable(false));
+                        
+                            children.push(Box::new(image));
+                            children.push(Box::new(text));
+                    } else {
+                        for (i, clan) in world.game.clan_state.clans.iter().enumerate() {
+                            let (name, description, members) = (clan.name.clone(), clan.description.clone(), clan.members);
+
+                            let position = Vector2D::new(
+                                100.0 + (i / 3) as f32 * 400.0,
+                                75.0 + 50.0 + (i % 3) as f32 * 200.0
+                            );
+
+                            let dimensions = Vector2D::new(350.0, 175.0);
+
+                            let rect = Rect::new()
+                                .with_id(&format!("clan-{}-{}-{}", i, name, members))
+                                .with_transform(translate!(position.x, position.y))
+                                .with_dimensions(dimensions)
+                                .with_fill(Color::MATERIAL_GRAY)
+                                .with_stroke(10.0)
+                                .with_roundness(5.0)
+                                .with_opacity(1.0)
+                                .with_children(vec![
+                                    Box::new(
+                                        Label::new()
+                                            .with_id(&format!("clan-{}-{}-{}-name", i, name, members))
+                                            .with_text(name.clone())
+                                            .with_fill(Color::WHITE)
+                                            .with_font(20.0)
+                                            .with_stroke(Color::BLACK)
+                                            .with_transform(translate!(20.0, 35.0))
+                                            .with_events(Events::default().with_hoverable(false))
+                                            .with_align("left")
+                                    ),
+                                    Box::new(
+                                        Label::new()
+                                            .with_id(&format!("clan-{}-{}-{}-member-count", i, name, members))
+                                            .with_text(format!("{} member{}", members, if members == 1 { "" } else { "s" }))
+                                            .with_fill(Color::WHITE)
+                                            .with_font(20.0)
+                                            .with_stroke(Color::BLACK)
+                                            .with_transform(translate!(dimensions.x - 20.0, 35.0))
+                                            .with_events(Events::default().with_hoverable(false))
+                                            .with_align("right")
+                                    ),
+                                    Box::new(
+                                        Label::new()
+                                            .with_id(&format!("clan-{}-{}-{}-description", i, name, members))
+                                            .with_text(description)
+                                            .with_fill(Color::WHITE)
+                                            .with_font(20.0)
+                                            .with_stroke(Color::BLACK)
+                                            .with_transform(translate!(dimensions.x / 2.0, 75.0))
+                                            .with_events(Events::default().with_hoverable(false))
+                                    ),
+                                    Box::new(
+                                        Button::new()
+                                            .with_id(&format!("clan-{}-{}-{}-join", i, name, members))
+                                            .with_fill(Color::SOFT_GREEN)
+                                            .with_dimensions(Vector2D::new(300.0, 50.0))
+                                            .with_transform(translate!(dimensions.x / 2.0, 125.0))
+                                            .with_events(Events::default()
+                                                .with_hover_effects(vec![
+                                                    HoverEffects::Inflation(1.1),
+                                                    HoverEffects::AdjustBrightness(0.0)
+                                                ])
+                                                .with_on_click(Box::new(|_| {
+                                                    spawn_local(async {
+
+                                                    });
+                                                }))
+                                        )
+                                        .with_children(vec![Box::new(
+                                            Label::new()
+                                                .with_id(&format!("clan-{}-{}-{}-join-text", i, name, members))
+                                                .with_text("Join".to_string())
+                                                .with_fill(Color::WHITE)
+                                                .with_font(20.0)
+                                                .with_stroke(Color::BLACK)
+                                                .with_transform(translate!(0.0, 5.0))
+                                                .with_events(Events::default()
+                                                    .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                                )
+                                        )])
+                                    )
+                                ]);
+                            
+                            children.push(Box::new(rect));
+                        }
+                    }
+
+                    let mut modal = (if *count == 0 { 
+                        Modal::new() 
+                    } else {
+                        Modal::with_no_animation() 
+                    })
+                        .with_id("modal-clans")
+                        .with_fill(Color::GRAY)
+                        .with_dimensions(modal_dimensions, *count == 0)
+                        .with_transform(translate!(raw_dimensions.x / 2.0, raw_dimensions.y / 2.0))
+                        .with_children(children)
+                        .with_close_button(Box::new(|_| {
+                            spawn_local(async {
+                                get_world().renderer.modals
+                                    .retain(|&e| !matches!(e, Modals::ClanModal(_)));
+                            });
+                        }));
+                    
+                    elements.push(Box::new(modal));
+                }
             }
         }
 

@@ -18,6 +18,12 @@ pub struct TimeInformation {
     deltas: VecDeque<f64>
 }
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum Modals {
+    SettingsModal(usize),
+    ClanModal(usize)
+}
+
 pub struct Renderer {
     pub canvas2d: Canvas2d,
     pub gl: WebGl,
@@ -28,6 +34,7 @@ pub struct Renderer {
     pub body: Body,
     pub backdrop_opacity: Interpolatable<f32>,
     pub fps_counter: Label,
+    pub modals: Vec<Modals>,
 
     pub phase_switch: Option<GamePhase>,
     phase_switch_radius: Interpolatable<f32>
@@ -56,6 +63,7 @@ impl Renderer {
                 .with_transform(translate!(10.0, 35.0))
                 .with_events(Events::default().with_hoverable(false))
                 .with_align("left"),
+            modals: vec![],
             phase_switch: None,
             phase_switch_radius
         }
@@ -167,26 +175,44 @@ impl Renderer {
         
         let mut element_ids: Vec<String> = elements.iter().map(|e| e.get_id()).collect();
         
-        elements.into_iter().for_each(|element| {
+        elements.into_iter().for_each(|mut element| {
             match world.renderer.body.get_element_by_id(&element.get_id()) {
                 Some((_, el)) if !el.has_animation_state() => {
-                    world.renderer.body.delete_element_by_id(&element.get_id(), false);
-                    world.renderer.body.get_mut_children().push(element);
+                    if element.get_identity() == ElementType::Modal {
+                        let variant = world.renderer.modals.iter_mut().find(|modal| {
+                            match element.get_id().as_str() {
+                                s if s.contains("settings") => matches!(modal, Modals::SettingsModal(_)),
+                                s if s.contains("clans") => matches!(modal, Modals::ClanModal(_)),
+                                _ => false,
+                              }
+                        }).unwrap();
+        
+                        match variant {
+                            Modals::SettingsModal(ref mut count) 
+                                | Modals::ClanModal(ref mut count) => 
+                            {
+                                *count += 1;
+                            }
+                        }
+
+                        world.renderer.body.delete_element_by_id(&element.get_id(), false);
+                        world.renderer.body.get_mut_children().push(element);
+                    } else {
+                        world.renderer.body.delete_element_by_id(&element.get_id(), false);
+                        world.renderer.body.get_mut_children().push(element);
+                    }
                 },
                 None => world.renderer.body.get_mut_children().push(element),
                 _ => {}
             }
         });
         
-        let stale_ids: Vec<String> = world.renderer.body.get_mut_children()
-            .iter()
-            .filter(|e| e.get_identity() != ElementType::Modal && !element_ids.contains(&e.get_id()))
-            .map(|e| e.get_id())
+        let stale_elements: Vec<&mut Box<dyn UiElement>> = world.renderer.body.get_mut_children()
+            .iter_mut()
+            .filter(|e| !element_ids.contains(&e.get_id()))
             .collect();
         
-        stale_ids.into_iter().for_each(|id| {
-            world.renderer.body.delete_element_by_id(&id, true);
-        });
+        stale_elements.into_iter().for_each(|element| element.destroy());
         
         match world.renderer.phase {
             GamePhase::Lore(_) => Renderer::render_lore(world, delta_average),
@@ -264,7 +290,7 @@ impl Renderer {
         let modal_exists = world.renderer.body.get_mut_children()
             .iter_mut()
             .any(|child| child.get_identity() == ElementType::Modal);
-        let should_display_textbox = !modal_exists 
+        let should_display_textbox = !modal_exists
             && world.connection.state == ConnectionState::Connected 
             && (matches!(world.renderer.phase_switch, Some(GamePhase::Home(_))) || world.renderer.phase_switch.is_none());
         
@@ -289,16 +315,15 @@ impl Renderer {
         get_element_by_id_and_cast!("text_input_container", HtmlDivElement)
             .style()
             .set_property("display", "none");
-        
-        let dimensions = world.renderer.body.get_bounding_rect().dimensions;
 
         world.renderer.canvas2d.save();
+        
 
-        let dimensions = world.renderer.canvas2d.get_dimensions();
-        world.renderer.canvas2d.translate(dimensions.x / 2.0, dimensions.y / 2.0);
+        world.renderer.body.dimensions = world.renderer.canvas2d.get_dimensions();
+        world.renderer.canvas2d.translate(world.renderer.body.dimensions.x / 2.0, world.renderer.body.dimensions.y / 2.0);
         let factor = window().device_pixel_ratio() as f32;
         world.renderer.canvas2d.scale(factor, factor);
-        world.renderer.canvas2d.translate(-dimensions.x / (2.0 * factor), -dimensions.y / (2.0 * factor));
+        world.renderer.canvas2d.translate(-world.renderer.body.dimensions.x / (2.0 * factor), -world.renderer.body.dimensions.y / (2.0 * factor));
 
         world.renderer.canvas2d.save();
         world.renderer.canvas2d.reset_transform();
@@ -308,7 +333,7 @@ impl Renderer {
         world.renderer.body.render_children(&mut world.renderer.canvas2d);
         
         world.renderer.canvas2d.scale(0.5, 0.5);
-        world.renderer.fps_counter.render(&mut world.renderer.canvas2d, dimensions);
+        world.renderer.fps_counter.render(&mut world.renderer.canvas2d, world.renderer.body.dimensions);
         
         world.renderer.canvas2d.restore();
     }

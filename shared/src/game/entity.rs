@@ -172,3 +172,10 @@ pub struct TankUpgrades {
     pub body: Vec<BodyIdentityIds>,
     pub turret: Vec<TurretIdentityIds>
 }
+
+#[derive(Debug, Default, Clone)]
+pub struct ClanInformation {
+    pub name: String,
+    pub description: String,
+    pub members: usize
+}

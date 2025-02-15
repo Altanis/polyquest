@@ -10,7 +10,7 @@ pub struct Body {
     transform: Transform,
     fill: Color,
     events: Events,
-    dimensions: Vector2D,
+    pub dimensions: Vector2D,
     children: Vec<Box<dyn UiElement>>
 }
 
@@ -67,11 +67,18 @@ impl UiElement for Body {
     }
 
     fn get_element_by_id(&mut self, id: &str) -> Option<(usize, &mut Box<dyn UiElement>)> {
-        self.children
-            .iter_mut()
-            .enumerate()
-            .find(|(_, child)| child.get_id() == id)
-    }
+        if let Some(index) = self.children.iter_mut().enumerate().position(|(_, child)| child.get_id() == id) {
+            return Some((index, &mut self.children[index]));
+        }
+    
+        for (index, child) in self.children.iter_mut().enumerate() {
+            if let Some((_, found)) = child.get_element_by_id(id) {
+                return Some((index, found));
+            }
+        }
+    
+        None
+    }    
 
     fn delete_element_by_id(&mut self, id: &str, destroy: bool) {
         if let Some((i, child)) = self.children

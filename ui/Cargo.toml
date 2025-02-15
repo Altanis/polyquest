@@ -29,5 +29,6 @@ features = [
   "WebGlBuffer",
   "WebGlUniformLocation",
   "DomStringMap",
-  "CanvasGradient"
+  "CanvasGradient",
+  "HtmlImageElement"
 ]

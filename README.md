@@ -58,12 +58,11 @@ Todo:
 - [x] local chat
 - [ ] scrolling within modal
 - [ ] clans
-    - [ ] clan modal does not rerender
-    - [ ] right/left arrows based on page
     - [ ] create clan system
     - [ ] join system
     - [ ] leave system
     - [ ] kick system
+    - [ ] right/left arrows based on page
 - [ ] fix leader arrow
 - [x] menu items do not conform to dimensions/dpr
 - [ ] find better audio tracks (stable audio)

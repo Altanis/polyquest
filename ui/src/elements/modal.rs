@@ -16,7 +16,8 @@ pub struct Modal {
     dimensions: Interpolatable<Vector2D>,
     children: Vec<Box<dyn UiElement>>,
     deletion: bool,
-    opacity: Interpolatable<f32>
+    opacity: Interpolatable<f32>,
+    is_animating: bool
 }
 
 impl UiElement for Modal {
@@ -70,6 +71,10 @@ impl UiElement for Modal {
             }
         }
     
+        if is_hovering {
+            self.is_animating = true;
+        }
+
         is_hovering
     }
     
@@ -86,6 +91,17 @@ impl UiElement for Modal {
     }
 
     fn get_mut_children(&mut self) -> &mut Vec<Box<dyn UiElement>> {
+        self.children.sort_by(|a, b| {
+            let z_index_cmp = a.get_z_index().cmp(&b.get_z_index());
+            if z_index_cmp == std::cmp::Ordering::Equal {
+                let a_hovering = a.get_events().is_hovering;
+                let b_hovering = b.get_events().is_hovering;
+                a_hovering.cmp(&b_hovering)
+            } else {
+                z_index_cmp
+            }
+        });
+
         &mut self.children
     }
 
@@ -131,6 +147,7 @@ impl UiElement for Modal {
     }
 
     fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D) -> bool {
+        self.is_animating = false;
         let mut to_delete = false;
 
         context.save();
@@ -193,6 +210,10 @@ impl UiElement for Modal {
                 context.restore();
             }
         }
+        
+        if !self.dimensions.value.partial_eq(self.dimensions.target, 10.0) {
+            self.is_animating = true;
+        }
 
         context.restore();
 
@@ -208,7 +229,7 @@ impl UiElement for Modal {
     }
 
     fn has_animation_state(&self) -> bool {
-        false
+        self.is_animating
     }
 }
 
@@ -220,7 +241,15 @@ impl Modal {
         };
 
         modal.opacity.value = 0.0;
+
         modal
+    }
+
+    pub fn with_no_animation() -> Modal {
+        Modal {
+            opacity: Interpolatable::new(1.0),
+            ..Default::default()
+        }
     }
 
     pub fn with_id(mut self, id: &str) -> Modal {
@@ -248,9 +277,11 @@ impl Modal {
         self
     }
 
-    pub fn with_dimensions(mut self, dimensions: Vector2D) -> Modal {
+    pub fn with_dimensions(mut self, dimensions: Vector2D, interpolate: bool) -> Modal {
         self.dimensions = Interpolatable::new(dimensions);
-        self.dimensions.value = Vector2D::ZERO;
+        if interpolate {
+            self.dimensions.value = Vector2D::ZERO;
+        }
 
         self
     }
@@ -262,6 +293,7 @@ impl Modal {
 
     pub fn with_close_button(mut self, cb: Box<OnClickScript>) -> Modal {
         let text = Label::new()
+            .with_id(&format!("close-button-{}-text", self.id))
             .with_text("X".to_string())
             .with_fill(Color::WHITE)
             .with_font(32.0)
@@ -272,6 +304,7 @@ impl Modal {
             );
 
         let close = Button::new()
+            .with_id(&format!("close-button-{}", self.id))
             .with_fill(Color::RED)
             .with_dimensions(Vector2D::new(50.0, 50.0))
             .with_transform(translate!(self.dimensions.target.x - 35.0, 35.0))
