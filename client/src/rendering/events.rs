@@ -166,7 +166,10 @@ pub fn on_mousemove(world: &mut World, event: MouseEvent) {
 }
 
 pub fn on_keydown(world: &mut World, event: KeyboardEvent) {
-    if !world.game.self_entity.display.typing {
+    let is_modal_open = world.renderer.body.get_mut_children().iter()
+        .any(|e| e.get_identity() == ElementType::Modal);
+
+    if !world.game.self_entity.display.typing && !is_modal_open {
         match event.key_code().try_into() {
             Ok(KeyCode::KeyW) | Ok(KeyCode::ArrowUp) => world.game.self_entity.physics.inputs.set_flag(Inputs::Up),
             Ok(KeyCode::KeyA) | Ok(KeyCode::ArrowLeft) => world.game.self_entity.physics.inputs.set_flag(Inputs::Left),
@@ -194,6 +197,9 @@ pub fn on_keydown(world: &mut World, event: KeyboardEvent) {
 }
 
 pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
+    let is_modal_open = world.renderer.body.get_mut_children().iter()
+        .any(|e| e.get_identity() == ElementType::Modal);
+
     match event.key_code().try_into() {
         Ok(KeyCode::Escape) => {
             if world.renderer.phase == GamePhase::Game {
@@ -206,18 +212,20 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
             let mut deletion_indices = Vec::new();
             for (i, child) in world.renderer.body.get_mut_children().iter_mut().enumerate() {
                 if child.get_identity() == ElementType::Modal {
-                    let variant = world.renderer.modals.iter().find(|modal| {
+                    if let Some(modal_idx) = world.renderer.modals.iter().position(|modal| {
                         match child.get_id().as_str() {
                             s if s.contains("settings") => matches!(modal, Modals::SettingsModal(_)),
                             s if s.contains("clans") => matches!(modal, Modals::ClanModal(_)),
+                            s if s.contains("clan-create") => matches!(modal, Modals::ClanCreateModal(_)),
                             _ => false,
-                          }
-                    }).unwrap();
-
-                    world.renderer.modals.retain(|&e| !matches!(e, variant));
+                        }
+                    }) {
+                        world.renderer.modals.remove(modal_idx);
+                    }
+            
                     deletion_indices.push(i);
                 }
-            }
+            }            
         
             for index in deletion_indices {
                 world.renderer.body.get_mut_children()[index]
@@ -259,7 +267,7 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
         _ => {}
     }
 
-    if !world.game.self_entity.display.typing {
+    if !world.game.self_entity.display.typing && !is_modal_open {
         match event.key_code().try_into() {
             Ok(KeyCode::KeyW) | Ok(KeyCode::ArrowUp) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Up),
             Ok(KeyCode::KeyA) | Ok(KeyCode::ArrowLeft) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Left),

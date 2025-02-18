@@ -153,7 +153,7 @@ impl UiElement for Image {
         self.opacity.value = lerp!(self.opacity.value, self.opacity.target, 0.2);
 
         context.save();
-        context.set_transform(&self.transform.value);
+        context.transform(&self.transform.value);
         context.rotate(self.angle.value);
         context.global_alpha(self.opacity.value);
 

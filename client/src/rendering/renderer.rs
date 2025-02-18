@@ -18,10 +18,11 @@ pub struct TimeInformation {
     deltas: VecDeque<f64>
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Modals {
     SettingsModal(usize),
-    ClanModal(usize)
+    ClanModal(usize),
+    ClanCreateModal(usize)
 }
 
 pub struct Renderer {
@@ -178,29 +179,8 @@ impl Renderer {
         elements.into_iter().for_each(|mut element| {
             match world.renderer.body.get_element_by_id(&element.get_id()) {
                 Some((_, el)) if !el.has_animation_state() => {
-                    if element.get_identity() == ElementType::Modal {
-                        let variant = world.renderer.modals.iter_mut().find(|modal| {
-                            match element.get_id().as_str() {
-                                s if s.contains("settings") => matches!(modal, Modals::SettingsModal(_)),
-                                s if s.contains("clans") => matches!(modal, Modals::ClanModal(_)),
-                                _ => false,
-                              }
-                        }).unwrap();
-        
-                        match variant {
-                            Modals::SettingsModal(ref mut count) 
-                                | Modals::ClanModal(ref mut count) => 
-                            {
-                                *count += 1;
-                            }
-                        }
-
-                        world.renderer.body.delete_element_by_id(&element.get_id(), false);
-                        world.renderer.body.get_mut_children().push(element);
-                    } else {
-                        world.renderer.body.delete_element_by_id(&element.get_id(), false);
-                        world.renderer.body.get_mut_children().push(element);
-                    }
+                    world.renderer.body.delete_element_by_id(&element.get_id(), false);
+                    world.renderer.body.get_mut_children().push(element);
                 },
                 None => world.renderer.body.get_mut_children().push(element),
                 _ => {}
@@ -329,7 +309,6 @@ impl Renderer {
         world.renderer.canvas2d.reset_transform();
         GamePhase::render_game(world, delta_average, is_dead, dt);
         world.renderer.canvas2d.restore();
-
         world.renderer.body.render_children(&mut world.renderer.canvas2d);
         
         world.renderer.canvas2d.scale(0.5, 0.5);

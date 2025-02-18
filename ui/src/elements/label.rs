@@ -214,7 +214,7 @@ impl UiElement for Label {
             }
 
             context.save();
-            context.set_transform(&self.transform);
+            context.transform(&self.transform);
             context.global_alpha(self.opacity.value);
 
             if text_len != 1 {

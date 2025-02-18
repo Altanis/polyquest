@@ -134,7 +134,7 @@ impl UiElement for Tooltip {
         }
 
         context.save();
-        context.set_transform(&self.transform);
+        context.transform(&self.transform);
         context.global_alpha(self.opacity.value);
 
         context.save();

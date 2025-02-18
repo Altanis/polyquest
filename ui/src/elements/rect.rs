@@ -129,7 +129,7 @@ impl UiElement for Rect {
 
     fn render(&mut self, context: &mut Canvas2d, dimensions: Vector2D) -> bool {
         context.save();
-        context.set_transform(&self.transform);
+        context.transform(&self.transform);
         context.fill_style(self.fill);
         if self.stroke != 0.0 {
             context.stroke_style(Color::blend_colors(self.fill, Color::BLACK, 0.2));

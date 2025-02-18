@@ -8,3 +8,4 @@ pub mod tooltip;
 pub mod rect;
 pub mod tank;
 pub mod image;
+pub mod input;

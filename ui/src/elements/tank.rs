@@ -162,7 +162,7 @@ impl UiElement for Tank {
         self.opacity.value = lerp!(self.opacity.value, self.opacity.target, 0.2);
 
         context.save();
-        context.set_transform(&self.transform);
+        context.transform(&self.transform);
         self.raw_transform = context.get_transform();
         context.global_alpha(self.opacity.value);
         context.rotate(self.angle);

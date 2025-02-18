@@ -17,7 +17,8 @@ pub struct Modal {
     children: Vec<Box<dyn UiElement>>,
     deletion: bool,
     opacity: Interpolatable<f32>,
-    is_animating: bool
+    is_animating: bool,
+    z_index: Option<i32>
 }
 
 impl UiElement for Modal {
@@ -50,7 +51,7 @@ impl UiElement for Modal {
     }
 
     fn get_z_index(&self) -> i32 {
-        999
+        self.z_index.unwrap_or(999)
     }
 
     fn set_hovering(&mut self, val: bool, event: &MouseEvent) -> bool {
@@ -167,7 +168,7 @@ impl UiElement for Modal {
         }
         
         context.save();
-        context.set_transform(&self.transform);
+        context.transform(&self.transform);
 
         let position = -self.dimensions.value * (1.0 / 2.0);
         context.translate(position.x, position.y);
@@ -225,31 +226,30 @@ impl UiElement for Modal {
         self.dimensions.target = Vector2D::ZERO;
         self.opacity.target = 0.0;
 
+        for child in self.children.iter_mut() {
+            child.destroy();
+        }
+
         self.children.clear();
     }
 
     fn has_animation_state(&self) -> bool {
-        self.is_animating
+        self.is_animating || self.children.iter().any(|e| e.has_animation_state())
     }
 }
 
 impl Modal {
-    pub fn new() -> Modal {
+    pub fn new(interpolate: bool) -> Modal {
         let mut modal = Modal {
             opacity: Interpolatable::new(1.0),
             ..Default::default()
         };
 
-        modal.opacity.value = 0.0;
+        if interpolate {
+            modal.opacity.value = 0.0;
+        }
 
         modal
-    }
-
-    pub fn with_no_animation() -> Modal {
-        Modal {
-            opacity: Interpolatable::new(1.0),
-            ..Default::default()
-        }
     }
 
     pub fn with_id(mut self, id: &str) -> Modal {
@@ -318,6 +318,11 @@ impl Modal {
             .with_children(vec![Box::new(text)]);
 
         self.children.push(Box::new(close));
+        self
+    }
+
+    pub fn with_z_index(mut self, index: i32) -> Modal {
+        self.z_index = Some(index);
         self
     }
 }

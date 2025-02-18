@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use gloo::utils::{document, window};
 use shared::{rand, utils::{color::Color, consts::{SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
-use web_sys::{wasm_bindgen::JsCast, CanvasGradient, CanvasRenderingContext2d, DomMatrix, HtmlCanvasElement, HtmlImageElement, TextMetrics, Window};
+use web_sys::{wasm_bindgen::JsCast, CanvasGradient, CanvasRenderingContext2d, DomMatrix, DomRect, HtmlCanvasElement, HtmlImageElement, TextMetrics, Window};
 use rand::Rng;
 
 use crate::core::GenerateTranslationScript;
@@ -262,6 +262,18 @@ impl Canvas2d {
         self.canvas.height() as f32
     }
 
+    pub fn get_offset_width(&self) -> f32 {
+        self.canvas.offset_width() as f32
+    }
+
+    pub fn get_offset_height(&self) -> f32 {
+        self.canvas.offset_height() as f32
+    }
+
+    pub fn get_bounding_client_rect(&self) -> DomRect {
+        self.canvas.get_bounding_client_rect()
+    }
+
     pub fn get_dimensions(&self) -> Vector2D {
         Vector2D::new(self.get_width(), self.get_height())
     }
@@ -496,7 +508,7 @@ impl Canvas2d {
         let _ = self.ctx.reset_transform();
     }
 
-    pub fn set_transform(&self, transform: &Transform) {
+    pub fn transform(&self, transform: &Transform) {
        let _ = self.ctx.transform(transform.a(), transform.b(), transform.c(), transform.d(), transform.e(), transform.f());
     }
 
