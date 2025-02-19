@@ -83,6 +83,7 @@ impl WebSocketServer {
                     ServerboundPackets::Stats => packets::handle_stats_packet(full_server, id, codec),
                     ServerboundPackets::Upgrade => packets::handle_upgrade_packet(full_server, id, codec),
                     ServerboundPackets::Chat => packets::handle_chat_packet(full_server, id, codec),
+                    ServerboundPackets::Clan => packets::handle_clan_packet(full_server, id, codec),
                     ServerboundPackets::Ping => Ok(())
                 }
             },

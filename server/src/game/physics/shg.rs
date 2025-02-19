@@ -9,8 +9,7 @@ struct Map(Vec<(u32, u32)>);
 /// An extremely optimized fixed-size hash table implementation.
 #[derive(Default, Debug, Clone)]
 pub struct Table<T: Default + Clone> {
-    entries: Vec<T>,
-    capacity: usize,
+    entries: Vec<T>
 }
 
 impl<T: Default + Clone> Table<T> {
@@ -18,12 +17,7 @@ impl<T: Default + Clone> Table<T> {
     pub fn new(size: usize) -> Self {
         let capacity = (size * 1000).next_power_of_two() + 1;
         let entries = vec![T::default(); capacity];
-        Self { entries, capacity }
-    }
-
-    /// Get entry number.
-    pub fn count(&self) -> usize {
-        self.entries.len()
+        Self { entries }
     }
 
     #[inline(always)]
@@ -58,12 +52,6 @@ impl<T: Default + Clone> Table<T> {
         let idx = self.index(hash_u64(s as u64));
         unsafe { self.entries.get_unchecked_mut(idx) }
     }
-
-    /// Clear the table.
-    pub fn clear(&mut self) {
-        self.entries.clear();
-        self.entries.resize(self.capacity, T::default());
-    }
 }
 
 /// Spatial hash grid implementation.
@@ -82,11 +70,6 @@ impl SpatialHashGrid {
             maps: Table::new(size),
             shift,
         }
-    }
-
-    /// Get size of internal tables.
-    pub fn count(&self) -> usize {
-        self.grid.count()
     }
 
     /// Insert an entity.
@@ -202,12 +185,6 @@ impl SpatialHashGrid {
     pub fn reinsert(&mut self, id: u32, position: Vector2D, radius: f32) {
         self.delete(id);
         self.insert(id, position, radius)
-    }
-
-    /// Clear the grid.
-    pub fn clear(&mut self) {
-        self.grid.clear();
-        self.maps.clear();
     }
 }
 

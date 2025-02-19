@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use gloo::{console::console, utils::{body, document, window}};
 use shared::utils::{color::Color, vec2::Vector2D};
 use wasm_bindgen::{prelude::Closure, JsCast};
@@ -16,6 +18,8 @@ pub struct Input {
     events: Events,
     children: Vec<Box<dyn UiElement>>,
     input: Option<HtmlInputElement>,
+    #[allow(clippy::type_complexity)]
+    validator: Rc<RefCell<Option<Box<dyn Fn(&str) -> bool + 'static>>>>,
     max_length: i32,
 
     ticks: u64
@@ -36,6 +40,7 @@ impl Default for Input {
             children: vec![],
             input: None,
             max_length: 0,
+            validator: Rc::new(RefCell::new(None)),
             ticks: Default::default()
         }
     }
@@ -132,7 +137,26 @@ impl UiElement for Input {
                 input.set_id(&self.id);
                 let _ = body().append_child(&input);
 
-                // input.add_event_listener_with_callback(type_, listener)
+                input.dataset().set("last_valid_value", "").unwrap();
+
+                let validator_clone = self.validator.clone();
+                let input_clone = input.clone();
+
+                let closure = Closure::<dyn FnMut(_)>::new(move |_: Event| {
+                    let value = input_clone.value();
+                    let validator_guard = validator_clone.borrow();
+                    if let Some(validator) = &*validator_guard {
+                        if validator(&value) {
+                            input_clone.dataset().set("last_valid_value", &value).unwrap();
+                        } else {
+                            let last_valid = input_clone.dataset().get("last_valid_value").unwrap_or_default();
+                            input_clone.set_value(&last_valid);
+                        }
+                    }
+                });
+
+                input.add_event_listener_with_callback("input", closure.as_ref().unchecked_ref()).unwrap();
+                closure.forget();
 
                 self.input = Some(input);
             }
@@ -256,6 +280,11 @@ impl Input {
 
     pub fn with_max_length(mut self, length: i32) -> Input {
         self.max_length = length;
+        self
+    }
+
+    pub fn with_validator(self, validator: impl Fn(&str) -> bool + 'static) -> Self {
+        *self.validator.borrow_mut() = Some(Box::new(validator));
         self
     }
 }

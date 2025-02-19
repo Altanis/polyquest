@@ -1,13 +1,16 @@
 use std::fmt::Binary;
 
 use gloo::console::console;
-use shared::{connection::packets::ServerboundPackets, game::{body::BodyIdentityIds, entity::{InputFlags, Notification}, turret::TurretIdentityIds}, normalize_angle, utils::{codec::BinaryCodec, color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
+use gloo_utils::window;
+use shared::{connection::packets::{ClanPacketOpcode, ServerboundPackets}, game::{body::BodyIdentityIds, entity::{InputFlags, Notification}, turret::TurretIdentityIds}, normalize_angle, utils::{codec::BinaryCodec, color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
 
-use crate::{game::entity::base::{Entity, HealthState}, world::{get_world, World}};
+use crate::{game::entity::base::{Entity, HealthState}, storage_set, world::{get_world, World}};
 
 pub fn form_spawn_packet(
     name: String
 ) -> BinaryCodec {
+    storage_set!("last_name", &name);
+
     let mut codec = BinaryCodec::new();
     codec.encode_varuint(ServerboundPackets::Spawn as u64);
 
@@ -65,6 +68,18 @@ pub fn form_chat_packet(typing: Option<bool>, message: String) -> BinaryCodec {
         codec.encode_varuint(1);
         codec.encode_string(message);
     }
+
+    codec
+}
+
+pub fn form_clan_packet_create(name: String, description: String, max_members: u64) -> BinaryCodec {
+    let mut codec = BinaryCodec::new();
+    codec.encode_varuint(ServerboundPackets::Clan as u64);
+    codec.encode_varuint(ClanPacketOpcode::Create as u64);
+
+    codec.encode_string(name);
+    codec.encode_string(description);
+    codec.encode_varuint(max_members);
 
     codec
 }

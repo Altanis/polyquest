@@ -118,8 +118,7 @@ pub enum EntityConstruction {
         ai: Option<AI>,
         projectile_type: EntityType,
         bound_to_walls: bool
-    },
-    TankConstruction
+    }
 }
 
 impl Entity {
@@ -237,8 +236,7 @@ impl Entity {
                     } else if let Some(owner) = state.entities.get(&owners.deep) {
                         owner.borrow_mut().display.owned_entities.push(id);
                     }
-                },
-                EntityConstruction::TankConstruction => {}
+                }
             }
         }
     }
@@ -401,7 +399,7 @@ impl Entity {
             mut ai,
             projectile_type,
             bound_to_walls
-        } = construction else { panic!("impossibility"); };
+        } = construction;
 
         if let Some(ref mut ai) = ai {
             ai.ownership = Ownership::new(id, owners.deep);

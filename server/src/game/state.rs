@@ -3,7 +3,7 @@ use shared::{game::{entity::EntityType, orb::*}, rand, utils::{consts::ARENA_SIZ
 use rand::Rng;
 use crate::game::entity::base::AliveState;
 
-use super::{collision::{collision::detect_collision, shg::SpatialHashGrid}, entity::base::{DisplayComponent, Entity, PhysicsComponent, StatsComponent}};
+use super::{physics::{collision::detect_collision, shg::SpatialHashGrid}, entity::base::{DisplayComponent, Entity, PhysicsComponent, StatsComponent}};
 
 pub type EntityDataStructure = HashMap<u32, RefCell<Entity>>;
 

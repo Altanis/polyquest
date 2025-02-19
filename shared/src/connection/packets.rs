@@ -6,7 +6,8 @@ pub enum ServerboundPackets {
     Stats    = 0x2,
     Upgrade  = 0x3,
     Ping     = 0x4,
-    Chat     = 0x5
+    Chat     = 0x5,
+    Clan     = 0x6
 }
 
 #[derive(Debug, Clone, num_enum::TryFromPrimitive)]
@@ -16,6 +17,16 @@ pub enum ClientboundPackets {
     Notifications  = 0x1,
     Pong           = 0x2,
     ServerInfo     = 0x3
+}
+
+#[derive(Debug, Clone, PartialEq, num_enum::TryFromPrimitive)]
+#[repr(u64)]
+pub enum ClanPacketOpcode {
+    Create    = 0x0,
+    Join      = 0x1,
+    Leave     = 0x2,
+    Kick      = 0x3,
+    Distress  = 0x4
 }
 
 #[derive(Debug, Clone, Copy, strum_macros::EnumIter)]

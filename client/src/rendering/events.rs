@@ -7,7 +7,7 @@ use crate::{connection::packets, world::World};
 
 use self::packets::form_stats_packet;
 
-use super::{phases::GamePhase, renderer::Modals};
+use super::{phases::GamePhase, renderer::ModalType};
 #[derive(Debug)]
 
 pub enum EventType {
@@ -214,9 +214,9 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
                 if child.get_identity() == ElementType::Modal {
                     if let Some(modal_idx) = world.renderer.modals.iter().position(|modal| {
                         match child.get_id().as_str() {
-                            s if s.contains("settings") => matches!(modal, Modals::SettingsModal(_)),
-                            s if s.contains("clans") => matches!(modal, Modals::ClanModal(_)),
-                            s if s.contains("clan-create") => matches!(modal, Modals::ClanCreateModal(_)),
+                            s if s.contains("settings") => matches!(modal, ModalType::Settings(_)),
+                            s if s.contains("clans") => matches!(modal, ModalType::Clans(_)),
+                            s if s.contains("clan-create") => matches!(modal, ModalType::ClanCreate(_)),
                             _ => false,
                         }
                     }) {

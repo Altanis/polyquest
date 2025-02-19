@@ -2,7 +2,7 @@
 #![feature(let_chains)]
 #![feature(generic_arg_infer)]
 
-use game::{collision::shg::SpatialHashGrid, state::GameState};
+use game::{physics::shg::SpatialHashGrid, state::GameState};
 use server::{Server, CELL_SIZE};
 
 mod server;

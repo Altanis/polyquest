@@ -1,7 +1,7 @@
-use shared::{connection::packets::{CensusProperties, Inputs}, game::{body::BodyIdentity, entity::{get_min_score_from_level, EntityType, Ownership, UpgradeStats, BASE_TANK_RADIUS, FICTITIOUS_TANK_RADIUS}, turret::{TurretIdentityIds, TurretStructure}}, rand, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION, MAX_LEVEL, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
+use shared::{connection::packets::{CensusProperties, Inputs}, game::{body::BodyIdentity, entity::{get_min_score_from_level, EntityType, Ownership, UpgradeStats, BASE_TANK_RADIUS, FICTITIOUS_TANK_RADIUS}, turret::{TurretIdentityIds, TurretStructure}}, rand, utils::{codec::BinaryCodec, consts::{MAX_LEVEL, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 use rand::Rng;
-use crate::{connection::packets, game::{collision::shg::SpatialHashGrid, state::EntityDataStructure}, server::{MESSAGE_EXPIRY, SPAWN_INVINCIBILITY_TIME}};
+use crate::{connection::packets, game::{physics::shg::SpatialHashGrid, state::EntityDataStructure}, server::{MESSAGE_EXPIRY, SPAWN_INVINCIBILITY_TIME}};
 
 use super::{ai::AI, base::{AliveState, Entity, EntityConstruction}};
 

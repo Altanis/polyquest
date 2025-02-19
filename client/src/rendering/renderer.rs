@@ -3,8 +3,8 @@ use std::{collections::VecDeque};
 use gloo::console::{self, console};
 use gloo_utils::{document, window};
 use shared::{fuzzy_compare, game::theme::OUTBOUNDS_FILL, lerp, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
-use ui::{canvas2d::{Canvas2d, Transform}, core::{ElementType, Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, get_element_by_id_and_cast, gl::webgl::WebGl, translate};
-use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, HtmlDivElement, Performance};
+use ui::{canvas2d::{Canvas2d, Transform}, core::{ElementType, Events, HoverEffects, UiElement}, elements::{body::Body, button::Button, label::{Label, TextEffects}}, get_element_by_id_and_cast, gl::webgl::WebGl, storage_get, translate};
+use web_sys::{wasm_bindgen::{prelude::Closure, JsCast}, HtmlDivElement, HtmlInputElement, Performance};
 
 use crate::{connection::socket::ConnectionState, world::{self, get_world, World}, SHADERS_ENABLED};
 
@@ -19,10 +19,10 @@ pub struct TimeInformation {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Modals {
-    SettingsModal(usize),
-    ClanModal(usize),
-    ClanCreateModal(usize)
+pub enum ModalType {
+    Settings(usize),
+    Clans(usize),
+    ClanCreate(usize)
 }
 
 pub struct Renderer {
@@ -35,7 +35,7 @@ pub struct Renderer {
     pub body: Body,
     pub backdrop_opacity: Interpolatable<f32>,
     pub fps_counter: Label,
-    pub modals: Vec<Modals>,
+    pub modals: Vec<ModalType>,
 
     pub phase_switch: Option<GamePhase>,
     phase_switch_radius: Interpolatable<f32>
@@ -71,9 +71,14 @@ impl Renderer {
     }
 
     pub fn change_phase(&mut self, phase: GamePhase) {
-        if phase == GamePhase::Death {
-            self.phase = phase;
-            return;
+        match phase {
+            GamePhase::Death => { self.phase = phase; return; },
+            GamePhase::Home(_) => {
+                console!(storage_get!("last_name").unwrap_or_default());
+                let input = get_element_by_id_and_cast!("text_input", HtmlInputElement);
+                input.set_value(&storage_get!("last_name").unwrap_or_default());
+            },
+            _ => {}
         }
 
         if !self.phase.same_phase(&phase) {

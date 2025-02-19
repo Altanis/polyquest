@@ -1,4 +1,4 @@
-use shared::{connection::packets::ClientboundPackets, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{get_min_score_from_level, InputFlags, Notification, MAX_STAT_INVESTMENT}, turret::{TurretIdentityIds, TurretStructure}}, utils::{codec::BinaryCodec, color::Color, consts::{SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
+use shared::{connection::packets::{ClanPacketOpcode, ClientboundPackets}, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{get_min_score_from_level, InputFlags, Notification, MAX_STAT_INVESTMENT}, turret::{TurretIdentityIds, TurretStructure}}, utils::{codec::BinaryCodec, color::Color, consts::{CLAN_DESC_LENGTH, CLAN_MAX_PLAYERS, CLAN_NAME_LENGTH, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use crate::{game::{entity::base::{AliveState, Entity}, state::{EntityDataStructure, GameState}}, server::{ServerGuard, LEADER_ARROW_VIEW}};
 
 pub fn handle_spawn_packet(
@@ -161,6 +161,35 @@ pub fn handle_chat_packet(
             entity.display.typing = false;
         },
         _ => return Err(true)
+    }
+
+    Ok(())
+}
+
+pub fn handle_clan_packet(
+    full_server: &mut ServerGuard,
+    id: u32,
+    mut codec: BinaryCodec
+) -> Result<(), bool> {
+    let game_server = full_server.game_server.get_server();
+    let Some(mut entity) = game_server.get_entity(id) else { return Ok(()); };
+
+    let packet_type: ClanPacketOpcode = codec.decode_varuint().ok_or(true)?.try_into().map_err(|_| true)?;
+    
+    match packet_type {
+        ClanPacketOpcode::Create => {
+            let (name, description, max_players) = {
+                let mut name = codec.decode_string().ok_or(true)?;
+                let mut description = codec.decode_string().ok_or(true)?;
+                let max_players = (codec.decode_varuint().ok_or(true)? as usize).min(CLAN_MAX_PLAYERS);
+
+                name.truncate(CLAN_NAME_LENGTH as usize);
+                description.truncate(CLAN_DESC_LENGTH as usize);
+
+                (name, description, max_players)
+            };
+       },
+        _ => return Ok(())
     }
 
     Ok(())

@@ -1,4 +1,4 @@
-use std::{fmt::Debug, num::NonZeroU32};
+use std::fmt::Debug;
 
 use derive_new::new as New;
 use strum::IntoEnumIterator;

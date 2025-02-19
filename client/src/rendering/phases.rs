@@ -8,12 +8,12 @@ use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, Ele
 use rand::Rng;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement, MouseEvent};
-use crate::{connection::{packets, socket::ConnectionState}, game::entity::base::{Entity, HealthState}, storage_get, storage_set, world::{get_world, World}};
+use crate::{connection::{packets::{self, form_clan_packet_create}, socket::ConnectionState}, game::entity::base::{Entity, HealthState}, storage_get, storage_set, world::{get_world, World}};
 use shared::game::theme::{BAR_BACKGROUND, GRID_ALPHA, GRID_COLOR, GRID_SIZE, INBOUNDS_FILL, LEVEL_BAR_FOREGROUND, OUTBOUNDS_FILL, SCORE_BAR_FOREGROUND, UPGRADE_STAT_COLORS};
 
 use self::packets::{form_input_packet, form_ping_packet, form_stats_packet, form_upgrade_packet};
 
-use super::renderer::Modals;
+use super::renderer::ModalType;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum GamePhase {
@@ -30,6 +30,9 @@ impl Default for GamePhase {
         if !lore_played {
             GamePhase::Lore(0)
         } else {
+            let input = get_element_by_id_and_cast!("text_input", HtmlInputElement);
+            input.set_value(&storage_get!("last_name").unwrap_or_default());
+
             GamePhase::Home(Box::default())
         }
     }
@@ -238,7 +241,7 @@ impl GamePhase {
                 Color::GRAY, "{icon}\u{f013}",
                 Box::new(|_| {
                     spawn_local(async {
-                        get_world().renderer.modals.push(Modals::SettingsModal(0));
+                        get_world().renderer.modals.push(ModalType::Settings(0));
                     });
                 })
             ),
@@ -283,7 +286,7 @@ impl GamePhase {
 
         elements.push(Box::new(title));
 
-        if let Some(Modals::SettingsModal(count)) = world.renderer.modals.iter_mut().find(|x| matches!(x, Modals::SettingsModal(_))) {
+        if let Some(ModalType::Settings(count)) = world.renderer.modals.iter_mut().find(|x| matches!(x, ModalType::Settings(_))) {
             let mut children: Vec<Box<dyn UiElement>> = vec![
                 Box::new(Label::new()
                     .with_id("settings")
@@ -351,7 +354,7 @@ impl GamePhase {
                 .with_close_button(Box::new(|_| {
                     spawn_local(async {
                         get_world().renderer.modals
-                            .retain(|&e| !matches!(e, Modals::SettingsModal(_)));
+                            .retain(|&e| !matches!(e, ModalType::Settings(_)));
                     });
                 }));
                         
@@ -911,7 +914,7 @@ impl GamePhase {
                     Color::SOFT_GREEN, "{icon}\u{f015}",
                     Box::new(|_| {
                         spawn_local(async {
-                            get_world().renderer.modals.push(Modals::ClanModal(0));
+                            get_world().renderer.modals.push(ModalType::Clans(0));
                         });
                     })
                 )
@@ -948,7 +951,7 @@ impl GamePhase {
                 elements.push(Box::new(button));
             }
 
-            if let Some(Modals::ClanModal(count)) = world.renderer.modals.iter_mut().find(|x| matches!(x, Modals::ClanModal(_))) {
+            if let Some(ModalType::Clans(count)) = world.renderer.modals.iter_mut().find(|x| matches!(x, ModalType::Clans(_))) {
                 let modal_dimensions = Vector2D::new((1000.0 / 1920.0) * dimensions.x, (750.0 / 1080.0) * dimensions.y);
 
                 let mut children: Vec<Box<dyn UiElement>> = vec![
@@ -974,7 +977,7 @@ impl GamePhase {
                                 ])
                                 .with_on_click(Box::new(|_| {
                                     spawn_local(async {
-                                        get_world().renderer.modals.push(Modals::ClanCreateModal(0));
+                                        get_world().renderer.modals.push(ModalType::ClanCreate(0));
                                     });
                                 }))
                             )
@@ -1111,7 +1114,7 @@ impl GamePhase {
                     .with_close_button(Box::new(|_| {
                         spawn_local(async {
                             get_world().renderer.modals
-                                .retain(|&e| !matches!(e, Modals::ClanModal(_)));
+                                .retain(|&e| !matches!(e, ModalType::Clans(_)));
                         });
                     }));
                 
@@ -1119,12 +1122,12 @@ impl GamePhase {
                 *count += 1;
             }
 
-            if let Some(Modals::ClanCreateModal(count)) = world.renderer.modals.iter_mut().find(|x| matches!(x, Modals::ClanCreateModal(_))) {
+            if let Some(ModalType::ClanCreate(count)) = world.renderer.modals.iter_mut().find(|x| matches!(x, ModalType::ClanCreate(_))) {
                 let modal_dimensions = Vector2D::new(500.0, 500.0);
                 let inputs = [
-                    ("Clan Name", 375.0, CLAN_NAME_LENGTH), 
-                    ("Clan Description", 375.0, CLAN_DESC_LENGTH), 
-                    ("Maximum Members", 50.0, 2)
+                    ("Clan Name", 375.0, CLAN_NAME_LENGTH, false), 
+                    ("Clan Description", 375.0, CLAN_DESC_LENGTH, false), 
+                    ("Maximum Members", 50.0, 2, true)
                 ];
 
                 let mut children: Vec<Box<dyn UiElement>> = vec![
@@ -1141,6 +1144,20 @@ impl GamePhase {
                                 ])
                                 .with_on_click(Box::new(|_| {
                                     spawn_local(async {
+                                        let name = get_element_by_id_and_cast!("clan_create_input_0", HtmlInputElement).value();
+                                        let description = get_element_by_id_and_cast!("clan_create_input_1", HtmlInputElement).value();
+                                        let max_members = get_element_by_id_and_cast!("clan_create_input_2", HtmlInputElement).value()
+                                            .parse::<u64>()
+                                            .unwrap_or(0);
+
+                                        if name.is_empty() || description.is_empty() || max_members == 0 {
+                                            return;
+                                        }
+
+                                        let mut world = get_world();
+
+                                        world.connection.send_message(form_clan_packet_create(name, description, max_members), ServerboundPackets::Clan);
+                                        world.renderer.modals.retain(|&e| !matches!(e, ModalType::ClanCreate(_)));
                                     });
                                 }))
                             )
@@ -1169,7 +1186,7 @@ impl GamePhase {
 
                 let start_y = (modal_dimensions.y - total_entries_height - 70.0) / 2.0;
 
-                for (i, (input_text, input_width, max_length)) in inputs.into_iter().enumerate() {
+                for (i, (input_text, input_width, max_length, numeric_only)) in inputs.into_iter().enumerate() {
                     let entry_y = start_y + i as f32 * (entry_height + outer_spacing);
 
                     let field_name_pos = Vector2D::new(30.0, entry_y);
@@ -1187,17 +1204,30 @@ impl GamePhase {
                             .with_align("left")
                     ));
 
-                    children.push(Box::new(
-                        Input::new()
-                            .with_id(&format!("clan_create_input_{}", i))
-                            .with_fill(Color::WHITE)
-                            .with_font((32, Color::BLACK))
-                            .with_stroke((5.0, Color::BLACK))
-                            .with_events(Events::default().with_hoverable(false))
-                            .with_transform(translate!(field_value_pos.x, field_value_pos.y))
-                            .with_dimensions(Vector2D::new(input_width, input_height))
-                            .with_max_length(max_length)
-                    ));
+                    let mut input = Input::new()
+                        .with_id(&format!("clan_create_input_{}", i))
+                        .with_fill(Color::WHITE)
+                        .with_font((32, Color::BLACK))
+                        .with_stroke((5.0, Color::BLACK))
+                        .with_events(Events::default().with_hoverable(false))
+                        .with_transform(translate!(field_value_pos.x, field_value_pos.y))
+                        .with_dimensions(Vector2D::new(input_width, input_height))
+                        .with_max_length(max_length);
+                    
+                    if numeric_only {
+                        input = input
+                            .with_validator(|input| {
+                                for c in input.chars() {
+                                    if !c.is_numeric() {
+                                        return false;
+                                    }
+                                }
+
+                                true
+                            });
+                    }
+
+                    children.push(Box::new(input));
                 }
 
                 let mut modal = Modal::new(*count == 0) 
@@ -1209,7 +1239,7 @@ impl GamePhase {
                     .with_close_button(Box::new(|_| {
                         spawn_local(async {
                             get_world().renderer.modals
-                                .retain(|&e| !matches!(e, Modals::ClanCreateModal(_)));
+                                .retain(|&e| !matches!(e, ModalType::ClanCreate(_)));
                         });
                     }))
                     .with_z_index(1000);

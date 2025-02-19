@@ -1,4 +1,4 @@
-use shared::{connection::packets::CensusProperties, game::orb::OrbIdentityIds, normalize_angle, rand, utils::{codec::BinaryCodec, consts::{ARENA_SIZE, FRICTION}, vec2::Vector2D}};
+use shared::{connection::packets::CensusProperties, game::orb::OrbIdentityIds, normalize_angle, rand, utils::{codec::BinaryCodec, consts::ARENA_SIZE, vec2::Vector2D}};
 use rand::Rng;
 use strum::IntoEnumIterator;
 
@@ -6,7 +6,7 @@ use crate::game::state::EntityDataStructure;
 use super::base::{AliveState, Entity, EntityConstruction};
 
 impl Entity {
-    pub fn tick_orb(&mut self, entities: &EntityDataStructure) -> Vec<EntityConstruction> {
+    pub fn tick_orb(&mut self, _: &EntityDataStructure) -> Vec<EntityConstruction> {
         let constructions = vec![];
 
         self.base_tick();
