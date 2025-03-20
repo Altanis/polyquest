@@ -1,0 +1,1 @@
+nodemon --watch server --exec "./server_helper.sh"

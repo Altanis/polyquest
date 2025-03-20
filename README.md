@@ -9,7 +9,7 @@ this project will likely go unmaintained for a few months due to a loss of motiv
 
 ## how to run
 
-first install [cargo is installed](https://doc.rust-lang.org/cargo/getting-started/installation.html), [wasmpack is installed](https://rustwasm.github.io/wasm-pack/installer/), and [https://www.npmjs.com/package/serve](serve).
+first ensure [cargo is installed](https://doc.rust-lang.org/cargo/getting-started/installation.html), [wasmpack is installed](https://rustwasm.github.io/wasm-pack/installer/), and [serve is installed](https://www.npmjs.com/package/serve).
 
 running this game is quite simple. run `./client_prod.sh` and `./server.sh`, then connect to `http://localhost:{port}`, where `{port}` is whatever the output of ./client.sh tells you the client is running on.
 
