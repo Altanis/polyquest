@@ -10,7 +10,7 @@ use super::packets::{handle_notification_packet, handle_server_info_packet, hand
 
 const IS_PROD: bool = false;
 const URL: &str = if IS_PROD {
-    "ws://108.29.192.90:8080/ws"
+    "wss://polyfight.io/polyquest"
 } else {
     "ws://127.0.0.1:8080/ws"
 };
