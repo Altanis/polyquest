@@ -28,6 +28,7 @@ impl SoundHolder {
 
         for (_, sound) in self.sounds.iter_mut() {
             let soundtrack = sound.r#loop;
+
             if sound.is_playing() {
                 sound.disable((soundtrack_disabled && soundtrack) || (sfx_disabled && !soundtrack));
             }
@@ -70,9 +71,12 @@ impl Sound {
             let soundtrack_disabled = !bool!(storage_get!("soundtrack").unwrap_or("1".to_string()).as_str());
             let sfx_disabled = !bool!(storage_get!("sfx").unwrap_or("1".to_string()).as_str());
 
-
             let disabled = (soundtrack_disabled && r#loop) || (sfx_disabled && !r#loop);
             let _ = file.dataset().set("disabled", if disabled { "1" } else { "0" });
+
+            if r#loop {
+                file.set_volume(0.0);
+            }
 
             body().append_child(&file).expect("couldnt add audio");
             file

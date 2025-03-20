@@ -28,7 +28,8 @@ impl Default for GamePhase {
         let lore_played = bool!(storage_get!("lore_done").unwrap_or("0".to_string()).as_str());
 
         if !lore_played {
-            GamePhase::Lore(0)
+            // GamePhase::Lore(0)
+            GamePhase::Home(Box::default())
         } else {
             let input = get_element_by_id_and_cast!("text_input", HtmlInputElement);
             input.set_value(&storage_get!("last_name").unwrap_or_default());
