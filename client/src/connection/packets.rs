@@ -2,7 +2,7 @@ use std::fmt::Binary;
 
 use gloo::console::console;
 use gloo_utils::window;
-use shared::{connection::packets::{ClanPacketOpcode, ServerboundPackets}, game::{body::BodyIdentityIds, entity::{InputFlags, Notification}, turret::TurretIdentityIds}, normalize_angle, utils::{codec::BinaryCodec, color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
+use shared::{connection::packets::{ClanPacketOpcode, ServerboundPackets}, game::{body::BodyIdentityIds, entity::{ClanInformation, InputFlags, Notification}, turret::TurretIdentityIds}, normalize_angle, utils::{codec::BinaryCodec, color::Color, consts::ARENA_SIZE, vec2::Vector2D}};
 
 use crate::{game::entity::base::{Entity, HealthState}, storage_set, world::{get_world, World}};
 
@@ -84,6 +84,16 @@ pub fn form_clan_packet_create(name: String, description: String, max_members: u
     codec
 }
 
+pub fn form_clan_packet_join(id: u32) -> BinaryCodec {
+    let mut codec = BinaryCodec::new();
+    codec.encode_varuint(ServerboundPackets::Clan as u64);
+    codec.encode_varuint(ClanPacketOpcode::Join as u64);
+
+    codec.encode_varuint(id as u64);
+
+    codec
+}
+
 pub fn handle_update_packet(
     world: &mut World,
     mut codec: BinaryCodec
@@ -91,6 +101,49 @@ pub fn handle_update_packet(
     // parse world information later
     world.game.arena_size = ARENA_SIZE;
 
+    // CLANS //
+    let mut clans: Vec<ClanInformation> = Vec::with_capacity(codec.decode_varuint().unwrap() as usize);
+    for _ in 0..clans.capacity() {
+        let mut clan = ClanInformation {
+            id: codec.decode_varuint().unwrap() as u32,
+            owner: codec.decode_varuint().unwrap() as u32,
+            name: codec.decode_string().unwrap(),
+            description: codec.decode_string().unwrap(),
+            max_members: codec.decode_varuint().unwrap() as usize,
+            members: Vec::with_capacity(codec.decode_varuint().unwrap() as usize),
+            pending_members: Vec::with_capacity(codec.decode_varuint().unwrap() as usize)
+        };
+        
+        let old_clan = world.game.clan_state.clans.get(clan.id as usize);
+
+        for _ in 0..clan.members.capacity() {
+            let id = codec.decode_varuint().unwrap() as u32;
+            clan.members.push(id);
+        }
+
+        for _ in 0..clan.pending_members.capacity() {
+            let id = codec.decode_varuint().unwrap() as u32;
+            clan.pending_members.push(id);
+
+            if let Some(old_clan) = old_clan && world.game.self_entity.id == clan.owner && !old_clan.pending_members.contains(&id) {
+                console!("KILL?!".to_string());
+                world.game.self_entity.display.notifications.push(Notification {
+                    message: "A player wants to join your clan.".to_string(),
+                    color: Color::ORANGE,
+                    lifetime: 150,
+                    ..Default::default()
+                });
+
+                world.game.self_entity.display.clan_ping = true;
+            }
+        }
+
+        clans.push(clan);
+    }
+
+    world.game.clan_state.clans = clans;
+
+    // ENTITIES //
     Entity::parse_census(world, &mut codec, true);
 
     let entities = codec.decode_varuint().unwrap();

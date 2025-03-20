@@ -29,39 +29,15 @@ impl BinaryCodec {
         }
     }
 
-    pub fn encode_varint(&mut self, mut v: i64) {
-        loop {
-            let mut byte = (v & 0b01111111) as u8;
-            v >>= 7;
-
-            if v != 0 {
-                byte |= 0b10000000;
-            }
-
-            self.data.push(byte);
-            self.index += 1;
-            
-            if v == 0 {
-                break;
-            }
-        }
+    pub fn encode_varint(&mut self, v: i64) {
+        let zigzag = ((v << 1) ^ (v >> 63)) as u64;
+        self.encode_varuint(zigzag);
     }
 
     pub fn decode_varint(&mut self) -> Option<i64> {
-        let mut result = 0;
-        let mut shift = 0;
-
-        loop {
-            let byte = self.data.get(self.index)?;
-            self.index += 1;
-            result |= ((byte & 0b01111111) as i64) << shift;
-            shift += 7;
-            if byte & 0b10000000 == 0 {
-                break;
-            }
-        }
-
-        Some(result)
+        let zigzag = self.decode_varuint()?;
+        let value = ((zigzag >> 1) as i64) ^ -((zigzag & 1) as i64);
+        Some(value)
     }
 
     pub fn encode_varuint(&mut self, mut v: u64) {

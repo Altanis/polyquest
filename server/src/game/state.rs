@@ -1,9 +1,9 @@
 use std::{cell::{RefCell, RefMut}, collections::HashMap};
-use shared::{game::{entity::EntityType, orb::*}, rand, utils::{consts::ARENA_SIZE, vec2::Vector2D}};
+use shared::{game::{entity::{ClanInformation, EntityType}, orb::*}, rand, utils::{consts::ARENA_SIZE, vec2::Vector2D}};
 use rand::Rng;
 use crate::game::entity::base::AliveState;
 
-use super::{physics::{collision::detect_collision, shg::SpatialHashGrid}, entity::base::{DisplayComponent, Entity, PhysicsComponent, StatsComponent}};
+use super::{clans::ClanState, entity::base::{DisplayComponent, Entity, PhysicsComponent, StatsComponent}, physics::{collision::detect_collision, shg::SpatialHashGrid}};
 
 pub type EntityDataStructure = HashMap<u32, RefCell<Entity>>;
 
@@ -34,6 +34,7 @@ impl GameServer {
 pub struct GameState {
     pub entities: EntityDataStructure,
     pub shg: SpatialHashGrid,
+    pub clan_state: ClanState,
     pub counter: u32,
     pub mspt: f32,
     pub desired_orb_count: usize
@@ -189,10 +190,12 @@ impl GameState {
     }
 
     pub fn tick(&mut self) {
-        let ids: Vec<_> = self.entities.keys().copied().collect();
-
         let mspt = std::time::Instant::now();
         let mut current_orb_count = 0;
+
+        self.clan_state.tick(&self.entities);
+
+        let ids: Vec<_> = self.entities.keys().copied().collect();
 
         for id in ids {
             Entity::tick(self, id);

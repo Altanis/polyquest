@@ -175,7 +175,11 @@ pub struct TankUpgrades {
 
 #[derive(Debug, Default, Clone)]
 pub struct ClanInformation {
+    pub id: u32,
+    pub owner: u32,
     pub name: String,
     pub description: String,
-    pub members: usize
+    pub members: Vec<u32>,
+    pub pending_members: Vec<u32>,
+    pub max_members: usize
 }

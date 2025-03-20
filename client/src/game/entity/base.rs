@@ -84,6 +84,10 @@ pub struct DisplayComponent {
     pub typing: bool,
     pub messages: Vec<(String, Interpolatable<Vector2D>, Interpolatable<f32>)>,
 
+    pub clan: Option<u32>,
+    pub pending_clan_id: Option<u32>,
+    pub clan_ping: bool,
+
     pub z_index: isize
 }
 
@@ -197,8 +201,8 @@ impl Entity {
                         if entity.time.server_ticks == 0 || entity.time.server_ticks == 1 {
                             turret_idx = Some(entity.display.turret_index);
     
-                            if is_friendly {
-                                world.game.self_entity.display.turret_lengths[turret_idx.unwrap()].target = 0.75;
+                            if is_friendly && let Some(turret) = world.game.self_entity.display.turret_lengths.get_mut(turret_idx.unwrap()) {
+                                turret.target = 0.75;
                             } else {
                                 shooter = Some(entity.display.owners.deep);
                             }

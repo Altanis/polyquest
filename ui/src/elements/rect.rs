@@ -166,7 +166,7 @@ impl UiElement for Rect {
     }
 
     fn has_animation_state(&self) -> bool {
-        false
+        self.children.iter().any(|e| e.has_animation_state())
     }
 }
 

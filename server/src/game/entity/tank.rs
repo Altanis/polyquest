@@ -1,12 +1,12 @@
 use shared::{connection::packets::{CensusProperties, Inputs}, game::{body::BodyIdentity, entity::{get_min_score_from_level, EntityType, Ownership, UpgradeStats, BASE_TANK_RADIUS, FICTITIOUS_TANK_RADIUS}, turret::{TurretIdentityIds, TurretStructure}}, rand, utils::{codec::BinaryCodec, consts::{MAX_LEVEL, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
 use strum::{EnumCount, IntoEnumIterator};
 use rand::Rng;
-use crate::{connection::packets, game::{physics::shg::SpatialHashGrid, state::EntityDataStructure}, server::{MESSAGE_EXPIRY, SPAWN_INVINCIBILITY_TIME}};
+use crate::{connection::packets, game::{clans::ClanState, physics::shg::SpatialHashGrid, state::EntityDataStructure}, server::{MESSAGE_EXPIRY, SPAWN_INVINCIBILITY_TIME, SWITCH_TIME_THRESHOLD}};
 
 use super::{ai::AI, base::{AliveState, Entity, EntityConstruction}};
 
 impl Entity {
-    pub fn tick_tank(&mut self, entities: &EntityDataStructure, shg: &SpatialHashGrid) -> Vec<EntityConstruction> {
+    pub fn tick_tank(&mut self, entities: &EntityDataStructure, shg: &SpatialHashGrid, clans: &ClanState) -> Vec<EntityConstruction> {
         let mut constructions = vec![];
 
         self.base_tick();
@@ -46,6 +46,17 @@ impl Entity {
                         Inputs::Left => movement.x -= 1.0,
                         Inputs::Right => movement.x += 1.0,
                         Inputs::LevelUp => self.display.score = get_min_score_from_level(self.display.level + 1).max(self.display.score),
+                        Inputs::Switch => {
+                            if (self.time.ticks - self.time.last_switch_tick) > SWITCH_TIME_THRESHOLD {
+                                let new_id: TurretIdentityIds = ((self.display.turret_identity.id as usize % TurretIdentityIds::COUNT) + 1)
+                                    .try_into().unwrap();
+
+                                self.display.turret_identity = new_id.try_into().unwrap();
+                                self.time.last_switch_tick = self.time.ticks;
+
+                                self.display.upgrades.turret.clear();
+                            }
+                        },
                         _ => ()
                     }
                 }
@@ -66,7 +77,7 @@ impl Entity {
             self.physics.position = entity.physics.position;
         }
 
-        let update_packet = packets::form_update_packet(self, entities);
+        let update_packet = packets::form_update_packet(self, entities, clans);
         let notifications_packet = packets::form_notification_packet(self);
 
         self.connection.outgoing_packets.push(update_packet);
@@ -252,7 +263,7 @@ impl Entity {
         }
 
         if is_self {
-            codec.encode_varuint(16);
+            codec.encode_varuint(17);
             for property in CensusProperties::iter() {
                 codec.encode_varuint(property.clone() as u64);
     
@@ -304,11 +315,12 @@ impl Entity {
                             codec.encode_string(message.clone());
                         }
                     },
+                    CensusProperties::Clan => codec.encode_varint(self.display.clan_id.map(|n| n as i64).unwrap_or(-1)),
                     _ => codec.backspace(),
                 }
             }
         } else {
-            codec.encode_varuint(13);
+            codec.encode_varuint(14);
             for property in CensusProperties::iter() {
                 codec.encode_varuint(property.clone() as u64);
     
@@ -342,6 +354,7 @@ impl Entity {
                             codec.encode_string(message.clone());
                         }
                     },
+                    CensusProperties::Clan => codec.encode_varint(self.display.clan_id.map(|n| n as i64).unwrap_or(-1)),
                     _ => codec.backspace(),
                 }
             }

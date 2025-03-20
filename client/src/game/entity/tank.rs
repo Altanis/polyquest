@@ -54,7 +54,7 @@ impl Entity {
                     if health > 0.0 && old_state != HealthState::Alive {
                         if !self.stats.has_spawned {
                             self.stats.life_timestamps.0 = window().performance().unwrap().now();
-                            self.display.kills += 1;
+                            // self.display.kills += 1;
                         }
 
                         self.stats.health_state = HealthState::Alive;
@@ -142,7 +142,19 @@ impl Entity {
                             }
                         }
                     }
-                }
+                },
+                CensusProperties::Clan => {
+                    let n = codec.decode_varint().unwrap();
+                    if n >= 0 {
+                        if self.display.clan.is_none() {
+                            self.display.pending_clan_id = None;
+                        }
+
+                        self.display.clan = Some(n as u32);
+                    } else {
+                        self.display.clan = None;
+                    }
+                },
                 _ => {}
             }
         }

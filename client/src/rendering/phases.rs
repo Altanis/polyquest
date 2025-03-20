@@ -8,7 +8,7 @@ use ui::{canvas2d::{Canvas2d, ShapeType, Transform}, core::{DeletionEffects, Ele
 use rand::Rng;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{wasm_bindgen::JsCast, HtmlDivElement, HtmlInputElement, MouseEvent};
-use crate::{connection::{packets::{self, form_clan_packet_create}, socket::ConnectionState}, game::entity::base::{Entity, HealthState}, storage_get, storage_set, world::{get_world, World}};
+use crate::{connection::{packets::{self, form_clan_packet_create, form_clan_packet_join}, socket::ConnectionState}, game::entity::base::{Entity, HealthState}, storage_get, storage_set, world::{get_world, World}};
 use shared::game::theme::{BAR_BACKGROUND, GRID_ALPHA, GRID_COLOR, GRID_SIZE, INBOUNDS_FILL, LEVEL_BAR_FOREGROUND, OUTBOUNDS_FILL, SCORE_BAR_FOREGROUND, UPGRADE_STAT_COLORS};
 
 use self::packets::{form_input_packet, form_ping_packet, form_stats_packet, form_upgrade_packet};
@@ -911,7 +911,7 @@ impl GamePhase {
             let buttons: [(Vector2D, Color, &str, Box<OnClickScript>); 1] = [
                 (
                     Vector2D::ZERO,
-                    Color::SOFT_GREEN, "{icon}\u{f015}",
+                    if world.game.self_entity.display.clan_ping { Color::SOFT_YELLOW } else { Color::SOFT_GREEN }, "{icon}\u{f015}",
                     Box::new(|_| {
                         spawn_local(async {
                             get_world().renderer.modals.push(ModalType::Clans(0));
@@ -952,7 +952,11 @@ impl GamePhase {
             }
 
             if let Some(ModalType::Clans(count)) = world.renderer.modals.iter_mut().find(|x| matches!(x, ModalType::Clans(_))) {
-                let modal_dimensions = Vector2D::new((1000.0 / 1920.0) * dimensions.x, (750.0 / 1080.0) * dimensions.y);
+                let modal_dimensions = Vector2D::new((1500.0 / 1920.0) * dimensions.x, (1000.0 / 1080.0) * dimensions.y);
+                let tooltip_dimensions = Vector2D::new(360.0, 60.0);
+
+                let pending_clan = world.game.self_entity.display.pending_clan_id;
+                let current_clan = world.game.self_entity.display.clan;
 
                 let mut children: Vec<Box<dyn UiElement>> = vec![
                     Box::new(Label::new()
@@ -967,19 +971,50 @@ impl GamePhase {
                     Box::new(
                         Button::new()
                             .with_id("clan_create_button")
-                            .with_fill(Color::SOFT_GREEN)
+                            .with_fill(if pending_clan.is_some() || current_clan.is_some() { Color::GRAY } else { Color::SOFT_GREEN })
                             .with_dimensions(Vector2D::new(175.0, 175.0 / 2.5))
-                            .with_transform(translate!(modal_dimensions.x / 2.0, modal_dimensions.y - 100.0))
+                            .with_transform(translate!(modal_dimensions.x / 2.0, modal_dimensions.y - 125.0))
                             .with_events(Events::default()
-                                .with_hover_effects(vec![
+                                .with_hover_effects(if pending_clan.is_some() || current_clan.is_some() { vec![] } else { vec![
                                     HoverEffects::Inflation(1.1),
                                     HoverEffects::AdjustBrightness(0.0)
-                                ])
-                                .with_on_click(Box::new(|_| {
-                                    spawn_local(async {
+                                ]})
+                                .with_on_click(Box::new(move |_| {
+                                    spawn_local(async move {
+                                        if pending_clan.is_some() || current_clan.is_some() {
+                                            return;
+                                        }
+
                                         get_world().renderer.modals.push(ModalType::ClanCreate(0));
                                     });
                                 }))
+                                .with_hovering_elements(vec![
+                                    Box::new(
+                                        Rect::new()
+                                            .with_id("clan-create-button-tooltip")
+                                            .with_transform(translate!(
+                                                (modal_dimensions.x - tooltip_dimensions.x) / 2.0, modal_dimensions.y - 50.0 - tooltip_dimensions.y / 2.0
+                                            ))
+                                            .with_fill(Color::BLACK)
+                                            .with_stroke(5.0)
+                                            .with_roundness(5.0)
+                                            .with_dimensions(tooltip_dimensions)
+                                            .with_opacity(0.2)
+                                            .with_events(Events::default().with_deletion_effects(vec![DeletionEffects::Disappear]))
+                                            .with_children(vec![
+                                                Box::new(
+                                                    Label::new()
+                                                        .with_id("clan-create-button-tooltip-text")
+                                                        .with_text("You may only create one clan.".to_string())
+                                                        .with_transform(translate!(tooltip_dimensions.x / 2.0, tooltip_dimensions.y / 2.0 + 5.0))
+                                                        .with_fill(Color::WHITE)
+                                                        .with_font(18.0)
+                                                        .with_stroke(Color::BLACK)
+                                                        .with_events(Events::default().with_hoverable(false))
+                                            )
+                                        ])
+                                    )
+                                ])
                             )
                             .with_children(vec![Box::new(
                                 Label::new()
@@ -990,7 +1025,7 @@ impl GamePhase {
                                     .with_stroke(Color::BLACK)
                                     .with_transform(translate!(0.0, 10.0))
                                     .with_events(Events::default()
-                                        .with_hover_effects(vec![HoverEffects::Inflation(1.1)])
+                                        .with_hover_effects(if pending_clan.is_some() || current_clan.is_some() { vec![] } else { vec![HoverEffects::Inflation(1.1)] })
                                     )
                             )])
                     )
@@ -1019,7 +1054,10 @@ impl GamePhase {
                         children.push(Box::new(text));
                 } else {
                     for (i, clan) in world.game.clan_state.clans.iter().enumerate() {
-                        let (name, description, members) = (clan.name.clone(), clan.description.clone(), clan.members);
+                        let (name, description, max_members, members) = (clan.name.clone(), clan.description.clone(), clan.max_members, &clan.members);
+                        let self_in_clan = members.contains(&world.game.self_entity.id);
+                        let pending_clan = world.game.self_entity.display.pending_clan_id;
+                        let current_clan = world.game.self_entity.display.clan;
 
                         let position = Vector2D::new(
                             100.0 + (i / 3) as f32 * 400.0,
@@ -1029,7 +1067,7 @@ impl GamePhase {
                         let dimensions = Vector2D::new(350.0, 175.0);
 
                         let rect = Rect::new()
-                            .with_id(&format!("clan-{}-{}-{}", i, name, members))
+                            .with_id(&format!("clan-{}-{}-{}-{}", i, name, members.len(), clan.id))
                             .with_transform(translate!(position.x, position.y))
                             .with_dimensions(dimensions)
                             .with_fill(Color::MATERIAL_GRAY)
@@ -1039,7 +1077,7 @@ impl GamePhase {
                             .with_children(vec![
                                 Box::new(
                                     Label::new()
-                                        .with_id(&format!("clan-{}-{}-{}-name", i, name, members))
+                                        .with_id(&format!("clan-{}-{}-{}-name", i, name, members.len()))
                                         .with_text(name.clone())
                                         .with_fill(Color::WHITE)
                                         .with_font(20.0)
@@ -1050,8 +1088,8 @@ impl GamePhase {
                                 ),
                                 Box::new(
                                     Label::new()
-                                        .with_id(&format!("clan-{}-{}-{}-member-count", i, name, members))
-                                        .with_text(format!("{} member{}", members, if members == 1 { "" } else { "s" }))
+                                        .with_id(&format!("clan-{}-{}-{}-member-count", i, name, members.len()))
+                                        .with_text(format!("{}/{} member{}", members.len(), max_members, if max_members == 1 { "" } else { "s" }))
                                         .with_fill(Color::WHITE)
                                         .with_font(20.0)
                                         .with_stroke(Color::BLACK)
@@ -1061,7 +1099,7 @@ impl GamePhase {
                                 ),
                                 Box::new(
                                     Label::new()
-                                        .with_id(&format!("clan-{}-{}-{}-description", i, name, members))
+                                        .with_id(&format!("clan-{}-{}-{}-description", i, name, members.len()))
                                         .with_text(description)
                                         .with_fill(Color::WHITE)
                                         .with_font(20.0)
@@ -1071,25 +1109,45 @@ impl GamePhase {
                                 ),
                                 Box::new(
                                     Button::new()
-                                        .with_id(&format!("clan-{}-{}-{}-join", i, name, members))
-                                        .with_fill(Color::SOFT_GREEN)
+                                        .with_id(&format!("clan-{}-{}-{}-join-{}-{}", i, name, members.len(), self_in_clan as u8, clan.id))
+                                        .with_fill(if self_in_clan { 
+                                            Color::MATERIAL_YELLOW
+                                        } else if pending_clan == Some(clan.id) {
+                                            Color::ORANGE
+                                        } else if pending_clan.is_some() || current_clan.is_some() {
+                                            Color::GRAY
+                                        } else {
+                                            Color::SOFT_GREEN
+                                        })
                                         .with_dimensions(Vector2D::new(300.0, 50.0))
                                         .with_transform(translate!(dimensions.x / 2.0, 125.0))
                                         .with_events(Events::default()
-                                            .with_hover_effects(vec![
+                                            .with_hover_effects(if pending_clan.is_some() || current_clan.is_some() { vec![] } else { vec![
                                                 HoverEffects::Inflation(1.1),
                                                 HoverEffects::AdjustBrightness(0.0)
-                                            ])
-                                            .with_on_click(Box::new(|_| {
-                                                spawn_local(async {
+                                            ]})
+                                            .with_on_click(Box::new(move |button: Box<&dyn UiElement>| {
+                                                let id = button.get_id().split('-').last().unwrap().parse::<u32>().unwrap();
 
+                                                spawn_local(async move {
+                                                    let mut world = get_world();
+
+                                                    if self_in_clan {
+
+                                                    } else if pending_clan == Some(id) {
+
+                                                    } else if pending_clan.is_none() && current_clan.is_none() {
+                                                        console!("wow?".to_string());
+                                                        world.connection.send_message(form_clan_packet_join(id), ServerboundPackets::Clan);
+                                                        world.game.self_entity.display.pending_clan_id = Some(id);
+                                                    }
                                                 });
                                             }))
                                     )
                                     .with_children(vec![Box::new(
                                         Label::new()
-                                            .with_id(&format!("clan-{}-{}-{}-join-text", i, name, members))
-                                            .with_text("Join".to_string())
+                                            .with_id(&format!("clan-{}-{}-{}-join-text", i, name, members.len()))
+                                            .with_text((if self_in_clan { "View" } else if pending_clan == Some(clan.id) { "Pending.." } else { "Join" }).to_string())
                                             .with_fill(Color::WHITE)
                                             .with_font(20.0)
                                             .with_stroke(Color::BLACK)
@@ -1336,7 +1394,7 @@ impl GamePhase {
         let mut mouse = world.game.self_entity.physics.mouse + (world.renderer.canvas2d.get_dimensions() * (1.0 / 2.0));
         let inverse_transform = world.renderer.canvas2d.get_transform().get_inverse();
         inverse_transform.transform_point(&mut mouse);
-
+        
         world.connection.send_message(form_input_packet(
             world.game.self_entity.physics.inputs, 
             mouse

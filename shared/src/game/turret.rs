@@ -137,28 +137,28 @@ pub struct TurretStructure {
 }
 
 into_structure! {
-    #[derive(Debug, Default, Clone, Copy, PartialEq, num_enum::TryFromPrimitive)]
+    #[derive(Debug, Default, Clone, Copy, PartialEq, num_enum::TryFromPrimitive, strum_macros::EnumCount)]
     #[repr(usize)]
     pub enum TurretIdentityIds {
         #[default]
-        Base          = 0,
-        Mono          = 1,
-        Spawner       = 2,
-        Warden        = 3,
-        Couplet       = 4,
-        Flurry        = 5,
-        Flank         = 6,
-        Sniper        = 7,
-        Pounder       = 8,
-        Thruster      = 9,
-        Triplet       = 10,
-        PentaShot     = 11,
-        SpreadShot    = 12,
-        HexaShot      = 13,
-        OctoShot      = 14,
-        // Cyclone    = 15, implement after gunner is impled
-        CoupletFlank  = 16,
-        TripleCouplet = 17,
+        Base          = 1,
+        Mono          = 2,
+        Spawner       = 3,
+        Warden        = 4,
+        Couplet       = 5,
+        Flurry        = 6,
+        Flank         = 7,
+        Sniper        = 8,
+        Pounder       = 9,
+        Thruster      = 10,
+        Triplet       = 11,
+        PentaShot     = 12,
+        SpreadShot    = 13,
+        HexaShot      = 14,
+        OctoShot      = 15,
+        Cyclone       = 16,
+        CoupletFlank  = 17,
+        TripleCouplet = 18,
         Gunner        = 19,
         GunnerTrap    = 20,
         Equalizer     = 21,
@@ -1501,7 +1501,7 @@ pub fn get_turret_hexa_shot_identity() -> TurretStructure {
             }
         ],
         level_requirement: 30,
-        upgrades: vec![TurretIdentityIds::OctoShot, TurretIdentityIds::HexaTrapper],
+        upgrades: vec![TurretIdentityIds::OctoShot, TurretIdentityIds::Cyclone, TurretIdentityIds::HexaTrapper],
         description: "Six evenly spaced out barrels.",
         upgrade_message: "",
         fov: 1.0,
@@ -1741,6 +1741,49 @@ pub fn get_turret_octo_shot_identity() -> TurretStructure {
         level_requirement: 45,
         upgrades: vec![],
         description: "Eight evenly spaced out barrels.",
+        upgrade_message: "",
+        fov: 1.0,
+        invisibility_rate: -1.0
+    }
+}
+
+pub fn get_turret_cyclone_identity() -> TurretStructure {
+    TurretStructure {
+        id: TurretIdentityIds::Cyclone,
+        turrets: (0..12).map(|i| {
+            let angle = i as f32 * (2.0 * std::f32::consts::PI / 12.0);
+            TurretIdentity {
+                angle,
+                x_offset: 0.0, 
+                y_offset: 0.0, 
+                length: 45.0,  
+                width: 15.0,   
+                delay: if i % 2 == 0 { 0.0 } else { 0.5 },
+                reload: 1.0,
+                reload_time: 0.0,
+                cycle_position: 0.0,
+                recoil: 0.2,
+                force_shoot: false,
+                repel_to_shoot: false,
+                mouse_controllable: true,
+                rendering_hints: vec![],
+                max_projectiles: -1,
+                projectiles_spawned: -1,
+                projectile_identity: ProjectileIdentity {
+                    projectile_type: EntityType::Bullet,
+                    size_factor: 1.0,
+                    health: 0.45,
+                    damage: 0.5,
+                    speed: 1.1,
+                    scatter_rate: 1.0,
+                    lifetime: 1.0,
+                    absorption_factor: 1.0
+                },
+            }
+        }).collect(),
+        level_requirement: 45,
+        upgrades: vec![],
+        description: "Twelve evenly spaced out gunner barrels.",
         upgrade_message: "",
         fov: 1.0,
         invisibility_rate: -1.0

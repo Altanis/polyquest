@@ -1,3 +1,4 @@
+use gloo::console::console;
 use shared::{fuzzy_compare, lerp, lerp_angle, utils::{color::Color, interpolatable::Interpolatable, vec2::Vector2D}};
 use web_sys::MouseEvent;
 use crate::{canvas2d::{Canvas2d, Transform}, core::{BoundingRect, DeletionEffects, ElementType, Events, GenerateTranslationScript, HoverEffects, UiElement}, DEBUG};
@@ -262,7 +263,7 @@ impl UiElement for Button {
     }
 
     fn has_animation_state(&self) -> bool {
-        self.is_animating
+        self.is_animating || self.events.is_hovering
     }
 }
 

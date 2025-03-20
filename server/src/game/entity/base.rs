@@ -56,6 +56,8 @@ pub struct DisplayComponent {
     pub orb_identity: OrbIdentity,
     pub turret_idx: isize,
     pub owners: Option<Ownership>,
+    pub clan_id: Option<u32>,
+    pub pending_clan_id: Option<u32>,
     pub owned_entities: Vec<u32>,
     pub radius: f32,
 
@@ -67,7 +69,8 @@ pub struct DisplayComponent {
 pub struct TimeComponent {
     pub ticks: u64,
     pub spawn_tick: u64,
-    pub last_damage_tick: u64
+    pub last_damage_tick: u64,
+    pub last_switch_tick: u64
 }
 
 #[derive(Default, Clone, New)]
@@ -159,6 +162,8 @@ impl Entity {
                 orb_identity: get_orb_basic_identity(),
                 turret_idx: -1,
                 owners: None,
+                clan_id: None,
+                pending_clan_id: None,
                 owned_entities: vec![],
                 radius: BASE_TANK_RADIUS,
                 typing: false,
@@ -176,7 +181,8 @@ impl Entity {
             time: TimeComponent {
                 ticks: 0,
                 spawn_tick: 0,
-                last_damage_tick: 0
+                last_damage_tick: 0,
+                last_switch_tick: 0
             },
             connection: ConnectionComponent {
                 outgoing_packets: vec![]
@@ -201,7 +207,7 @@ impl Entity {
             entity.physics.collisions.clear();
 
             let constructions = match entity.display.entity_type {
-                EntityType::Player => entity.tick_tank(&state.entities, &state.shg),
+                EntityType::Player => entity.tick_tank(&state.entities, &state.shg, &state.clan_state),
                 EntityType::Bullet | EntityType::Drone | EntityType::Trap => entity.tick_projectile(&state.entities),
                 EntityType::Orb => entity.tick_orb(&state.entities)
             };
@@ -441,6 +447,8 @@ impl Entity {
                 orb_identity: get_orb_basic_identity(),
                 turret_idx,
                 owners: Some(owners),
+                clan_id: None,
+                pending_clan_id: None,
                 owned_entities: vec![],
                 radius,
                 typing: false,
@@ -458,7 +466,8 @@ impl Entity {
             time: TimeComponent {
                 ticks: 0,
                 spawn_tick: 0,
-                last_damage_tick: 0
+                last_damage_tick: 0,
+                last_switch_tick: 0
             },
             connection: ConnectionComponent {
                 outgoing_packets: vec![]

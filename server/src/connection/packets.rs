@@ -1,5 +1,5 @@
-use shared::{connection::packets::{ClanPacketOpcode, ClientboundPackets}, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{get_min_score_from_level, InputFlags, Notification, MAX_STAT_INVESTMENT}, turret::{TurretIdentityIds, TurretStructure}}, utils::{codec::BinaryCodec, color::Color, consts::{CLAN_DESC_LENGTH, CLAN_MAX_PLAYERS, CLAN_NAME_LENGTH, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
-use crate::{game::{entity::base::{AliveState, Entity}, state::{EntityDataStructure, GameState}}, server::{ServerGuard, LEADER_ARROW_VIEW}};
+use shared::{connection::packets::{ClanPacketOpcode, ClientboundPackets}, game::{body::{BodyIdentity, BodyIdentityIds}, entity::{get_min_score_from_level, ClanInformation, InputFlags, Notification, MAX_STAT_INVESTMENT}, turret::{TurretIdentityIds, TurretStructure}}, utils::{codec::BinaryCodec, color::Color, consts::{CLAN_DESC_LENGTH, CLAN_MAX_MEMBERS, CLAN_NAME_LENGTH, SCREEN_HEIGHT, SCREEN_WIDTH}, vec2::Vector2D}};
+use crate::{game::{clans::ClanState, entity::base::{AliveState, Entity}, state::{EntityDataStructure, GameState}}, server::{ServerGuard, LEADER_ARROW_VIEW}};
 
 pub fn handle_spawn_packet(
     full_server: &mut ServerGuard, 
@@ -172,22 +172,41 @@ pub fn handle_clan_packet(
     mut codec: BinaryCodec
 ) -> Result<(), bool> {
     let game_server = full_server.game_server.get_server();
-    let Some(mut entity) = game_server.get_entity(id) else { return Ok(()); };
+    let entity_id = {
+        let Some(entity) = game_server.get_entity(id) else { return Ok(()); };
+        entity.id
+    };
 
     let packet_type: ClanPacketOpcode = codec.decode_varuint().ok_or(true)?.try_into().map_err(|_| true)?;
     
     match packet_type {
         ClanPacketOpcode::Create => {
-            let (name, description, max_players) = {
+            let (name, description, max_members) = {
                 let mut name = codec.decode_string().ok_or(true)?;
                 let mut description = codec.decode_string().ok_or(true)?;
-                let max_players = (codec.decode_varuint().ok_or(true)? as usize).min(CLAN_MAX_PLAYERS);
+                let max_members = (codec.decode_varuint().ok_or(true)? as usize).min(CLAN_MAX_MEMBERS);
 
                 name.truncate(CLAN_NAME_LENGTH as usize);
                 description.truncate(CLAN_DESC_LENGTH as usize);
 
-                (name, description, max_players)
+                (name, description, max_members)
             };
+
+            let id = game_server.clan_state.create_clan(name, description, max_members, entity_id);
+            game_server.get_entity(entity_id).unwrap().display.clan_id = Some(id);
+       },
+       ClanPacketOpcode::Join => {
+            let id = codec.decode_varuint().ok_or(true)? as usize;
+            if game_server.get_entity(entity_id).unwrap().display.pending_clan_id.is_some() {
+                return Ok(());
+            }
+
+            let clan = game_server.clan_state.clans.get_mut(id).ok_or(false)?;
+
+            if clan.members.len() < clan.max_members {
+                clan.pending_members.push(entity_id);
+                game_server.get_entity(entity_id).unwrap().display.pending_clan_id = Some(id as u32);
+            }
        },
         _ => return Ok(())
     }
@@ -197,11 +216,34 @@ pub fn handle_clan_packet(
 
 pub fn form_update_packet(
     self_entity: &mut Entity, 
-    entities: &EntityDataStructure
+    entities: &EntityDataStructure,
+    clans: &ClanState
 ) -> BinaryCodec {
     let mut codec = BinaryCodec::new();
     codec.encode_varuint(ClientboundPackets::Update as u64);
 
+    // CLANS //
+    codec.encode_varuint(clans.clans.len() as u64);
+    for clan in clans.clans.iter() {
+        codec.encode_varuint(clan.id as u64);
+        codec.encode_varuint(clan.owner as u64);
+        codec.encode_string(clan.name.clone());
+        codec.encode_string(clan.description.clone());
+        codec.encode_varuint(clan.max_members as u64);
+
+        codec.encode_varuint(clan.members.len() as u64);
+        codec.encode_varuint(clan.pending_members.len() as u64);
+
+        for &member in clan.members.iter() {
+            codec.encode_varuint(member as u64);
+        }
+
+        for &member in clan.pending_members.iter() {
+            codec.encode_varuint(member as u64);
+        }
+    }
+
+    // ENTITIES //
     self_entity.take_census(&mut codec, true);
 
     let ids: Vec<u32> = self_entity.display.surroundings.clone().into_iter().filter(|&id| {

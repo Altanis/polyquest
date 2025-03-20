@@ -47,6 +47,7 @@ pub enum KeyCode {
     Six         = 54,
     Seven       = 55,
     Eight       = 56,
+    Backslash       = 220
 }
 
 pub fn handle_event(world: &mut World, event_type: EventType) {
@@ -178,6 +179,7 @@ pub fn on_keydown(world: &mut World, event: KeyboardEvent) {
             Ok(KeyCode::KeyK) => world.game.self_entity.physics.inputs.set_flag(Inputs::LevelUp),
             Ok(KeyCode::Space) => world.game.self_entity.physics.inputs.set_flag(Inputs::Shoot),
             Ok(KeyCode::Shift) => world.game.self_entity.physics.inputs.set_flag(Inputs::Repel),
+            Ok(KeyCode::Backslash) => world.game.self_entity.physics.inputs.set_flag(Inputs::Switch),
             Ok(KeyCode::KeyE) => {
                 world.game.self_entity.physics.auto_fire = !world.game.self_entity.physics.auto_fire;
                 world.game.self_entity.display.notifications.push(Notification {
@@ -246,18 +248,20 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
                     }), ServerboundPackets::Spawn);
                 },
                 GamePhase::Game => {
-                    if world.game.self_entity.display.typing && !get_element_by_id_and_cast!("chat_input", HtmlInputElement).value().is_empty() {
-                        world.connection.send_message(packets::form_chat_packet(
-                            None,
-                            get_element_by_id_and_cast!("chat_input", HtmlInputElement).value().chars().take(72).collect::<String>()
-                        ), ServerboundPackets::Chat);
-
-                        get_element_by_id_and_cast!("chat_input", HtmlInputElement).set_value("");
-                    } else {
-                        world.connection.send_message(packets::form_chat_packet(
-                            Some(true),
-                            String::new()
-                        ), ServerboundPackets::Chat);
+                    if !is_modal_open {
+                        if world.game.self_entity.display.typing && !get_element_by_id_and_cast!("chat_input", HtmlInputElement).value().is_empty() {
+                            world.connection.send_message(packets::form_chat_packet(
+                                None,
+                                get_element_by_id_and_cast!("chat_input", HtmlInputElement).value().chars().take(72).collect::<String>()
+                            ), ServerboundPackets::Chat);
+    
+                            get_element_by_id_and_cast!("chat_input", HtmlInputElement).set_value("");
+                        } else {
+                            world.connection.send_message(packets::form_chat_packet(
+                                Some(true),
+                                String::new()
+                            ), ServerboundPackets::Chat);
+                        }   
                     }
                 },
                 GamePhase::Death => world.renderer.change_phase(GamePhase::Home(Box::default())),
@@ -276,6 +280,7 @@ pub fn on_keyup(world: &mut World, event: KeyboardEvent) {
             Ok(KeyCode::KeyK) => world.game.self_entity.physics.inputs.clear_flag(Inputs::LevelUp),
             Ok(KeyCode::Space) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Shoot),
             Ok(KeyCode::Shift) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Repel),
+            Ok(KeyCode::Backslash) => world.game.self_entity.physics.inputs.clear_flag(Inputs::Switch),
             Ok(KeyCode::One) | Ok(KeyCode::Two) | Ok(KeyCode::Three) | Ok(KeyCode::Four) | Ok(KeyCode::Five) | Ok(KeyCode::Six) | Ok(KeyCode::Seven) | Ok(KeyCode::Eight)
             => {
                 let i = (event.key_code() as u8 - b'0') as usize - 1;

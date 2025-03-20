@@ -1,3 +1,9 @@
+## note
+
+this project will likely go unmaintained for a few months due to a loss of motiviation.
+
+---
+
 # poly quest
 
 [Stars]: Players can reside in stars to regain HP.
@@ -73,6 +79,9 @@ Todo:
 - [ ] on death, make spectate button which clears ui and allows u to roam
 - [ ] laser tank branch
 - [ ] tutorial screen
+- [ ] saying slur --> delevels
+- [ ] sounds
+- [ ] auto fire when typing E in name tag
 
 -- SHOULD BE DONE BY FEBRUARY BREAK ^^ --
 

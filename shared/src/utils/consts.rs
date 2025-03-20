@@ -6,4 +6,4 @@ pub const SCREEN_HEIGHT: f32 = 1080.0;
 
 pub const CLAN_NAME_LENGTH: i32 = 25;
 pub const CLAN_DESC_LENGTH: i32 = 50;
-pub const CLAN_MAX_PLAYERS: usize = 99;
+pub const CLAN_MAX_MEMBERS: usize = 99;

@@ -21,6 +21,7 @@ pub const SPAWN_INVINCIBILITY_TIME: u64 = 30 * FPS;
 pub const LEADER_ARROW_VIEW: f32 = 1920.0 * 1.5;
 
 pub const MESSAGE_EXPIRY: u64 = seconds_to_ticks!(7);
+pub const SWITCH_TIME_THRESHOLD: u64 = seconds_to_ticks!(1) / 5;
 
 pub struct Server {
     pub game_server: GameServer,

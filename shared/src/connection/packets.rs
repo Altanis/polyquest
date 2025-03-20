@@ -37,7 +37,8 @@ pub enum Inputs {
     Left     = 0b10000,
     Right    = 0b100000,
     LevelUp  = 0b1000000,
-    Repel    = 0b10000000
+    Repel    = 0b10000000,
+    Switch   = 0b100000000
 }
 
 #[derive(Debug, strum_macros::EnumIter, Clone, num_enum::TryFromPrimitive)]
@@ -59,5 +60,6 @@ pub enum CensusProperties {
     Owners,
     Ticks,
     Invincibility,
-    Messages
+    Messages,
+    Clan
 }
