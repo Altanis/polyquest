@@ -11,7 +11,7 @@ this project will likely go unmaintained for a few months due to a loss of motiv
 
 first ensure [cargo is installed](https://doc.rust-lang.org/cargo/getting-started/installation.html), [wasmpack is installed](https://rustwasm.github.io/wasm-pack/installer/), and [serve is installed](https://www.npmjs.com/package/serve).
 
-running this game is quite simple. run `./client_prod.sh` and `./server.sh`, then connect to `http://localhost:{port}`, where `{port}` is whatever the output of ./client.sh tells you the client is running on.
+running this game is quite simple. run `./client_prod.sh` and `./server_prod.sh`, then connect to `http://localhost:{port}`, where `{port}` is whatever the output of ./client.sh tells you the client is running on.
 
 <!--[Stars]: Players can reside in stars to regain HP.
     -> Has a corona aligned with the color of the star.
