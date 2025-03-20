@@ -74,10 +74,6 @@ impl Sound {
             let disabled = (soundtrack_disabled && r#loop) || (sfx_disabled && !r#loop);
             let _ = file.dataset().set("disabled", if disabled { "1" } else { "0" });
 
-            if r#loop {
-                file.set_volume(0.0);
-            }
-
             body().append_child(&file).expect("couldnt add audio");
             file
         };
@@ -98,7 +94,7 @@ impl Sound {
     }
 
     pub fn play(&self) {
-        if self.is_disabled() {
+        if self.is_disabled() || self.r#loop {
             return;
         }
 
