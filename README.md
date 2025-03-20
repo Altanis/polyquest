@@ -86,7 +86,7 @@ Todo:
 - [ ] on death, make spectate button which clears ui and allows u to roam
 - [ ] laser tank branch
 - [ ] tutorial screen
-- [ ] saying slur --> delevels
+- [ ] saying slur -> delevels
 - [ ] sounds
 - [ ] auto fire when typing E in name tag
 
