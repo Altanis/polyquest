@@ -1,6 +1,6 @@
 ## note
 
-this project will likely go unmaintained for a few months due to a loss of motiviation.
+this project will likely go unmaintained for a few months due to a loss of motiviation. also, the game is hosted on https://polyfight.io/polyquest/ if you want to play.
 
 ---
 
